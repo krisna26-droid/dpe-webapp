@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class FileAsset extends Model
+{
+    use HasFactory;
+
+    protected $table = 'file_assets';
+
+    protected $primaryKey = 'id';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    const CREATED_AT = 'created_at';
+    const UPDATED_AT = null;
+
+    protected $fillable = [
+        'storage_key',
+        'original_name',
+        'mime_type',
+        'size_bytes',
+        'sha256_hex',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'size_bytes' => 'integer',
+            'created_at' => 'datetime',
+        ];
+    }
+}
