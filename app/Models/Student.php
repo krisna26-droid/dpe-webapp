@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Student extends Model
 {
@@ -47,5 +48,25 @@ class Student extends Model
     public function portalUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'portal_user_id');
+    }
+
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(StudentEnrollment::class, 'student_id');
+    }
+
+    public function photoFile(): BelongsTo
+    {
+        return $this->belongsTo(FileAsset::class, 'photo_file_id');
+    }
+
+    public function guardians(): HasMany
+    {
+        return $this->hasMany(Guardian::class, 'student_id');
+    }
+
+    public function classGroupMemberships(): HasMany
+    {
+        return $this->hasMany(ClassGroupMembership::class, 'student_id');
     }
 }

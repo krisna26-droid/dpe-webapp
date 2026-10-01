@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class LearningSkill extends Model
 {
@@ -40,5 +41,15 @@ class LearningSkill extends Model
             'skill_id',
             'id'
         );
+    }
+
+    public function reports(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            MonthlyReport::class,
+            'monthly_report_skills',
+            'skill_id',
+            'report_id'
+        )->using(MonthlyReportSkill::class);
     }
 }

@@ -56,4 +56,9 @@ class Branch extends Model
     {
         return $this->hasMany(LessonSession::class);
     }
+
+    public function adminAssignments(): HasMany
+    {
+        return $this->hasMany(BranchAdminAssignment::class, 'branch_id');
+    }
 }
