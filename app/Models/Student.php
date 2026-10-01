@@ -24,6 +24,7 @@ class Student extends Model
     const UPDATED_AT = null;
 
     protected $fillable = [
+        'id',
         'portal_user_id',
         'full_name',
         'photo_file_id',

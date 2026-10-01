@@ -1,13 +1,20 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\AuthController;
+
 use App\Http\Controllers\Public\HomeController;
+
 use App\Http\Controllers\SuperAdmin\UserController;
-use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
-use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardController;
-use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
 use App\Http\Controllers\SuperAdmin\DashboardController as SuperAdminDashboardController;
+
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\StudentController;
+
+use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardController;
+
+use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -76,6 +83,9 @@ Route::middleware('auth')->group(function () {
         ->group(function () {
             Route::get('/dashboard', [AdminDashboardController::class, 'index'])
                 ->name('dashboard');
+
+            Route::resource('students', StudentController::class)
+                ->except(['destroy']);
         });
 
     /*
