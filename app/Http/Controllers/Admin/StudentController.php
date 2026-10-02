@@ -32,9 +32,10 @@ class StudentController extends Controller
 
     public function store(
         StoreStudentRequest $request,
-        StudentService $studentService
+        StudentService $studentService 
+
     ): RedirectResponse {
-        $studentService->create($request->validated());
+        $studentService->create($request->validated(), $request->file('photo'));
 
         return redirect()
             ->route('admin.students.index')
@@ -61,7 +62,7 @@ class StudentController extends Controller
         Student $student,
         StudentService $studentService
     ): RedirectResponse {
-        $studentService->update($student, $request->validated());
+        $studentService->update($student, $request->validated(), $request->file('photo'));
 
         return redirect()
             ->route('admin.students.show', $student)

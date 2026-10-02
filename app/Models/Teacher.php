@@ -19,11 +19,11 @@ class Teacher extends Model
 
     protected $keyType = 'string';
 
-    // Tabel teachers hanya memiliki created_at
     const CREATED_AT = 'created_at';
     const UPDATED_AT = null;
 
     protected $fillable = [
+        'id',
         'user_id',
         'whatsapp_number',
         'photo_file_id',
@@ -38,21 +38,29 @@ class Teacher extends Model
         ];
     }
 
-    /**
-     * Teacher terhubung ke akun user.
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function photoFile(): BelongsTo
+    {
+        return $this->belongsTo(FileAsset::class, 'photo_file_id');
+    }
+
     public function branchAssignments(): HasMany
     {
-        return $this->hasMany(TeacherBranchAssignment::class, 'teacher_id');
+        return $this->hasMany(
+            TeacherBranchAssignment::class,
+            'teacher_id'
+        );
     }
 
     public function studentAssignments(): HasMany
     {
-        return $this->hasMany(StudentTeacherAssignment::class, 'teacher_id');
+        return $this->hasMany(
+            StudentTeacherAssignment::class,
+            'teacher_id'
+        );
     }
 }

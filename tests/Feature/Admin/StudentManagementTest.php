@@ -4,8 +4,10 @@ namespace Tests\Feature\Admin;
 
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Tests\TestCase;
@@ -54,20 +56,36 @@ class StudentManagementTest extends TestCase
             $table->string('full_name');
             $table->string('school_name')->nullable();
             $table->string('grade_name')->nullable();
+
+            // Kolom untuk relasi foto siswa.
+            $table->char('photo_file_id', 36)->nullable();
+
             $table->date('began_on');
             $table->string('status');
             $table->text('special_notes_internal')->nullable();
+            $table->dateTime('created_at')->nullable();
+        });
+
+        Schema::connection('sqlite')->create('file_assets', function (Blueprint $table) {
+            $table->char('id', 36)->primary();
+            $table->string('storage_key', 500)->unique();
+            $table->text('original_name');
+            $table->string('mime_type', 255);
+            $table->unsignedBigInteger('size_bytes');
+            $table->string('sha256_hex', 255)->nullable();
             $table->dateTime('created_at')->nullable();
         });
     }
 
     protected function tearDown(): void
     {
+
         try {
             if (
                 config('database.default') === 'sqlite'
                 && config('database.connections.sqlite.database') === ':memory:'
             ) {
+                Schema::connection('sqlite')->dropIfExists('file_assets');
                 Schema::connection('sqlite')->dropIfExists('students');
                 Schema::connection('sqlite')->dropIfExists('users');
             }
@@ -177,6 +195,33 @@ class StudentManagementTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_upload_student_photo_when_creating_profile(): void
+    {
+        $admin = $this->createUser('admin');
+        $portalUser = $this->createUser('student');
+        Storage::fake('local');
+
+        $this->actingAs($admin)
+            ->post(route('admin.students.store'), array_merge(
+                $this->validStudentData($portalUser),
+                ['photo' => UploadedFile::fake()->image('student.jpg')]
+            ))
+            ->assertRedirect(route('admin.students.index'))
+            ->assertSessionHas('success');
+
+        $student = DB::connection('sqlite')->table('students')
+            ->where('portal_user_id', $portalUser->id)
+            ->first();
+        $this->assertNotNull($student->photo_file_id);
+
+        $asset = DB::connection('sqlite')->table('file_assets')
+            ->where('id', $student->photo_file_id)
+            ->first();
+        $this->assertNotNull($asset);
+        $this->assertSame('student.jpg', $asset->original_name);
+        Storage::disk('local')->assertExists($asset->storage_key);
+    }
+
     public function test_admin_can_update_student_profile(): void
     {
         $admin = $this->createUser('admin');
@@ -197,6 +242,100 @@ class StudentManagementTest extends TestCase
             'full_name' => 'Updated Student',
             'school_name' => 'Updated School',
         ]);
+    }
+
+    public function test_admin_can_replace_student_photo_and_old_file_is_removed(): void
+    {
+        $admin = $this->createUser('admin');
+        $portalUser = $this->createUser('student');
+        $studentId = $this->createStudent($portalUser);
+        Storage::fake('local');
+
+        $oldPhotoId = (string) Str::uuid();
+        $oldStorageKey = 'student-photos/' . $oldPhotoId . '.jpg';
+        Storage::disk('local')->put($oldStorageKey, 'old photo');
+        DB::connection('sqlite')->table('file_assets')->insert([
+            'id' => $oldPhotoId,
+            'storage_key' => $oldStorageKey,
+            'original_name' => 'old-student.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 9,
+            'sha256_hex' => hash('sha256', 'old photo'),
+            'created_at' => now()->toDateTimeString(),
+        ]);
+        DB::connection('sqlite')->table('students')
+            ->where('id', $studentId)
+            ->update(['photo_file_id' => $oldPhotoId]);
+
+        $this->actingAs($admin)
+            ->put(route('admin.students.update', $studentId), array_merge(
+                $this->validStudentData($portalUser),
+                ['photo' => UploadedFile::fake()->image('updated-student.jpg')]
+            ))
+            ->assertRedirect(route('admin.students.show', $studentId))
+            ->assertSessionHas('success');
+
+        $student = DB::connection('sqlite')->table('students')
+            ->where('id', $studentId)
+            ->first();
+        $this->assertNotSame($oldPhotoId, $student->photo_file_id);
+        $this->assertDatabaseMissing('file_assets', ['id' => $oldPhotoId]);
+        Storage::disk('local')->assertMissing($oldStorageKey);
+
+        $newAsset = DB::connection('sqlite')->table('file_assets')
+            ->where('id', $student->photo_file_id)
+            ->first();
+        $this->assertNotNull($newAsset);
+        $this->assertSame('updated-student.jpg', $newAsset->original_name);
+        Storage::disk('local')->assertExists($newAsset->storage_key);
+    }
+
+    public function test_admin_cannot_upload_pdf_as_student_photo(): void
+    {
+        $admin = $this->createUser('admin');
+        $portalUser = $this->createUser('student');
+        Storage::fake('local');
+
+        $this->actingAs($admin)
+            ->from(route('admin.students.create'))
+            ->post(route('admin.students.store'), array_merge(
+                $this->validStudentData($portalUser),
+                ['photo' => UploadedFile::fake()->create(
+                    'document.pdf',
+                    20,
+                    'application/pdf'
+                )]
+            ))
+            ->assertSessionHasErrors('photo');
+
+        $this->assertDatabaseMissing('students', [
+            'portal_user_id' => $portalUser->id,
+        ]);
+        $this->assertSame(0, DB::connection('sqlite')->table('file_assets')->count());
+    }
+
+    public function test_admin_cannot_upload_non_image_as_student_photo(): void
+    {
+        $admin = $this->createUser('admin');
+        $portalUser = $this->createUser('student');
+        Storage::fake('local');
+
+        $this->actingAs($admin)
+            ->from(route('admin.students.create'))
+            ->post(route('admin.students.store'), array_merge(
+                $this->validStudentData($portalUser),
+                ['photo' => UploadedFile::fake()->create(
+                    'notes.txt',
+                    20,
+                    'text/plain'
+                )]
+            ))
+            ->assertSessionHasErrors('photo');
+
+        $this->assertDatabaseMissing('students', [
+            'portal_user_id' => $portalUser->id,
+        ]);
+        $this->assertSame(0, DB::connection('sqlite')->table('file_assets')->count());
     }
 
     public function test_admin_cannot_assign_an_inactive_student_account(): void

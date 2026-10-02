@@ -19,6 +19,7 @@ class FileAsset extends Model
     const UPDATED_AT = null;
 
     protected $fillable = [
+        'id',
         'storage_key',
         'original_name',
         'mime_type',

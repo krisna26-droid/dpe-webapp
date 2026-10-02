@@ -11,6 +11,8 @@ use App\Http\Controllers\SuperAdmin\DashboardController as SuperAdminDashboardCo
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\StudentController;
+use App\Http\Controllers\Admin\TeacherController;
+use App\Http\Controllers\Admin\ReportCycleController;
 
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardController;
 
@@ -36,7 +38,8 @@ Route::middleware('guest')->group(function () {
         ->name('login');
 
     Route::post('/login', [AuthController::class, 'login'])
-        ->name('login.process');
+        ->middleware('throttle:login')
+        ->name('login.process');    
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])
@@ -86,6 +89,26 @@ Route::middleware('auth')->group(function () {
 
             Route::resource('students', StudentController::class)
                 ->except(['destroy']);
+
+            Route::resource('teachers', TeacherController::class)
+                ->except(['destroy']);
+        });
+
+    
+    Route::prefix('admin/report-cycles')
+        ->name('admin.report-cycles.')
+        ->middleware('role:admin,superadmin')
+        ->group(function () {
+            Route::get('/', [ReportCycleController::class, 'index'])
+                ->name('index');
+
+            Route::post('/', [ReportCycleController::class, 'store'])
+                ->name('store');
+
+            Route::put('/{reportCycle}', [
+                ReportCycleController::class,
+                'update',
+            ])->name('update');
         });
 
     /*

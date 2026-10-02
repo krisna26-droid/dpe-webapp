@@ -32,6 +32,7 @@ class UpdateStudentRequest extends FormRequest
             'grade_name' => ['nullable', 'string', 'max:255'],
             'began_on' => ['required', 'date'],
             'special_notes_internal' => ['nullable', 'string', 'max:10000'],
+            'photo' => ['nullable', 'image', 'max:2048'],
         ];
     }
 
