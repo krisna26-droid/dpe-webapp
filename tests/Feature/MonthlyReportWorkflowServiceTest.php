@@ -836,4 +836,98 @@ class MonthlyReportWorkflowServiceTest extends TestCase
 
         $this->assertDatabaseCount('report_status_events', 0);
     }
+
+    
+public function test_branch_admin_cannot_approve_before_assignment_starts(): void
+{
+    $teacherUser = $this->createUser('teacher');
+    $teacher = $this->createTeacher($teacherUser);
+
+    $admin = $this->createUser('admin');
+    $branchId = (string) Str::uuid();
+
+    BranchAdminAssignment::query()->forceCreate([
+        'id' => (string) Str::uuid(),
+        'admin_user_id' => $admin->id,
+        'branch_id' => $branchId,
+        'starts_on' => now()->addDay()->toDateString(),
+        'ends_on' => null,
+    ]);
+
+    $report = $this->createReport(
+        $teacher,
+        'submitted',
+        $branchId
+    );
+
+    try {
+        $this->service->approve($report, $admin);
+        $this->fail('Admin belum mulai bertugas seharusnya ditolak.');
+    } catch (AuthorizationException) {
+        $this->assertSame('submitted', $report->fresh()->status);
+    }
+
+    $this->assertDatabaseCount('report_status_events', 0);
+}
+
+public function test_branch_admin_cannot_approve_after_assignment_ends(): void
+{
+    $teacherUser = $this->createUser('teacher');
+    $teacher = $this->createTeacher($teacherUser);
+
+    $admin = $this->createUser('admin');
+    $branchId = (string) Str::uuid();
+
+    BranchAdminAssignment::query()->forceCreate([
+        'id' => (string) Str::uuid(),
+        'admin_user_id' => $admin->id,
+        'branch_id' => $branchId,
+        'starts_on' => now()->subDays(2)->toDateString(),
+        'ends_on' => now()->subDay()->toDateString(),
+    ]);
+
+    $report = $this->createReport(
+        $teacher,
+        'submitted',
+        $branchId
+    );
+
+    try {
+        $this->service->approve($report, $admin);
+        $this->fail('Admin yang masa tugasnya berakhir seharusnya ditolak.');
+    } catch (AuthorizationException) {
+        $this->assertSame('submitted', $report->fresh()->status);
+    }
+
+    $this->assertDatabaseCount('report_status_events', 0);
+}
+
+    public function test_branch_admin_can_approve_on_assignment_start_date(): void
+    {
+        $teacherUser = $this->createUser('teacher');
+        $teacher = $this->createTeacher($teacherUser);
+
+        $admin = $this->createUser('admin');
+        $branchId = (string) Str::uuid();
+
+        BranchAdminAssignment::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'admin_user_id' => $admin->id,
+            'branch_id' => $branchId,
+            'starts_on' => now()->toDateString(),
+            'ends_on' => null,
+        ]);
+
+        $report = $this->createReport(
+            $teacher,
+            'submitted',
+            $branchId
+        );
+
+        $result = $this->service->approve($report, $admin);
+
+        $this->assertSame('approved', $result->status);
+        $this->assertSame($admin->id, $result->approved_by_user_id);
+    }
+
 }
