@@ -52,4 +52,13 @@ class ReportCycle extends Model
             'id'
         );
     }
+
+    public function quarterlyReportFiles(): HasMany
+    {
+        return $this->hasMany(
+            QuarterlyReportFile::class,
+            'cycle_id',
+            'id'
+        );
+    }
 }

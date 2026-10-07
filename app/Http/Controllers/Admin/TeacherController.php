@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\TeacherService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class TeacherController extends Controller
@@ -65,6 +66,8 @@ class TeacherController extends Controller
 
     public function show(Teacher $teacher): View
     {
+        Gate::authorize('view', $teacher);
+
         $teacher->load([
             'user',
             'photoFile',
@@ -76,6 +79,8 @@ class TeacherController extends Controller
 
     public function edit(Teacher $teacher): View
     {
+        Gate::authorize('view', $teacher);
+
         $teacher->load([
             'user',
             'photoFile',
@@ -94,6 +99,7 @@ class TeacherController extends Controller
         UpdateTeacherRequest $request,
         Teacher $teacher
     ): RedirectResponse {
+        Gate::authorize('update', $teacher);
 
         $this->teacherService->update(
             $teacher,

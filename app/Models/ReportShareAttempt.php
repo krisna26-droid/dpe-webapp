@@ -13,12 +13,15 @@ class ReportShareAttempt extends Model
     protected $table = 'report_share_attempts';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     public $timestamps = false;
 
     protected $fillable = [
+        'id',
         'quarterly_report_file_id',
         'teacher_id',
         'guardian_id',
@@ -41,17 +44,26 @@ class ReportShareAttempt extends Model
     {
         return $this->belongsTo(
             QuarterlyReportFile::class,
-            'quarterly_report_file_id'
+            'quarterly_report_file_id',
+            'id'
         );
     }
 
     public function teacher(): BelongsTo
     {
-        return $this->belongsTo(Teacher::class);
+        return $this->belongsTo(
+            Teacher::class,
+            'teacher_id',
+            'id'
+        );
     }
 
     public function guardian(): BelongsTo
     {
-        return $this->belongsTo(Guardian::class);
+        return $this->belongsTo(
+            Guardian::class,
+            'guardian_id',
+            'id'
+        );
     }
 }

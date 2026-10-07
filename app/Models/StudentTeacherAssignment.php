@@ -19,6 +19,7 @@ class StudentTeacherAssignment extends Model
     public $timestamps = false;
 
     protected $fillable = [
+	'id',
         'student_id',
         'teacher_id',
         'starts_on',

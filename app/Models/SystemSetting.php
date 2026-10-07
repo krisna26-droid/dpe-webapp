@@ -14,14 +14,14 @@ class SystemSetting extends Model
 
     protected $primaryKey = 'id';
 
-    public $incrementing = true;
+    public $incrementing = false;
 
     protected $keyType = 'int';
 
-    const CREATED_AT = null;
-    const UPDATED_AT = 'updated_at';
+    public $timestamps = false;
 
     protected $fillable = [
+        'id',
         'organization_name',
         'organization_description',
         'contact_email',
@@ -35,6 +35,7 @@ class SystemSetting extends Model
     protected function casts(): array
     {
         return [
+            'id' => 'integer',
             'default_report_due_day' => 'integer',
             'default_monthly_video_target' => 'integer',
             'in_app_reminders_enabled' => 'boolean',
@@ -46,7 +47,8 @@ class SystemSetting extends Model
     {
         return $this->belongsTo(
             FileAsset::class,
-            'logo_file_id'
+            'logo_file_id',
+            'id'
         );
     }
 }

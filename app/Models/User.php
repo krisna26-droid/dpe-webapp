@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
@@ -62,5 +63,59 @@ class User extends Authenticatable
     public function teacherProfile(): HasOne
     {
         return $this->hasOne(Teacher::class, 'user_id');
+    }
+
+    public function uploadedPaymentProofs(): HasMany
+    {
+        return $this->hasMany(
+            PaymentProof::class,
+            'uploaded_by_user_id',
+            'id'
+        );
+    }
+
+    public function reviewedPaymentProofs(): HasMany
+    {
+        return $this->hasMany(
+            PaymentProof::class,
+            'reviewed_by_user_id',
+            'id'
+        );
+    }
+
+    public function generatedPaymentRecapRuns(): HasMany
+    {
+        return $this->hasMany(
+            PaymentRecapRun::class,
+            'generated_by_user_id',
+            'id'
+        );
+    }
+
+    public function generatedQuarterlyReportFiles(): HasMany
+    {
+        return $this->hasMany(
+            QuarterlyReportFile::class,
+            'generated_by_user_id',
+            'id'
+        );
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(
+            Notification::class,
+            'user_id',
+            'id'
+        );
+    }
+
+    public function reportStatusEvents(): HasMany
+    {
+        return $this->hasMany(
+            ReportStatusEvent::class,
+            'actor_user_id',
+            'id'
+        );
     }
 }

@@ -14,13 +14,16 @@ class MonthlyCharge extends Model
     protected $table = 'monthly_charges';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     const CREATED_AT = 'created_at';
     const UPDATED_AT = null;
 
     protected $fillable = [
+        'id',
         'student_id',
         'branch_id',
         'charge_month',
@@ -40,12 +43,20 @@ class MonthlyCharge extends Model
 
     public function student(): BelongsTo
     {
-        return $this->belongsTo(Student::class);
+        return $this->belongsTo(
+            Student::class,
+            'student_id',
+            'id'
+        );
     }
 
     public function branch(): BelongsTo
     {
-        return $this->belongsTo(Branch::class);
+        return $this->belongsTo(
+            Branch::class,
+            'branch_id',
+            'id'
+        );
     }
 
     public function paymentProofs(): HasMany

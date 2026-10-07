@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\StudentService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 
 class StudentController extends Controller
 {
@@ -32,10 +33,12 @@ class StudentController extends Controller
 
     public function store(
         StoreStudentRequest $request,
-        StudentService $studentService 
-
+        StudentService $studentService
     ): RedirectResponse {
-        $studentService->create($request->validated(), $request->file('photo'));
+        $studentService->create(
+            $request->validated(),
+            $request->file('photo')
+        );
 
         return redirect()
             ->route('admin.students.index')
@@ -44,6 +47,8 @@ class StudentController extends Controller
 
     public function show(Student $student): View
     {
+        Gate::authorize('view', $student);
+
         $student->load('portalUser');
 
         return view('admin.students.show', compact('student'));
@@ -51,6 +56,8 @@ class StudentController extends Controller
 
     public function edit(Student $student): View
     {
+        Gate::authorize('view', $student);
+
         return view('admin.students.edit', [
             'student' => $student,
             'studentUsers' => $this->availableStudentUsers($student),
@@ -62,7 +69,13 @@ class StudentController extends Controller
         Student $student,
         StudentService $studentService
     ): RedirectResponse {
-        $studentService->update($student, $request->validated(), $request->file('photo'));
+        Gate::authorize('update', $student);
+
+        $studentService->update(
+            $student,
+            $request->validated(),
+            $request->file('photo')
+        );
 
         return redirect()
             ->route('admin.students.show', $student)
@@ -75,7 +88,11 @@ class StudentController extends Controller
             ->whereNotNull('portal_user_id')
             ->when(
                 $currentStudent,
-                fn ($query) => $query->where('id', '!=', $currentStudent->id)
+                fn ($query) => $query->where(
+                    'id',
+                    '!=',
+                    $currentStudent->id
+                )
             )
             ->select('portal_user_id');
 
@@ -84,6 +101,10 @@ class StudentController extends Controller
             ->where('is_active', true)
             ->whereNotIn('id', $assignedUserIds)
             ->orderBy('full_name')
-            ->get(['id', 'username', 'full_name']);
+            ->get([
+                'id',
+                'username',
+                'full_name',
+            ]);
     }
 }

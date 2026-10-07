@@ -175,7 +175,8 @@ class UserController extends Controller
         User $user
     ): RedirectResponse {
         return DB::transaction(function () use ($request, $user) {
-            // Gunakan urutan penguncian yang konsisten.
+            // Kunci seluruh SuperAdmin aktif terlebih dahulu
+            // agar pengecekan jumlah SuperAdmin konsisten.
             $activeSuperadmins = User::query()
                 ->where('role_code', 'superadmin')
                 ->where('is_active', true)
@@ -183,28 +184,34 @@ class UserController extends Controller
                 ->lockForUpdate()
                 ->get(['id']);
 
+            // Ambil ulang target user di dalam transaction.
             $target = User::query()
                 ->whereKey($user->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            // User tidak boleh mengubah status akunnya sendiri.
             if ($target->id === $request->user()->id) {
-                return back()->withErrors([
-                    'user' =>
-                        'SuperAdmin tidak dapat mengubah status akunnya sendiri melalui fitur ini.',
-                ]);
+                return back()
+                    ->withErrors([
+                        'user' =>
+                            'SuperAdmin tidak dapat mengubah status akunnya sendiri melalui fitur ini.',
+                    ])
+                    ->withInput();
             }
 
-            // Akun SuperAdmin aktif terakhir harus dipertahankan.
+            // Jangan sampai sistem kehilangan seluruh SuperAdmin aktif.
             if (
                 $target->role_code === 'superadmin'
                 && $target->is_active
                 && $activeSuperadmins->count() <= 1
             ) {
-                return back()->withErrors([
-                    'user' =>
-                        'SuperAdmin aktif terakhir tidak dapat dinonaktifkan.',
-                ]);
+                return back()
+                    ->withErrors([
+                        'user' =>
+                            'SuperAdmin aktif terakhir tidak dapat dinonaktifkan.',
+                    ])
+                    ->withInput();
             }
 
             $target->update([

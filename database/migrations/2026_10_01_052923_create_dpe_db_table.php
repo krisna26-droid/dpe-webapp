@@ -234,7 +234,7 @@ return new class extends Migration
             $table->char('reviewed_by_user_id', 36)->nullable()->index('idx_payment_proofs_reviewed_by');
             $table->dateTime('reviewed_at')->nullable();
             $table->text('rejection_reason')->nullable();
-            $table->tinyInteger('approved_charge_key')->nullable()->storedAs('(case when (`status` = _utf8mb4\'approved\') then 1 else NULL end)');
+            $table->tinyInteger('approved_charge_key')->nullable()->storedAs("(case when (`status` = 'approved') then 1 else NULL end)");
 
             $table->unique(['charge_id', 'approved_charge_key'], 'uq_payment_proofs_approved_charge');
         });
@@ -382,20 +382,39 @@ return new class extends Migration
             $table->unique(['student_id', 'active_student_key'], 'uq_student_active_enrollment');
         });
 
-        Schema::create('student_teacher_assignments', function (Blueprint $table) {
-            $table->collation = 'utf8mb4_0900_ai_ci';
-            $table->charset = 'utf8mb4';
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            DB::statement(<<<'SQL'
+                CREATE TABLE "student_teacher_assignments" (
+                    "id" varchar not null,
+                    "student_id" varchar not null,
+                    "teacher_id" varchar not null,
+                    "starts_on" date not null,
+                    "ends_on" date,
+                    "is_report_owner" tinyint(1) not null default '0',
+                    "active_report_owner_key" integer as (case when (("ends_on" is null) and ("is_report_owner" = 1)) then 1 else null end) stored,
+                    primary key ("id")
+                )
+            SQL);
 
-            $table->char('id', 36)->primary();
-            $table->char('student_id', 36);
-            $table->char('teacher_id', 36)->index('idx_student_teacher_assignments_teacher_id');
-            $table->date('starts_on');
-            $table->date('ends_on')->nullable();
-            $table->boolean('is_report_owner')->default(false);
-            $table->tinyInteger('active_report_owner_key')->nullable()->storedAs('(case when ((`ends_on` is null) and (`is_report_owner` = 1)) then 1 else NULL end)');
+            DB::statement('CREATE UNIQUE INDEX "uq_student_active_report_owner" ON "student_teacher_assignments" ("student_id", "active_report_owner_key")');
 
-            $table->unique(['student_id', 'active_report_owner_key'], 'uq_student_active_report_owner');
-        });
+            DB::statement('CREATE INDEX "idx_student_teacher_assignments_teacher_id" ON "student_teacher_assignments" ("teacher_id")');
+        } else {
+            Schema::create('student_teacher_assignments', function (Blueprint $table) {
+                $table->collation = 'utf8mb4_0900_ai_ci';
+                $table->charset = 'utf8mb4';
+
+                $table->char('id', 36)->primary();
+                $table->char('student_id', 36);
+                $table->char('teacher_id', 36)->index('idx_student_teacher_assignments_teacher_id');
+                $table->date('starts_on');
+                $table->date('ends_on')->nullable();
+                $table->boolean('is_report_owner')->default(false);
+                $table->tinyInteger('active_report_owner_key')->nullable()->storedAs('(case when ((`ends_on` is null) and (`is_report_owner` = 1)) then 1 else NULL end)');
+
+                $table->unique(['student_id', 'active_report_owner_key'], 'uq_student_active_report_owner');
+            });
+        }
 
         Schema::create('students', function (Blueprint $table) {
             $table->collation = 'utf8mb4_0900_ai_ci';

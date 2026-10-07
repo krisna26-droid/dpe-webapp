@@ -13,13 +13,15 @@ class Program extends Model
     protected $table = 'programs';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
-    const CREATED_AT = null;
-    const UPDATED_AT = null;
+    public $timestamps = false;
 
     protected $fillable = [
+        'id',
         'code',
         'name',
         'class_type',
@@ -35,18 +37,20 @@ class Program extends Model
         ];
     }
 
-    public function studentEnrollments(): HasMany
+    public function enrollments(): HasMany
     {
-        return $this->hasMany(StudentEnrollment::class);
+        return $this->hasMany(
+            StudentEnrollment::class,
+            'program_id'
+        );
     }
 
     public function classGroups(): HasMany
     {
-        return $this->hasMany(ClassGroup::class);
-    }
-
-    public function lessonSessions(): HasMany
-    {
-        return $this->hasMany(LessonSession::class);
+        return $this->hasMany(
+            ClassGroup::class,
+            'program_id',
+            'id'
+        );
     }
 }

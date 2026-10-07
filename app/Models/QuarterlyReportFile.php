@@ -14,12 +14,15 @@ class QuarterlyReportFile extends Model
     protected $table = 'quarterly_report_files';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     public $timestamps = false;
 
     protected $fillable = [
+        'id',
         'cycle_id',
         'file_id',
         'version_number',
@@ -40,7 +43,8 @@ class QuarterlyReportFile extends Model
     {
         return $this->belongsTo(
             ReportCycle::class,
-            'cycle_id'
+            'cycle_id',
+            'id'
         );
     }
 
@@ -48,7 +52,8 @@ class QuarterlyReportFile extends Model
     {
         return $this->belongsTo(
             FileAsset::class,
-            'file_id'
+            'file_id',
+            'id'
         );
     }
 
@@ -56,7 +61,8 @@ class QuarterlyReportFile extends Model
     {
         return $this->belongsTo(
             User::class,
-            'generated_by_user_id'
+            'generated_by_user_id',
+            'id'
         );
     }
 
@@ -68,4 +74,5 @@ class QuarterlyReportFile extends Model
             'id'
         );
     }
+
 }

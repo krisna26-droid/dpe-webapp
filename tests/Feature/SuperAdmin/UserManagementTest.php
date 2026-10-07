@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Tests\TestCase;
+use App\Http\Middleware\RoleMiddleware;
 
 class UserManagementTest extends TestCase
 {
@@ -400,8 +401,21 @@ class UserManagementTest extends TestCase
 
     public function test_last_active_superadmin_cannot_be_deactivated_by_toggle_status(): void
     {
-        $superadmin = $this->createUser('superadmin', false);
+        $superadmin = $this->createUser();
         $targetUser = $this->createUser();
+
+        // Buat kondisi database:
+        // hanya targetUser yang menjadi SuperAdmin aktif.
+        DB::table('users')
+            ->where('id', $superadmin->id)
+            ->update([
+                'is_active' => 0,
+            ]);
+
+        // Hanya bypass RoleMiddleware agar controller dapat
+        // menguji business rule "SuperAdmin aktif terakhir".
+        // Middleware session tetap aktif.
+        $this->withoutMiddleware(RoleMiddleware::class);
 
         $this->actingAs($superadmin)
             ->patch(route('superadmin.users.status', $targetUser))

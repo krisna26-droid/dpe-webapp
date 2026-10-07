@@ -13,13 +13,16 @@ class TeacherMessage extends Model
     protected $table = 'teacher_messages';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
-    public const CREATED_AT = 'created_at';
-    public const UPDATED_AT = null;
+    const CREATED_AT = 'created_at';
+    const UPDATED_AT = null;
 
     protected $fillable = [
+        'id',
         'student_id',
         'teacher_id',
         'session_id',
@@ -36,21 +39,37 @@ class TeacherMessage extends Model
 
     public function student(): BelongsTo
     {
-        return $this->belongsTo(Student::class);
+        return $this->belongsTo(
+            Student::class,
+            'student_id',
+            'id'
+        );
     }
 
     public function teacher(): BelongsTo
     {
-        return $this->belongsTo(Teacher::class);
+        return $this->belongsTo(
+            Teacher::class,
+            'teacher_id',
+            'id'
+        );
     }
 
     public function session(): BelongsTo
     {
-        return $this->belongsTo(LessonSession::class, 'session_id');
+        return $this->belongsTo(
+            LessonSession::class,
+            'session_id',
+            'id'
+        );
     }
 
     public function attachment(): BelongsTo
     {
-        return $this->belongsTo(FileAsset::class, 'attachment_file_id');
+        return $this->belongsTo(
+            FileAsset::class,
+            'attachment_file_id',
+            'id'
+        );
     }
 }

@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\Pivot;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class SessionStudent extends Pivot
 {
@@ -44,5 +45,21 @@ class SessionStudent extends Pivot
             'student_id',
             'id'
         );
+    }
+
+    public function students(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Student::class,
+            'session_students',
+            'session_id',
+            'student_id'
+        )
+            ->using(SessionStudent::class)
+            ->withPivot([
+                'attendance_status',
+                'individual_learning_note',
+                'recorded_at',
+            ]);
     }
 }

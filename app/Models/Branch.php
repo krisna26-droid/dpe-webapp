@@ -13,13 +13,16 @@ class Branch extends Model
     protected $table = 'branches';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     const CREATED_AT = 'created_at';
     const UPDATED_AT = null;
 
     protected $fillable = [
+        'id',
         'code',
         'name',
         'address',
@@ -59,6 +62,27 @@ class Branch extends Model
 
     public function adminAssignments(): HasMany
     {
-        return $this->hasMany(BranchAdminAssignment::class, 'branch_id');
+        return $this->hasMany(
+            BranchAdminAssignment::class,
+            'branch_id'
+        );
+    }
+
+    public function monthlyCharges(): HasMany
+    {
+        return $this->hasMany(
+            MonthlyCharge::class,
+            'branch_id',
+            'id'
+        );
+    }
+
+    public function paymentRecapRuns(): HasMany
+    {
+        return $this->hasMany(
+            PaymentRecapRun::class,
+            'branch_id',
+            'id'
+        );
     }
 }

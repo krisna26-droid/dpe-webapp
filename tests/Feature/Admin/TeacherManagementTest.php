@@ -16,6 +16,7 @@ use App\Services\FileAssetService;
 use Illuminate\Support\Facades\Log;
 use Mockery;
 
+
 class TeacherManagementTest extends TestCase
 {
     protected function setUp(): void
@@ -56,6 +57,35 @@ class TeacherManagementTest extends TestCase
                 $table->dateTime('created_at')->nullable();
             }
         );
+        Schema::connection('sqlite')->create(
+            'branches',
+            function (Blueprint $table) {
+                $table->char('id', 36)->primary();
+                $table->string('name');
+            }
+        );
+
+        Schema::connection('sqlite')->create(
+            'branch_admin_assignments',
+            function (Blueprint $table) {
+                $table->char('id', 36)->primary();
+                $table->char('branch_id', 36);
+                $table->char('admin_user_id', 36);
+                $table->date('starts_on');
+                $table->date('ends_on')->nullable();
+            }
+        );
+
+        Schema::connection('sqlite')->create(
+            'teacher_branch_assignments',
+            function (Blueprint $table) {
+                $table->char('id', 36)->primary();
+                $table->char('teacher_id', 36);
+                $table->char('branch_id', 36);
+                $table->date('starts_on');
+                $table->date('ends_on')->nullable();
+            }
+        );
 
         Schema::connection('sqlite')->create(
             'file_assets',
@@ -90,6 +120,9 @@ class TeacherManagementTest extends TestCase
                 config('database.default') === 'sqlite'
                 && config('database.connections.sqlite.database') === ':memory:'
             ) {
+                Schema::connection('sqlite')->dropIfExists('teacher_branch_assignments');
+                Schema::connection('sqlite')->dropIfExists('branch_admin_assignments');
+                Schema::connection('sqlite')->dropIfExists('branches');
                 Schema::connection('sqlite')->dropIfExists('teachers');
                 Schema::connection('sqlite')->dropIfExists('file_assets');
                 Schema::connection('sqlite')->dropIfExists('users');
@@ -130,6 +163,58 @@ class TeacherManagementTest extends TestCase
         ]);
     }
 
+    private function createBranch(string $name = 'Branch Test'): string
+    {
+        $id = (string) Str::uuid();
+
+        DB::connection('sqlite')->table('branches')->insert([
+            'id' => $id,
+            'name' => $name,
+        ]);
+
+        return $id;
+    }
+
+    private function assignAdminToBranch(
+        string $adminUserId,
+        string $branchId,
+        string $startsOn = '2026-01-01',
+        ?string $endsOn = null
+    ): void {
+        DB::connection('sqlite')->table('branch_admin_assignments')->insert([
+            'id' => (string) Str::uuid(),
+            'branch_id' => $branchId,
+            'admin_user_id' => $adminUserId,
+            'starts_on' => $startsOn,
+            'ends_on' => $endsOn,
+        ]);
+    }
+
+    private function assignTeacherToBranch(
+        string $teacherId,
+        string $branchId,
+        string $startsOn = '2026-01-01',
+        ?string $endsOn = null
+    ): void {
+        DB::connection('sqlite')->table('teacher_branch_assignments')->insert([
+            'id' => (string) Str::uuid(),
+            'teacher_id' => $teacherId,
+            'branch_id' => $branchId,
+            'starts_on' => $startsOn,
+            'ends_on' => $endsOn,
+        ]);
+    }
+
+    private function assignAdminAndTeacherToSameBranch(
+        User $admin,
+        Teacher $teacher
+    ): void {
+        $branchId = $this->createBranch();
+
+        $this->assignAdminToBranch($admin->id, $branchId);
+        $this->assignTeacherToBranch($teacher->id, $branchId);
+    }
+
     private function validTeacherData(User $user): array
     {
         return [
@@ -161,6 +246,7 @@ class TeacherManagementTest extends TestCase
         $admin = $this->createUser('admin');
         $teacherUser = $this->createUser('teacher');
         $teacher = $this->createTeacher($teacherUser);
+        $this->assignAdminAndTeacherToSameBranch($admin, $teacher);
 
         $this->actingAs($admin)
             ->get(route('admin.teachers.index'))
@@ -210,6 +296,7 @@ class TeacherManagementTest extends TestCase
         $admin = $this->createUser('admin');
         $teacherUser = $this->createUser('teacher');
         $teacher = $this->createTeacher($teacherUser);
+        $this->assignAdminAndTeacherToSameBranch($admin, $teacher);
 
         $data = $this->validTeacherData($teacherUser);
         $data['whatsapp_number'] = '081298765432';
@@ -399,6 +486,7 @@ class TeacherManagementTest extends TestCase
         $admin = $this->createUser('admin');
         $teacherUser = $this->createUser('teacher');
         $teacher = $this->createTeacher($teacherUser);
+        $this->assignAdminAndTeacherToSameBranch($admin, $teacher);
 
         Storage::fake('local');
 
@@ -460,6 +548,7 @@ class TeacherManagementTest extends TestCase
         $admin = $this->createUser('admin');
         $teacherUser = $this->createUser('teacher');
         $teacher = $this->createTeacher($teacherUser);
+        $this->assignAdminAndTeacherToSameBranch($admin, $teacher);
 
         Storage::fake('local');
 
@@ -548,6 +637,7 @@ class TeacherManagementTest extends TestCase
         $admin = $this->createUser('admin');
         $teacherUser = $this->createUser('teacher');
         $teacher = $this->createTeacher($teacherUser);
+        $this->assignAdminAndTeacherToSameBranch($admin, $teacher);
 
         Storage::fake('local');
 
@@ -619,6 +709,7 @@ class TeacherManagementTest extends TestCase
         $admin = $this->createUser('admin');
         $teacherUser = $this->createUser('teacher');
         $teacher = $this->createTeacher($teacherUser);
+        $this->assignAdminAndTeacherToSameBranch($admin, $teacher);
 
         Storage::fake('local');
 
@@ -695,5 +786,284 @@ class TeacherManagementTest extends TestCase
         ]);
 
         Storage::disk('local')->assertExists($oldStorageKey);
+    }
+
+    public function test_admin_cannot_open_teacher_from_another_branch(): void
+    {
+        $admin = $this->createUser('admin');
+
+        $adminBranch = $this->createBranch('Branch Admin');
+        $otherBranch = $this->createBranch('Branch Other');
+
+        $this->assignAdminToBranch($admin->id, $adminBranch);
+
+        $teacherUser = $this->createUser('teacher');
+        $teacher = $this->createTeacher($teacherUser);
+
+        $this->assignTeacherToBranch($teacher->id, $otherBranch);
+
+        $this->actingAs($admin)
+            ->get(route('admin.teachers.show', $teacher->id))
+            ->assertForbidden();
+    }
+
+    public function test_admin_can_open_teacher_from_same_branch(): void
+    {
+        $admin = $this->createUser('admin');
+
+        $branch = $this->createBranch('Branch Admin');
+
+        $this->assignAdminToBranch(
+            $admin->id,
+            $branch
+        );
+
+        $teacherUser = $this->createUser('teacher');
+
+        $teacher = $this->createTeacher($teacherUser);
+
+        $this->assignTeacherToBranch(
+            $teacher->id,
+            $branch
+        );
+
+        $this->actingAs($admin)
+            ->get(route('admin.teachers.show', $teacher->id))
+            ->assertOk();
+    }
+
+    public function test_superadmin_can_open_teacher_from_any_branch(): void
+    {
+        $superadmin = $this->createUser('superadmin');
+
+        $otherBranch = $this->createBranch('Branch Other');
+
+        $teacherUser = $this->createUser('teacher');
+
+        $teacher = $this->createTeacher($teacherUser);
+
+        $this->assignTeacherToBranch(
+            $teacher->id,
+            $otherBranch
+        );
+
+        $this->actingAs($superadmin)
+            ->get(route('admin.teachers.show', $teacher->id))
+            ->assertOk();
+    }
+
+    public function test_admin_cannot_update_teacher_from_another_branch(): void
+    {
+        $admin = $this->createUser('admin');
+
+        $adminBranch = $this->createBranch('Branch Admin');
+        $otherBranch = $this->createBranch('Branch Other');
+
+        $this->assignAdminToBranch(
+            $admin->id,
+            $adminBranch
+        );
+
+        $teacherUser = $this->createUser('teacher');
+
+        $teacher = $this->createTeacher($teacherUser);
+
+        $this->assignTeacherToBranch(
+            $teacher->id,
+            $otherBranch
+        );
+
+        $data = $this->validTeacherData($teacherUser);
+
+        $data['whatsapp_number'] = '081298765432';
+
+        $this->actingAs($admin)
+            ->put(
+                route('admin.teachers.update', $teacher->id),
+                $data
+            )
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('teachers', [
+            'id' => $teacher->id,
+            'whatsapp_number' => '081234567890',
+        ]);
+    }
+
+    public function test_admin_only_sees_teachers_from_assigned_branch(): void
+    {
+        $admin = $this->createUser('admin');
+
+        $adminBranch = $this->createBranch('Branch Admin');
+        $otherBranch = $this->createBranch('Branch Other');
+
+        $this->assignAdminToBranch(
+            $admin->id,
+            $adminBranch
+        );
+
+        $adminBranchTeacherUser = $this->createUser('teacher');
+        $adminBranchTeacher = $this->createTeacher($adminBranchTeacherUser);
+
+        $this->assignTeacherToBranch(
+            $adminBranchTeacher->id,
+            $adminBranch
+        );
+
+        $otherBranchTeacherUser = $this->createUser('teacher');
+        $otherBranchTeacher = $this->createTeacher($otherBranchTeacherUser);
+
+        $this->assignTeacherToBranch(
+            $otherBranchTeacher->id,
+            $otherBranch
+        );
+
+        $response = $this->actingAs($admin)
+            ->get(route('admin.teachers.index'));
+
+        $response
+            ->assertOk()
+            ->assertSee($adminBranchTeacher->full_name)
+            ->assertDontSee($otherBranchTeacher->full_name);
+    }
+
+    public function test_superadmin_sees_teachers_from_all_branches(): void
+    {
+        $superadmin = $this->createUser('superadmin');
+
+        $branchA = $this->createBranch('Branch A');
+        $branchB = $this->createBranch('Branch B');
+
+        $teacherUserA = $this->createUser('teacher');
+        $teacherA = $this->createTeacher($teacherUserA);
+
+        $this->assignTeacherToBranch(
+            $teacherA->id,
+            $branchA
+        );
+
+        $teacherUserB = $this->createUser('teacher');
+        $teacherB = $this->createTeacher($teacherUserB);
+
+        $this->assignTeacherToBranch(
+            $teacherB->id,
+            $branchB
+        );
+
+        $response = $this->actingAs($superadmin)
+            ->get(route('admin.teachers.index'));
+
+        $response
+            ->assertOk()
+            ->assertSee($teacherA->full_name)
+            ->assertSee($teacherB->full_name);
+    }
+
+    public function test_admin_cannot_open_teacher_with_future_branch_assignment(): void
+    {
+        $admin = $this->createUser('admin');
+
+        $branch = $this->createBranch('Branch Test');
+
+        $this->assignAdminToBranch(
+            $admin->id,
+            $branch
+        );
+
+        $teacherUser = $this->createUser('teacher');
+
+        $teacher = $this->createTeacher($teacherUser);
+
+        $this->assignTeacherToBranch(
+            $teacher->id,
+            $branch,
+            '2027-01-01'
+        );
+
+        $this->actingAs($admin)
+            ->get(route('admin.teachers.show', $teacher->id))
+            ->assertForbidden();
+    }
+
+    public function test_admin_cannot_open_teacher_with_expired_branch_assignment(): void
+    {
+        $admin = $this->createUser('admin');
+
+        $branch = $this->createBranch('Branch Test');
+
+        $this->assignAdminToBranch(
+            $admin->id,
+            $branch
+        );
+
+        $teacherUser = $this->createUser('teacher');
+
+        $teacher = $this->createTeacher($teacherUser);
+
+        $this->assignTeacherToBranch(
+            $teacher->id,
+            $branch,
+            '2026-01-01',
+            '2026-01-02'
+        );
+
+        $this->actingAs($admin)
+            ->get(route('admin.teachers.show', $teacher->id))
+            ->assertForbidden();
+    }
+
+    public function test_admin_can_open_teacher_when_branch_assignment_starts_today(): void
+    {
+        $admin = $this->createUser('admin');
+
+        $branch = $this->createBranch('Branch Test');
+
+        $this->assignAdminToBranch(
+            $admin->id,
+            $branch
+        );
+
+        $teacherUser = $this->createUser('teacher');
+
+        $teacher = $this->createTeacher($teacherUser);
+
+        $this->assignTeacherToBranch(
+            $teacher->id,
+            $branch,
+            now()->toDateString()
+        );
+
+        $this->actingAs($admin)
+            ->get(route('admin.teachers.show', $teacher->id))
+            ->assertOk();
+    }
+
+    public function test_admin_can_open_teacher_when_branch_assignment_ends_today(): void
+    {
+        $admin = $this->createUser('admin');
+
+        $branch = $this->createBranch('Branch Test');
+
+        $this->assignAdminToBranch(
+            $admin->id,
+            $branch
+        );
+
+        $teacherUser = $this->createUser('teacher');
+
+        $teacher = $this->createTeacher($teacherUser);
+
+        $today = now()->toDateString();
+
+        $this->assignTeacherToBranch(
+            $teacher->id,
+            $branch,
+            '2026-01-01',
+            $today
+        );
+
+        $this->actingAs($admin)
+            ->get(route('admin.teachers.show', $teacher->id))
+            ->assertOk();
     }
 }

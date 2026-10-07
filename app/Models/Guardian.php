@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Guardian extends Model
 {
@@ -23,6 +24,7 @@ class Guardian extends Model
     const UPDATED_AT = null;
 
     protected $fillable = [
+        'id',
         'student_id',
         'full_name',
         'relationship_name',
@@ -38,11 +40,21 @@ class Guardian extends Model
         ];
     }
 
-    /**
-     * Guardian terkait dengan satu student.
-     */
     public function student(): BelongsTo
     {
-        return $this->belongsTo(Student::class, 'student_id');
+        return $this->belongsTo(
+            Student::class,
+            'student_id',
+            'id'
+        );
+    }
+
+    public function reportShareAttempts(): HasMany
+    {
+        return $this->hasMany(
+            ReportShareAttempt::class,
+            'guardian_id',
+            'id'
+        );
     }
 }

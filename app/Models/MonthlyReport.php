@@ -105,4 +105,13 @@ class MonthlyReport extends Model
             'description',
         ]);
     }
+
+    public function statusEvents(): HasMany
+    {
+        return $this->hasMany(
+            ReportStatusEvent::class,
+            'report_id',
+            'id'
+        );
+    }
 }

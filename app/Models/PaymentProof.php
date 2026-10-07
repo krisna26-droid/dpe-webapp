@@ -13,13 +13,16 @@ class PaymentProof extends Model
     protected $table = 'payment_proofs';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
-    const CREATED_AT = null;
+    const CREATED_AT = 'submitted_at';
     const UPDATED_AT = null;
 
     protected $fillable = [
+        'id',
         'charge_id',
         'image_file_id',
         'uploaded_by_user_id',
@@ -42,7 +45,8 @@ class PaymentProof extends Model
     {
         return $this->belongsTo(
             MonthlyCharge::class,
-            'charge_id'
+            'charge_id',
+            'id'
         );
     }
 
@@ -50,7 +54,8 @@ class PaymentProof extends Model
     {
         return $this->belongsTo(
             FileAsset::class,
-            'image_file_id'
+            'image_file_id',
+            'id'
         );
     }
 
@@ -58,7 +63,8 @@ class PaymentProof extends Model
     {
         return $this->belongsTo(
             User::class,
-            'uploaded_by_user_id'
+            'uploaded_by_user_id',
+            'id'
         );
     }
 
@@ -66,7 +72,8 @@ class PaymentProof extends Model
     {
         return $this->belongsTo(
             User::class,
-            'reviewed_by_user_id'
+            'reviewed_by_user_id',
+            'id'
         );
     }
 }

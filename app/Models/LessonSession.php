@@ -22,6 +22,7 @@ class LessonSession extends Model
     const UPDATED_AT = null;
 
     protected $fillable = [
+        'id',
         'branch_id',
         'teacher_id',
         'program_id',
@@ -89,10 +90,24 @@ class LessonSession extends Model
             'session_id',
             'student_id'
         )->using(SessionStudent::class)
-         ->withPivot([
-             'attendance_status',
-             'individual_learning_note',
-             'recorded_at',
-         ]);
+            ->withPivot([
+                'attendance_status',
+                'individual_learning_note',
+                'recorded_at',
+            ]);
+    }
+
+    public function studentChallenges(): HasMany
+    {
+        return $this->hasMany(StudentChallenge::class, 'session_id', 'id');
+    }
+
+    public function teacherMessages(): HasMany
+    {
+        return $this->hasMany(
+            TeacherMessage::class,
+            'session_id',
+            'id'
+        );
     }
 }

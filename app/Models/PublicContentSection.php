@@ -13,12 +13,15 @@ class PublicContentSection extends Model
     protected $table = 'public_content_sections';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     public $timestamps = false;
 
     protected $fillable = [
+        'id',
         'section_key',
         'title',
         'body',
@@ -39,7 +42,8 @@ class PublicContentSection extends Model
     {
         return $this->belongsTo(
             FileAsset::class,
-            'image_file_id'
+            'image_file_id',
+            'id'
         );
     }
 }

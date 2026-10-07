@@ -19,6 +19,7 @@ class TeacherAvailability extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'id',
         'teacher_id',
         'branch_id',
         'available_on',

@@ -63,4 +63,31 @@ class Teacher extends Model
             'teacher_id'
         );
     }
+
+    public function classGroups(): HasMany
+    {
+        return $this->hasMany(
+            ClassGroup::class,
+            'default_teacher_id',
+            'id'
+        );
+    }
+
+    public function teacherMessages(): HasMany
+    {
+        return $this->hasMany(
+            TeacherMessage::class,
+            'teacher_id',
+            'id'
+        );
+    }
+
+    public function reportShareAttempts(): HasMany
+    {
+        return $this->hasMany(
+            ReportShareAttempt::class,
+            'teacher_id',
+            'id'
+        );
+    }
 }

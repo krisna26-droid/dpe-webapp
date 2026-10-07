@@ -13,12 +13,16 @@ class PaymentRecapRun extends Model
     protected $table = 'payment_recap_runs';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
-    public $timestamps = false;
+    const CREATED_AT = null;
+    const UPDATED_AT = null;
 
     protected $fillable = [
+        'id',
         'branch_id',
         'recap_month',
         'scheduled_on',
@@ -39,14 +43,19 @@ class PaymentRecapRun extends Model
 
     public function branch(): BelongsTo
     {
-        return $this->belongsTo(Branch::class);
+        return $this->belongsTo(
+            Branch::class,
+            'branch_id',
+            'id'
+        );
     }
 
     public function generatedBy(): BelongsTo
     {
         return $this->belongsTo(
             User::class,
-            'generated_by_user_id'
+            'generated_by_user_id',
+            'id'
         );
     }
 
@@ -54,7 +63,8 @@ class PaymentRecapRun extends Model
     {
         return $this->belongsTo(
             FileAsset::class,
-            'export_file_id'
+            'export_file_id',
+            'id'
         );
     }
 }

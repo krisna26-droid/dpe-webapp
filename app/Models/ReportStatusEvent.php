@@ -13,12 +13,15 @@ class ReportStatusEvent extends Model
     protected $table = 'report_status_events';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     public $timestamps = false;
 
     protected $fillable = [
+        'id',
         'report_id',
         'actor_user_id',
         'from_status',
@@ -38,7 +41,8 @@ class ReportStatusEvent extends Model
     {
         return $this->belongsTo(
             MonthlyReport::class,
-            'report_id'
+            'report_id',
+            'id'
         );
     }
 
@@ -46,7 +50,8 @@ class ReportStatusEvent extends Model
     {
         return $this->belongsTo(
             User::class,
-            'actor_user_id'
+            'actor_user_id',
+            'id'
         );
     }
 }

@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class MonthlyReportSkill extends Pivot
 {
     protected $table = 'monthly_report_skills';
 
-    public $incrementing = false;
-
     public $timestamps = false;
+
+    public $incrementing = false;
 
     protected $fillable = [
         'report_id',

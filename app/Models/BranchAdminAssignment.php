@@ -19,6 +19,7 @@ class BranchAdminAssignment extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'id',
         'branch_id',
         'admin_user_id',
         'starts_on',

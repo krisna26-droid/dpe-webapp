@@ -494,4 +494,228 @@ class MonthlyReportControllerTest extends TestCase
             $report->fresh()->status
         );
     }
+
+    public function test_admin_from_another_branch_cannot_request_revision_through_http(): void
+    {
+        $teacherUser = $this->createUser('teacher');
+        $teacher = $this->createTeacher($teacherUser);
+        $admin = $this->createUser('admin');
+
+        $adminBranch = (string) Str::uuid();
+        $otherBranch = (string) Str::uuid();
+
+        $this->assignAdmin($admin, $adminBranch);
+
+        $monthlyReport = $this->createReport(
+            $teacher,
+            'submitted',
+            $otherBranch
+        );
+
+        $response = $this->actingAs($admin)
+            ->post(
+                route('admin.reports.revision', $monthlyReport),
+                [
+                    'comment' => 'Mohon diperbaiki.',
+                ]
+            );
+
+        $response->assertForbidden();
+
+        $this->assertDatabaseHas('monthly_reports', [
+            'id' => $monthlyReport->id,
+            'status' => 'submitted',
+        ]);
+    }
+
+    public function test_superadmin_can_request_revision_for_report_from_another_branch_through_http(): void
+    {
+        $teacherUser = $this->createUser('teacher');
+        $teacher = $this->createTeacher($teacherUser);
+
+        $superadmin = $this->createUser('superadmin');
+
+        $otherBranch = (string) Str::uuid();
+
+        $monthlyReport = $this->createReport(
+            $teacher,
+            'submitted',
+            $otherBranch
+        );
+
+        $comment = 'Mohon diperbaiki oleh guru.';
+
+        $response = $this
+            ->actingAs($superadmin)
+            ->postJson(
+                route('admin.reports.revision', $monthlyReport),
+                [
+                    'comment' => $comment,
+                ]
+            );
+
+        $response
+            ->assertOk()
+            ->assertJsonPath(
+                'message',
+                'Laporan berhasil diminta untuk direvisi.'
+            )
+            ->assertJsonPath(
+                'data.status',
+                'revision'
+            );
+    }
+    public function test_admin_with_expired_branch_assignment_cannot_approve_report_through_http(): void
+    {
+        $teacherUser = $this->createUser('teacher');
+        $teacher = $this->createTeacher($teacherUser);
+
+        $admin = $this->createUser('admin');
+
+        $branchId = (string) Str::uuid();
+
+        BranchAdminAssignment::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'admin_user_id' => $admin->id,
+            'branch_id' => $branchId,
+            'starts_on' => now()->subMonth()->toDateString(),
+            'ends_on' => now()->subDay()->toDateString(),
+        ]);
+
+        $report = $this->createReport(
+            $teacher,
+            'submitted',
+            $branchId
+        );
+
+        $response = $this
+            ->actingAs($admin)
+            ->postJson(
+                route('admin.reports.approve', $report)
+            );
+
+        $response->assertForbidden();
+
+        $this->assertDatabaseHas('monthly_reports', [
+            'id' => $report->id,
+            'status' => 'submitted',
+        ]);
+    }
+
+    public function test_admin_with_future_branch_assignment_cannot_approve_report_through_http(): void
+    {
+        $teacherUser = $this->createUser('teacher');
+        $teacher = $this->createTeacher($teacherUser);
+
+        $admin = $this->createUser('admin');
+
+        $branchId = (string) Str::uuid();
+
+        BranchAdminAssignment::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'admin_user_id' => $admin->id,
+            'branch_id' => $branchId,
+            'starts_on' => now()->addDay()->toDateString(),
+            'ends_on' => null,
+        ]);
+
+        $report = $this->createReport(
+            $teacher,
+            'submitted',
+            $branchId
+        );
+
+        $response = $this
+            ->actingAs($admin)
+            ->postJson(
+                route('admin.reports.approve', $report)
+            );
+
+        $response->assertForbidden();
+
+        $this->assertDatabaseHas('monthly_reports', [
+            'id' => $report->id,
+            'status' => 'submitted',
+        ]);
+    }
+
+    public function test_admin_with_expired_branch_assignment_cannot_request_revision_through_http(): void
+    {
+        $teacherUser = $this->createUser('teacher');
+        $teacher = $this->createTeacher($teacherUser);
+
+        $admin = $this->createUser('admin');
+
+        $branchId = (string) Str::uuid();
+
+        BranchAdminAssignment::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'admin_user_id' => $admin->id,
+            'branch_id' => $branchId,
+            'starts_on' => now()->subMonth()->toDateString(),
+            'ends_on' => now()->subDay()->toDateString(),
+        ]);
+
+        $report = $this->createReport(
+            $teacher,
+            'submitted',
+            $branchId
+        );
+
+        $response = $this
+            ->actingAs($admin)
+            ->postJson(
+                route('admin.reports.revision', $report),
+                [
+                    'comment' => 'Mohon diperbaiki.',
+                ]
+            );
+
+        $response->assertForbidden();
+
+        $this->assertDatabaseHas('monthly_reports', [
+            'id' => $report->id,
+            'status' => 'submitted',
+        ]);
+    }
+
+    public function test_admin_with_future_branch_assignment_cannot_request_revision_through_http(): void
+    {
+        $teacherUser = $this->createUser('teacher');
+        $teacher = $this->createTeacher($teacherUser);
+
+        $admin = $this->createUser('admin');
+
+        $branchId = (string) Str::uuid();
+
+        BranchAdminAssignment::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'admin_user_id' => $admin->id,
+            'branch_id' => $branchId,
+            'starts_on' => now()->addDay()->toDateString(),
+            'ends_on' => null,
+        ]);
+
+        $report = $this->createReport(
+            $teacher,
+            'submitted',
+            $branchId
+        );
+
+        $response = $this
+            ->actingAs($admin)
+            ->postJson(
+                route('admin.reports.revision', $report),
+                [
+                    'comment' => 'Mohon diperbaiki.',
+                ]
+            );
+
+        $response->assertForbidden();
+
+        $this->assertDatabaseHas('monthly_reports', [
+            'id' => $report->id,
+            'status' => 'submitted',
+        ]);
+    }
 }

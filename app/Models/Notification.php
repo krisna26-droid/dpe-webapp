@@ -13,13 +13,15 @@ class Notification extends Model
     protected $table = 'notifications';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
-    const CREATED_AT = 'created_at';
-    const UPDATED_AT = null;
+    public $timestamps = false;
 
     protected $fillable = [
+        'id',
         'user_id',
         'notification_type',
         'title',
@@ -36,6 +38,10 @@ class Notification extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(
+            User::class,
+            'user_id',
+            'id'
+        );
     }
 }

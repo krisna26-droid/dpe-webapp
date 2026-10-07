@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class FileAsset extends Model
 {
@@ -33,5 +35,58 @@ class FileAsset extends Model
             'size_bytes' => 'integer',
             'created_at' => 'datetime',
         ];
+    }
+
+    public function teacherMessages(): HasMany
+    {
+        return $this->hasMany(
+            TeacherMessage::class,
+            'attachment_file_id',
+            'id'
+        );
+    }
+
+    public function paymentProofs(): HasMany
+    {
+        return $this->hasMany(
+            PaymentProof::class,
+            'image_file_id',
+            'id'
+        );
+    }
+
+    public function paymentRecapRuns(): HasMany
+    {
+        return $this->hasMany(
+            PaymentRecapRun::class,
+            'export_file_id',
+            'id'
+        );
+    }
+
+    public function quarterlyReportFiles(): HasMany
+    {
+        return $this->hasMany(
+            QuarterlyReportFile::class,
+            'file_id',
+            'id'
+        );
+    }
+
+    public function publicContentSections(): HasMany
+    {
+        return $this->hasMany(
+            PublicContentSection::class,
+            'image_file_id',
+            'id'
+        );
+    }
+    public function systemSetting(): HasOne
+    {
+        return $this->hasOne(
+            SystemSetting::class,
+            'logo_file_id',
+            'id'
+        );
     }
 }
