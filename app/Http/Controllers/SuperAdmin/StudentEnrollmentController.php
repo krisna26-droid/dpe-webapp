@@ -19,7 +19,7 @@ class StudentEnrollmentController extends Controller
     {
         $enrollments = StudentEnrollment::query()
             ->with([
-                'student',
+                'student.portalUser',
                 'branch',
                 'program',
             ])
@@ -38,6 +38,7 @@ class StudentEnrollmentController extends Controller
     {
         $students = Student::query()
             ->where('status', 'active')
+            ->with('portalUser')
             ->orderBy('full_name')
             ->get();
 
@@ -84,7 +85,7 @@ class StudentEnrollmentController extends Controller
         StudentEnrollment $studentEnrollment
     ): View {
         $studentEnrollment->load([
-            'student',
+            'student.portalUser',
             'branch',
             'program',
         ]);
@@ -101,29 +102,27 @@ class StudentEnrollmentController extends Controller
         StudentEnrollment $studentEnrollment
     ): View {
         $students = Student::query()
-            ->where('status', 'active')
-            ->orWhere(
-                'id',
-                $studentEnrollment->student_id
-            )
+            ->where(function ($query) use ($studentEnrollment) {
+                $query->where('status', 'active')
+                    ->orWhere('id', $studentEnrollment->student_id);
+            })
+            ->with('portalUser')
             ->orderBy('full_name')
             ->get();
 
         $branches = Branch::query()
-            ->where('is_active', true)
-            ->orWhere(
-                'id',
-                $studentEnrollment->branch_id
-            )
+            ->where(function ($query) use ($studentEnrollment) {
+                $query->where('is_active', true)
+                    ->orWhere('id', $studentEnrollment->branch_id);
+            })
             ->orderBy('name')
             ->get();
 
         $programs = Program::query()
-            ->where('is_active', true)
-            ->orWhere(
-                'id',
-                $studentEnrollment->program_id
-            )
+            ->where(function ($query) use ($studentEnrollment) {
+                $query->where('is_active', true)
+                    ->orWhere('id', $studentEnrollment->program_id);
+            })
             ->orderBy('name')
             ->get();
 

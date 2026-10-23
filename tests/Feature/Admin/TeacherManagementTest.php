@@ -19,6 +19,8 @@ use Mockery;
 
 class TeacherManagementTest extends TestCase
 {
+    use \Tests\Concerns\TeachingDirectorySchema;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -111,6 +113,7 @@ class TeacherManagementTest extends TestCase
                 $table->dateTime('created_at')->nullable();
             }
         );
+        $this->createTeachingDirectoryTables();
     }
 
     protected function tearDown(): void

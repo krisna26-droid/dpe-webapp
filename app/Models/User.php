@@ -118,4 +118,22 @@ class User extends Authenticatable
             'id'
         );
     }
+
+    public function reviewedTeacherAttendances(): HasMany
+    {
+        return $this->hasMany(
+            TeacherAttendance::class,
+            'reviewed_by_user_id',
+            'id'
+        );
+    }
+
+    public function recordedTeacherAttendances(): HasMany
+    {
+        return $this->hasMany(
+            TeacherAttendance::class,
+            'recorded_by_user_id',
+            'id'
+        );
+    }
 }

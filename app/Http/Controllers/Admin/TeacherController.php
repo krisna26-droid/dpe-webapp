@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateTeacherRequest;
 use App\Models\Teacher;
 use App\Models\User;
 use App\Services\TeacherService;
+use App\Services\TeachingDirectoryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -20,9 +21,11 @@ class TeacherController extends Controller
     ) {
     }
 
-    public function index(Request $request): View
+    public function index(Request $request, TeachingDirectoryService $directory): View
     {
-        $teachers = Teacher::with(['user', 'photoFile'])
+        $actor = $request->user();
+        $teachers = $directory->teachers($actor)->with(['user', 'photoFile',
+                'branchAssignments' => fn ($query) => $directory->scopeTeacherBranches($query, $actor)->with('branch')])
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->string('search')->toString();
 
@@ -39,7 +42,11 @@ class TeacherController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return view('admin.teachers.index', compact('teachers'));
+        $teacherSummaries = $directory->teacherSummaries($actor, $teachers->getCollection()->pluck('id'));
+        $editableTeacherIds = $teachers->getCollection()->filter(fn ($teacher) => $actor->role_code === 'superadmin'
+            || $teacher->branchAssignments->contains(fn ($assignment) => $assignment->isActiveOn()))->pluck('id');
+
+        return view('admin.teachers.index', compact('teachers', 'teacherSummaries', 'editableTeacherIds'));
     }
 
     public function create(): View
@@ -53,10 +60,21 @@ class TeacherController extends Controller
         StoreTeacherRequest $request
     ): RedirectResponse {
 
-        $this->teacherService->create(
+        $teacher = $this->teacherService->create(
             $request->validated(),
             $request->file('photo')
         );
+
+        if (auth()->user()?->role_code === 'superadmin') {
+            return redirect()
+                ->route('superadmin.teacher-branch-assignments.create', [
+                    'teacher_id' => $teacher->id,
+                ])
+                ->with(
+                    'success',
+                    'Profil guru berhasil dibuat. Lanjutkan dengan memilih cabang dan periode penugasannya.'
+                );
+        }
 
         return redirect()
             ->route('admin.teachers.index')
@@ -64,26 +82,32 @@ class TeacherController extends Controller
     }
 
 
-    public function show(Teacher $teacher): View
+    public function show(Request $request, Teacher $teacher, TeachingDirectoryService $directory): View
     {
         Gate::authorize('view', $teacher);
 
         $teacher->load([
             'user',
             'photoFile',
+            'branchAssignments' => fn ($query) => $directory->scopeTeacherBranches($query, $request->user())->with('branch'),
         ]);
 
-        return view('admin.teachers.show', compact('teacher'));
+        $teachingStudents = $directory->studentsForTeacher($request->user(), $teacher)
+            ->paginate(15, ['*'], 'students_page')->withQueryString()->fragment('teacher-students');
+        $canEditTeacher = Gate::allows('update', $teacher);
+
+        return view('admin.teachers.show', compact('teacher', 'teachingStudents', 'canEditTeacher'));
     }
 
 
     public function edit(Teacher $teacher): View
     {
-        Gate::authorize('view', $teacher);
+        Gate::authorize('update', $teacher);
 
         $teacher->load([
             'user',
             'photoFile',
+            'branchAssignments.branch',
         ]);
 
         $users = $this->availableTeacherUsers($teacher);

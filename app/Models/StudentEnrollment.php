@@ -66,10 +66,9 @@ class StudentEnrollment extends Model
     {
         $date ??= Carbon::today();
 
-        return $this->starts_on->lte($date)
-            && (
-                $this->ends_on === null
-                || $this->ends_on->gte($date)
-            );
+        $day = $date->toDateString();
+
+        return $this->starts_on->toDateString() <= $day
+            && ($this->ends_on === null || $this->ends_on->toDateString() >= $day);
     }
 }

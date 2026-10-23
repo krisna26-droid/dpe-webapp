@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\SuperAdmin;
 
+use App\Models\Guardian;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -42,6 +43,22 @@ class StoreGuardianRequest extends FormRequest
 
             'is_primary' => [
                 'boolean',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! filter_var($value, FILTER_VALIDATE_BOOLEAN)) {
+                        return;
+                    }
+
+                    $alreadyHasPrimary = Guardian::query()
+                        ->where('student_id', $this->input('student_id'))
+                        ->where('is_primary', true)
+                        ->exists();
+
+                    if ($alreadyHasPrimary) {
+                        $fail(
+                            'Siswa sudah memiliki penerima utama. Edit kontak tersebut jika ingin menggantinya.'
+                        );
+                    }
+                },
             ],
         ];
     }

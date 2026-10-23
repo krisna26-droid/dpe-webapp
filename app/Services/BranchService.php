@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Branch;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class BranchService
@@ -28,6 +30,8 @@ class BranchService
     public function update(Branch $branch, array $data): Branch
     {
         return DB::transaction(function () use ($branch, $data) {
+            $branch = Branch::whereKey($branch->id)->lockForUpdate()->firstOrFail();
+            $before = $branch->getAttributes();
             $branch->update([
                 'code' => $data['code'],
                 'name' => $data['name'],
@@ -38,6 +42,7 @@ class BranchService
                     ? (bool) $data['is_active']
                     : $branch->is_active,
             ]);
+            $this->event($branch, $before);
 
             return $branch->refresh();
         });
@@ -46,11 +51,22 @@ class BranchService
     public function toggleStatus(Branch $branch): Branch
     {
         return DB::transaction(function () use ($branch) {
+            $branch = Branch::whereKey($branch->id)->lockForUpdate()->firstOrFail();
+            $before = $branch->getAttributes();
             $branch->update([
                 'is_active' => ! $branch->is_active,
             ]);
+            $this->event($branch, $before);
 
             return $branch->refresh();
         });
+    }
+
+    private function event(Branch $branch, array $before): void
+    {
+        if (Schema::hasTable('student_portal_events') && ($actor = User::find(auth()->id()))) {
+            app(PortalPaymentService::class)->event($actor, 'branch_settings_changed', before: $before,
+                after: $branch->getAttributes(), branch: $branch);
+        }
     }
 }

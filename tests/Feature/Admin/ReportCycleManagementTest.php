@@ -2,12 +2,12 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Models\ReportCycle;
 use App\Models\User;
 use App\Services\ReportCycleService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ReportCycleManagementTest extends TestCase
@@ -90,6 +90,12 @@ class ReportCycleManagementTest extends TestCase
                 ->on('students');
         });
 
+        Schema::create('monthly_reports', function (Blueprint $table) {
+            $table->string('id', 36)->primary();
+            $table->string('cycle_id', 36);
+            $table->date('report_month');
+        });
+
         DB::table('students')->insert([
             ['id' => 'student-a'],
             ['id' => 'student-b'],
@@ -119,10 +125,10 @@ class ReportCycleManagementTest extends TestCase
     private function createUser(string $role): User
     {
         $user = User::forceCreate([
-            'id' => (string) \Illuminate\Support\Str::uuid(),
-            'full_name' => ucfirst($role) . ' Test',
-            'username' => $role . '-' . uniqid(),
-            'email' => $role . '-' . uniqid() . '@example.test',
+            'id' => (string) Str::uuid(),
+            'full_name' => ucfirst($role).' Test',
+            'username' => $role.'-'.uniqid(),
+            'email' => $role.'-'.uniqid().'@example.test',
             'password' => bcrypt('password'),
             'role_code' => $role,
             'is_active' => true,
@@ -130,7 +136,7 @@ class ReportCycleManagementTest extends TestCase
 
         if ($role === 'admin') {
             DB::table('branch_admin_assignments')->insert([
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'branch_id' => 'branch-default',
                 'admin_user_id' => $user->id,
                 'starts_on' => '2026-01-01',
@@ -288,6 +294,7 @@ class ReportCycleManagementTest extends TestCase
         $this->getJson(route('admin.report-cycles.index'))
             ->assertUnauthorized();
     }
+
     public function test_teacher_cannot_update_report_cycle(): void
     {
         $teacher = $this->createUser('teacher');
@@ -348,6 +355,7 @@ class ReportCycleManagementTest extends TestCase
                 'end_month',
             ]);
     }
+
     public function test_it_normalizes_dates_to_the_first_day_of_each_month(): void
     {
         $cycle = app(ReportCycleService::class)->create([
@@ -373,6 +381,7 @@ class ReportCycleManagementTest extends TestCase
             substr((string) $cycle->share_due_on, 0, 10)
         );
     }
+
     public function test_admin_cannot_create_report_cycle_for_student_from_another_branch(): void
     {
         $admin = $this->createUser('admin');

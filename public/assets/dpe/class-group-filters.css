@@ -1,0 +1,13 @@
+.dpe-class-group-filter-card { margin-bottom: 24px; }
+.dpe-class-group-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: end; }
+.dpe-class-group-filters .dpe-dashboard-field { min-width: 0; margin: 0; }
+.dpe-class-group-filters select { width: 100%; min-width: 0; }
+.dpe-class-group-filter-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 4px; }
+.dpe-class-group-filter-actions .dpe-dashboard-button { min-width: 108px; height: 50px; padding: 12px 18px; justify-content: center; }
+@media (max-width: 1100px) {
+    .dpe-class-group-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+    .dpe-class-group-filters { grid-template-columns: minmax(0, 1fr); }
+    .dpe-class-group-filter-actions .dpe-dashboard-button { flex: 1 1 108px; }
+}

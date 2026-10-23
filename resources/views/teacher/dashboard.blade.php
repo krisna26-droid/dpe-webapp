@@ -1,8 +1,7 @@
-<h1>Teacher Dashboard</h1>
-<form method="POST" action="{{ route('logout') }}">
-    @csrf
-
-    <button type="submit">
-        Logout
-    </button>
-</form>
+@extends('layouts.dashboard')
+@section('title', 'Dashboard Teacher')
+@section('heading', 'Dashboard')
+@section('description', 'Pantau aktivitas dan laporan siswa Anda.')
+@section('content')
+    @include('operations._staff-dashboard')
+@endsection

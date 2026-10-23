@@ -1,27 +1,62 @@
+# Log dan berkas sistem
 *.log
 .DS_Store
+Thumbs.db
+
+# Konfigurasi lokal dan rahasia
 .env
-.env.backup
-.env.production
+.env.*
+!.env.example
+/auth.json
+
+# Cache pengembangan dan pengujian
 .phpactor.json
 .phpunit.result.cache
+/.phpunit.cache
+
+# Pengaturan editor
 /.fleet
 /.idea
 /.nova
-/.phpunit.cache
 /.vscode
 /.zed
-/auth.json
+
+# Dependensi
+/vendor
 /node_modules
+
+# Hasil build dan tautan penyimpanan
 /public/build
 /public/hot
 /public/storage
-/storage/*.key
-/storage/pail
-/vendor
+
+# Isi penyimpanan: unggahan, rapor, tanda tangan, sesi, dan cache
+/storage/**
+!/storage/**/
+!/storage/**/.gitignore
+
+# Cache bootstrap Laravel
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
+
+# Konfigurasi Homestead
 Homestead.json
 Homestead.yaml
-Thumbs.db
-# Local database backups
-*-backup*.sql
+
+# Database lokal dan salinan database
+*.sql
 *.sql.bak
+*.sql.gz
+*.sqlite*
+
+# Paket arsip dan folder backup lokal
+*.zip
+*.rar
+*.7z
+/backup/
+/backups/
+/dpe-backup-*/
+
+# Folder paket update lokal
+/__dpe_update_*/
+/_dpe_dashboard_layout*/

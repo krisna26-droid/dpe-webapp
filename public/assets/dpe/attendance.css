@@ -1,0 +1,11 @@
+.dpe-camera { display: grid; gap: 10px; min-width: 0; }
+.dpe-camera > label { font-size: 14px; color: #304365; }
+.dpe-camera video, .dpe-camera img { display: block; width: 100%; max-height: 320px; object-fit: contain; background: #edf3fc; border-radius: 12px; }
+.dpe-camera [hidden] { display: none !important; }
+.dpe-camera > p, .dpe-attendance-hint { font-size: 13px; color: #62718b; line-height: 1.6; }
+.dpe-camera__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dpe-attendance-hint { margin-top: 18px; }
+.dpe-dashboard-attendance-card { min-width: 0; }
+.dpe-dashboard-attendance-card__head { flex-wrap: wrap; }
+.dpe-dashboard-location-box__head { flex-wrap: wrap; gap: 10px; }
+@media (max-width: 640px) { .dpe-camera__actions .dpe-dashboard-button { flex: 1 1 auto; } }

@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\LearningVideo\StoreLearningVideoRequest;
 use App\Http\Requests\LearningVideo\UpdateLearningVideoRequest;
 use App\Models\LearningVideo;
+use App\Models\LessonSession;
+use App\Models\Student;
+use App\Models\Teacher;
 use App\Services\LearningVideoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -20,7 +23,7 @@ class LearningVideoController extends Controller
         $learningVideos = LearningVideo::query()
             ->with([
                 'student',
-                'teacher',
+                'teacher.user',
                 'session',
             ])
             ->latest('video_on')
@@ -32,7 +35,10 @@ class LearningVideoController extends Controller
 
     public function create(): View
     {
-        return view('learning-videos.create');
+        return view(
+            'learning-videos.create',
+            $this->formOptions()
+        );
     }
 
     public function store(
@@ -51,9 +57,11 @@ class LearningVideoController extends Controller
         LearningVideo $learningVideo
     ): View {
         $learningVideo->load([
-            'student',
-            'teacher',
-            'session',
+            'student.portalUser',
+            'teacher.user',
+            'session.branch',
+            'session.program',
+            'session.classGroup',
         ]);
 
         return view(
@@ -66,14 +74,17 @@ class LearningVideoController extends Controller
         LearningVideo $learningVideo
     ): View {
         $learningVideo->load([
-            'student',
-            'teacher',
+            'student.portalUser',
+            'teacher.user',
             'session',
         ]);
 
         return view(
             'learning-videos.edit',
-            compact('learningVideo')
+            [
+                'learningVideo' => $learningVideo,
+                ...$this->formOptions($learningVideo),
+            ]
         );
     }
 
@@ -99,5 +110,65 @@ class LearningVideoController extends Controller
         return redirect()
             ->route('superadmin.learning-videos.index')
             ->with('success', 'Learning video berhasil dihapus.');
+    }
+
+    private function formOptions(?LearningVideo $current = null): array
+    {
+        $students = Student::query()
+            ->where(function ($query) use ($current) {
+                $query->where('status', 'active');
+
+                if ($current?->student_id !== null) {
+                    $query->orWhere('id', $current->student_id);
+                }
+            })
+            ->with('portalUser')
+            ->orderBy('full_name')
+            ->get();
+
+        $selectedTeacherId = $current?->teacher_id;
+        $teachers = Teacher::query()
+            ->where(function ($query) use ($selectedTeacherId) {
+                $query->where('is_active', true);
+
+                if ($selectedTeacherId !== null) {
+                    $query->orWhere('id', $selectedTeacherId);
+                }
+            })
+            ->with('user')
+            ->get()
+            ->sortBy(function (Teacher $teacher) {
+                return mb_strtolower((string) (
+                    $teacher->user?->full_name
+                    ?: $teacher->user?->username
+                    ?: $teacher->id
+                ));
+            })
+            ->values();
+
+        $selectedSessionId = $current?->session_id;
+        $sessions = LessonSession::query()
+            ->where(function ($query) use ($selectedSessionId) {
+                $query->whereNotNull('id');
+
+                if ($selectedSessionId !== null) {
+                    $query->orWhere('id', $selectedSessionId);
+                }
+            })
+            ->with([
+                'branch',
+                'teacher.user',
+                'program',
+                'classGroup',
+            ])
+            ->orderByDesc('planned_start_at')
+            ->limit(200)
+            ->get();
+
+        return [
+            'students' => $students,
+            'teachers' => $teachers,
+            'sessions' => $sessions,
+        ];
     }
 }

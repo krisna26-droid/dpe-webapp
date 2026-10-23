@@ -11,19 +11,22 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
 
 class MonthlyReportWorkflowService
 {
+    public function __construct(private MonthlyReportContentService $content) {}
+
     /**
      * Guru pemilik mengajukan laporan.
      */
     public function submit(
         MonthlyReport $report,
-        User $actor
+        User $actor,
+        ?array $formData = null
     ): MonthlyReport {
-        return DB::transaction(function () use ($report, $actor) {
+        return DB::transaction(function () use ($report, $actor, $formData) {
             $report = $this->lockReport($report);
+            $actor = $actor->fresh() ?? throw new AuthorizationException('Akun petugas tidak tersedia.');
 
             $this->authorizeTeacherOwner($report, $actor);
 
@@ -33,7 +36,8 @@ class MonthlyReportWorkflowService
                 ]);
             }
 
-            $this->validateSubmissionCompleteness($report);
+            $this->content->assertSnapshot($report, $formData);
+            $this->content->assertReady($report);
 
             $previousStatus = $report->status;
 
@@ -60,10 +64,12 @@ class MonthlyReportWorkflowService
      */
     public function approve(
         MonthlyReport $report,
-        User $actor
+        User $actor,
+        ?array $formData = null
     ): MonthlyReport {
-        return DB::transaction(function () use ($report, $actor) {
+        return DB::transaction(function () use ($report, $actor, $formData) {
             $report = $this->lockReport($report);
+            $actor = $actor->fresh() ?? throw new AuthorizationException('Akun petugas tidak tersedia.');
 
             $this->authorizeApprover($report, $actor);
 
@@ -73,29 +79,9 @@ class MonthlyReportWorkflowService
                 ]);
             }
 
-            // Simpan salinan isi laporan saat disetujui.
-            $snapshot = [
-                'report_id' => $report->id,
-                'cycle_id' => $report->cycle_id,
-                'student_id' => $report->student_id,
-                'branch_id' => $report->branch_id,
-                'teacher_id' => $report->teacher_id,
-                'report_month' => $report->report_month === null
-                    ? null
-                    : substr((string) $report->report_month, 0, 10),
-                'due_on' => $report->due_on === null
-                    ? null
-                    : substr((string) $report->due_on, 0, 10),
-                'video_target' => $report->video_target,
-                'development_summary' => $report->development_summary,
-                'parent_challenges_summary' =>
-                $report->parent_challenges_summary,
-                'parent_message' => $report->parent_message,
-                'internal_teacher_note' => $report->internal_teacher_note,
-                'skills' => $report->reportSkills()
-                    ->get(['skill_id', 'trend', 'description'])
-                    ->toArray(),
-            ];
+            $this->content->assertSnapshot($report, $formData);
+            $this->content->assertReady($report);
+            $snapshot = $this->content->approvalSnapshot($report);
 
             $previousStatus = $report->status;
 
@@ -122,7 +108,8 @@ class MonthlyReportWorkflowService
     public function requestRevision(
         MonthlyReport $report,
         User $actor,
-        string $comment
+        string $comment,
+        ?array $formData = null
     ): MonthlyReport {
         $comment = trim($comment);
 
@@ -135,9 +122,11 @@ class MonthlyReportWorkflowService
         return DB::transaction(function () use (
             $report,
             $actor,
-            $comment
+            $comment,
+            $formData
         ) {
             $report = $this->lockReport($report);
+            $actor = $actor->fresh() ?? throw new AuthorizationException('Akun petugas tidak tersedia.');
 
             $this->authorizeApprover($report, $actor);
 
@@ -146,6 +135,8 @@ class MonthlyReportWorkflowService
                     'status' => 'Hanya laporan berstatus submitted yang dapat diminta revisi.',
                 ]);
             }
+
+            $this->content->assertSnapshot($report, $formData);
 
             $previousStatus = $report->status;
 
@@ -167,77 +158,6 @@ class MonthlyReportWorkflowService
         });
     }
 
-    /**
-     * Memastikan isi laporan sudah lengkap sebelum diajukan.
-     *
-     * @throws ValidationException
-     */
-        
-    /**
-     * Memastikan isi laporan sudah lengkap sebelum diajukan.
-     *
-     * @throws ValidationException
-     */
-    private function validateSubmissionCompleteness(
-        MonthlyReport $report
-    ): void {
-        $errors = [];
-
-        if (blank($report->development_summary)) {
-            $errors['development_summary'] =
-                'Ringkasan perkembangan siswa wajib diisi.';
-        }
-
-        if (blank($report->parent_challenges_summary)) {
-            $errors['parent_challenges_summary'] =
-                'Ringkasan tantangan siswa wajib diisi.';
-        }
-
-        $reportSkills = $report->reportSkills()->get();
-
-        if ($reportSkills->isEmpty()) {
-            $errors['skills'] =
-                'Minimal satu skill harus ditambahkan ke laporan.';
-        }
-
-        if ($reportSkills->isNotEmpty()) {
-            $skillIds = $reportSkills
-                ->pluck('skill_id')
-                ->unique()
-                ->values();
-
-            $activeSkillIds = \App\Models\LearningSkill::query()
-                ->whereIn('id', $skillIds)
-                ->where('is_active', true)
-                ->pluck('id')
-                ->map(fn ($id) => (string) $id)
-                ->all();
-
-            foreach ($reportSkills as $reportSkill) {
-                if (! in_array(
-                    (string) $reportSkill->skill_id,
-                    $activeSkillIds,
-                    true
-                )) {
-                    $errors['skills'] =
-                        'Laporan hanya boleh menggunakan skill yang aktif.';
-                    break;
-                }
-
-                if (blank($reportSkill->description)) {
-                    $errors['skills'] =
-                        'Deskripsi setiap skill wajib diisi.';
-                    break;
-                }
-            }
-        }
-
-        if ($errors !== []) {
-            throw ValidationException::withMessages($errors);
-        }
-    }
-
-
     private function lockReport(
         MonthlyReport $report
     ): MonthlyReport {
@@ -254,6 +174,7 @@ class MonthlyReportWorkflowService
         if (
             ! $actor->is_active
             || $actor->role_code !== 'teacher'
+            || ! $actor->teacherProfile?->is_active
             || $actor->teacherProfile?->id !== $report->teacher_id
         ) {
             throw new AuthorizationException(
@@ -309,7 +230,7 @@ class MonthlyReportWorkflowService
         ?string $comment = null
     ): void {
         ReportStatusEvent::query()->forceCreate([
-            'id' => (string) Str::uuid(),
+            'id' => (string) Str::uuid7(),
             'report_id' => $report->id,
             'actor_user_id' => $actor->id,
             'from_status' => $fromStatus,

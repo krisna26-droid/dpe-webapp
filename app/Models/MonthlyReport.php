@@ -5,8 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MonthlyReport extends Model
 {
@@ -15,7 +15,9 @@ class MonthlyReport extends Model
     protected $table = 'monthly_reports';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [
@@ -26,6 +28,8 @@ class MonthlyReport extends Model
         'report_month',
         'due_on',
         'video_target',
+        'video_target_confirmed_at',
+        'video_target_confirmed_by_user_id',
         'status',
         'development_summary',
         'parent_challenges_summary',
@@ -43,6 +47,7 @@ class MonthlyReport extends Model
             'report_month' => 'date',
             'due_on' => 'date',
             'video_target' => 'integer',
+            'video_target_confirmed_at' => 'datetime',
             'submitted_at' => 'datetime',
             'approved_at' => 'datetime',
             'approved_snapshot' => 'array',
@@ -99,11 +104,11 @@ class MonthlyReport extends Model
             'report_id',
             'skill_id'
         )
-        ->using(MonthlyReportSkill::class)
-        ->withPivot([
-            'trend',
-            'description',
-        ]);
+            ->using(MonthlyReportSkill::class)
+            ->withPivot([
+                'trend',
+                'description',
+            ]);
     }
 
     public function statusEvents(): HasMany

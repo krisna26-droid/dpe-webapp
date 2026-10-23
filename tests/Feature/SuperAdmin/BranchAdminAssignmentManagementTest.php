@@ -300,6 +300,100 @@ class BranchAdminAssignmentManagementTest extends TestCase
         );
     }
 
+    public function test_branch_with_active_admin_rejects_another_admin_with_form_error(): void
+    {
+        $superadmin = $this->createSuperadmin();
+        $adminOne = $this->createAdmin();
+        $adminTwo = $this->createAdmin();
+        $branch = $this->createBranch();
+
+        $this->createAssignment($branch, $adminOne, '2026-01-01', null);
+
+        $response = $this
+            ->actingAs($superadmin)
+            ->from(route('superadmin.branch-admin-assignments.create'))
+            ->post(route('superadmin.branch-admin-assignments.store'), [
+                'branch_id' => $branch->id,
+                'admin_user_id' => $adminTwo->id,
+                'starts_on' => '2026-10-10',
+                'ends_on' => null,
+            ]);
+
+        $response->assertRedirect(route('superadmin.branch-admin-assignments.create'));
+        $response->assertSessionHasErrors('branch_id');
+        $response->assertSessionHasInput('admin_user_id', $adminTwo->id);
+        $this->assertDatabaseCount('branch_admin_assignments', 1);
+    }
+
+    public function test_admin_cannot_have_overlapping_assignments_in_two_branches(): void
+    {
+        $superadmin = $this->createSuperadmin();
+        $admin = $this->createAdmin();
+        $firstBranch = $this->createBranch();
+        $secondBranch = $this->createBranch();
+
+        $this->createAssignment($firstBranch, $admin, '2026-01-01', null);
+
+        $response = $this
+            ->actingAs($superadmin)
+            ->post(route('superadmin.branch-admin-assignments.store'), [
+                'branch_id' => $secondBranch->id,
+                'admin_user_id' => $admin->id,
+                'starts_on' => '2026-10-10',
+                'ends_on' => null,
+            ]);
+
+        $response->assertSessionHasErrors('admin_user_id');
+        $this->assertDatabaseCount('branch_admin_assignments', 1);
+    }
+
+    public function test_new_admin_can_start_the_day_after_previous_admin_ends(): void
+    {
+        $superadmin = $this->createSuperadmin();
+        $adminOne = $this->createAdmin();
+        $adminTwo = $this->createAdmin();
+        $branch = $this->createBranch();
+
+        $this->createAssignment($branch, $adminOne, '2026-01-01', '2026-10-09');
+
+        $response = $this
+            ->actingAs($superadmin)
+            ->post(route('superadmin.branch-admin-assignments.store'), [
+                'branch_id' => $branch->id,
+                'admin_user_id' => $adminTwo->id,
+                'starts_on' => '2026-10-10',
+                'ends_on' => null,
+            ]);
+
+        $response->assertRedirect(route('superadmin.branch-admin-assignments.index'));
+        $this->assertDatabaseCount('branch_admin_assignments', 2);
+    }
+
+    public function test_editing_existing_assignment_can_replace_admin_without_duplicate_record(): void
+    {
+        $superadmin = $this->createSuperadmin();
+        $adminOne = $this->createAdmin();
+        $adminTwo = $this->createAdmin();
+        $branch = $this->createBranch();
+        $assignment = $this->createAssignment($branch, $adminOne, '2026-01-01', null);
+
+        $response = $this
+            ->actingAs($superadmin)
+            ->put(route('superadmin.branch-admin-assignments.update', $assignment), [
+                'branch_id' => $branch->id,
+                'admin_user_id' => $adminTwo->id,
+                'starts_on' => '2026-01-01',
+                'ends_on' => null,
+            ]);
+
+        $response->assertRedirect(route('superadmin.branch-admin-assignments.show', $assignment));
+        $this->assertDatabaseCount('branch_admin_assignments', 1);
+        $this->assertDatabaseHas('branch_admin_assignments', [
+            'id' => $assignment->id,
+            'admin_user_id' => $adminTwo->id,
+        ]);
+    }
+
     public function test_assignment_starting_after_existing_assignment_is_allowed(): void
     {
         $superadmin = $this->createSuperadmin();

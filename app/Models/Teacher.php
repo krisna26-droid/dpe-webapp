@@ -90,4 +90,13 @@ class Teacher extends Model
             'id'
         );
     }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(
+            TeacherAttendance::class,
+            'teacher_id',
+            'id'
+        );
+    }
 }

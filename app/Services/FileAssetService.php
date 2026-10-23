@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\FileAsset;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -19,10 +20,10 @@ class FileAssetService
         $extension = $file->getClientOriginalExtension();
 
         $storageKey = $directory
-            . '/'
-            . $uuid
-            . '.'
-            . $extension;
+            .'/'
+            .$uuid
+            .'.'
+            .$extension;
 
         $disk = Storage::disk('local');
 
@@ -65,21 +66,19 @@ class FileAssetService
 
     public function delete(FileAsset $fileAsset): void
     {
-        $disk = Storage::disk('local');
-        $storageKey = $fileAsset->storage_key;
+        DB::transaction(function () use ($fileAsset) {
+            $disk = Storage::disk('local');
+            $storageKey = $fileAsset->storage_key;
+            // Check foreign-key references before touching the physical file.
+            $current = FileAsset::whereKey($fileAsset->id)->lockForUpdate()->first();
+            $current?->delete();
 
-        // Jika file masih ada, pastikan penghapusannya berhasil.
-        if ($disk->exists($storageKey)) {
-            $deleted = $disk->delete($storageKey);
-
-            if (! $deleted && $disk->exists($storageKey)) {
-                throw new RuntimeException(
-                    'File fisik gagal dihapus: ' . $storageKey
-                );
+            if ($disk->exists($storageKey)) {
+                $deleted = $disk->delete($storageKey);
+                if (! $deleted && $disk->exists($storageKey)) {
+                    throw new RuntimeException('File fisik gagal dihapus: '.$storageKey);
+                }
             }
-        }
-
-        // Hapus metadata setelah file fisik tidak lagi tersedia.
-        $fileAsset->delete();
+        });
     }
 }

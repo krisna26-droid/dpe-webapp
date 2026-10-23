@@ -19,6 +19,7 @@ class Branch extends Model
     protected $keyType = 'string';
 
     const CREATED_AT = 'created_at';
+
     const UPDATED_AT = null;
 
     protected $fillable = [
@@ -36,6 +37,7 @@ class Branch extends Model
         return [
             'payment_recap_day' => 'integer',
             'is_active' => 'boolean',
+            'portal_attendance_visible' => 'boolean',
             'created_at' => 'datetime',
         ];
     }
@@ -81,6 +83,15 @@ class Branch extends Model
     {
         return $this->hasMany(
             PaymentRecapRun::class,
+            'branch_id',
+            'id'
+        );
+    }
+
+    public function teacherAttendances(): HasMany
+    {
+        return $this->hasMany(
+            TeacherAttendance::class,
             'branch_id',
             'id'
         );

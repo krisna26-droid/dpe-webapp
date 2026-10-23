@@ -7,6 +7,7 @@ use App\Models\QuarterlyReportFile;
 use App\Models\ReportCycle;
 use App\Models\User;
 use App\Services\ReportCycleService;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -92,8 +93,8 @@ class QuarterlyReportFileModelTest extends TestCase
     {
         return User::query()->create([
             'id' => (string) Str::uuid(),
-            'username' => 'superadmin_' . Str::lower(Str::random(8)),
-            'email' => Str::uuid() . '@example.com',
+            'username' => 'superadmin_'.Str::lower(Str::random(8)),
+            'email' => Str::uuid().'@example.com',
             'password_hash' => password_hash(
                 'password',
                 PASSWORD_BCRYPT
@@ -108,7 +109,7 @@ class QuarterlyReportFileModelTest extends TestCase
     {
         return FileAsset::query()->create([
             'id' => (string) Str::uuid(),
-            'storage_key' => 'quarterly-reports/' . Str::uuid() . '.pdf',
+            'storage_key' => 'quarterly-reports/'.Str::uuid().'.pdf',
             'original_name' => 'quarterly-report.pdf',
             'mime_type' => 'application/pdf',
             'size_bytes' => 1024,
@@ -159,7 +160,7 @@ class QuarterlyReportFileModelTest extends TestCase
 
     public function test_quarterly_report_file_uses_expected_table(): void
     {
-        $model = new QuarterlyReportFile();
+        $model = new QuarterlyReportFile;
 
         $this->assertSame(
             'quarterly_report_files',
@@ -169,7 +170,7 @@ class QuarterlyReportFileModelTest extends TestCase
 
     public function test_quarterly_report_file_does_not_use_incrementing_id(): void
     {
-        $model = new QuarterlyReportFile();
+        $model = new QuarterlyReportFile;
 
         $this->assertFalse($model->getIncrementing());
         $this->assertSame('string', $model->getKeyType());
@@ -177,7 +178,7 @@ class QuarterlyReportFileModelTest extends TestCase
 
     public function test_quarterly_report_file_has_expected_fillable_fields(): void
     {
-        $model = new QuarterlyReportFile();
+        $model = new QuarterlyReportFile;
 
         $this->assertEqualsCanonicalizing(
             [
@@ -188,6 +189,9 @@ class QuarterlyReportFileModelTest extends TestCase
                 'generated_by_user_id',
                 'generated_at',
                 'source_snapshot_hash',
+                'quarterly_report_id',
+                'approval_revision',
+                'public_snapshot',
             ],
             $model->getFillable()
         );
@@ -195,14 +199,14 @@ class QuarterlyReportFileModelTest extends TestCase
 
     public function test_quarterly_report_file_does_not_use_timestamps(): void
     {
-        $model = new QuarterlyReportFile();
+        $model = new QuarterlyReportFile;
 
         $this->assertFalse($model->usesTimestamps());
     }
 
     public function test_quarterly_report_file_casts_version_and_generated_at(): void
     {
-        $model = new QuarterlyReportFile();
+        $model = new QuarterlyReportFile;
 
         $this->assertSame(
             'integer',
@@ -402,7 +406,7 @@ class QuarterlyReportFileModelTest extends TestCase
             1
         );
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
 
         $this->createQuarterlyReportFile(
             $cycle,
@@ -427,7 +431,7 @@ class QuarterlyReportFileModelTest extends TestCase
             1
         );
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
 
         $this->createQuarterlyReportFile(
             $cycleB,

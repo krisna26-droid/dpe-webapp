@@ -6,7 +6,6 @@ use App\Http\Controllers\LearningSkillController;
 use App\Http\Requests\LearningSkill\StoreLearningSkillRequest;
 use App\Http\Requests\LearningSkill\UpdateLearningSkillRequest;
 use App\Models\LearningSkill;
-use App\Services\LearningSkillService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -26,6 +25,9 @@ class LearningSkillControllerTest extends TestCase
 
     public function test_index_returns_learning_skill_index_view(): void
     {
+        // Isolate this controller ordering fixture from the eight installed master categories.
+        LearningSkill::query()->delete();
+
         LearningSkill::query()->create([
             'id' => (string) Str::uuid(),
             'code' => 'LISTENING',
@@ -199,7 +201,7 @@ class LearningSkillControllerTest extends TestCase
         );
 
         $this->assertStringContainsString(
-            '/learning-skills/' . $learningSkill->id,
+            '/learning-skills/'.$learningSkill->id,
             $response->getTargetUrl()
         );
     }
@@ -234,7 +236,8 @@ class LearningSkillControllerTest extends TestCase
     private function makeStoreRequest(
         array $data
     ): StoreLearningSkillRequest {
-        return new class($data) extends StoreLearningSkillRequest {
+        return new class($data) extends StoreLearningSkillRequest
+        {
             public function __construct(
                 private array $testValidatedData
             ) {}
@@ -255,7 +258,8 @@ class LearningSkillControllerTest extends TestCase
     private function makeUpdateRequest(
         array $data
     ): UpdateLearningSkillRequest {
-        return new class($data) extends UpdateLearningSkillRequest {
+        return new class($data) extends UpdateLearningSkillRequest
+        {
             public function __construct(
                 private array $testValidatedData
             ) {}

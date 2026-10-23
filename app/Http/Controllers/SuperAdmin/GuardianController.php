@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\SuperAdmin\StoreGuardianRequest;
 use App\Http\Requests\SuperAdmin\UpdateGuardianRequest;
 use App\Models\Guardian;
+use App\Models\Student;
 use App\Services\GuardianService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -78,6 +79,7 @@ class GuardianController extends Controller
             'superadmin.guardians.edit',
             [
                 'guardian' => $guardian,
+                'students' => $this->studentOptions($guardian->student_id),
             ]
         );
     }
@@ -115,5 +117,20 @@ class GuardianController extends Controller
                 'success',
                 'Guardian berhasil dihapus.'
             );
+    }
+
+    private function studentOptions(?string $currentStudentId = null)
+    {
+        return Student::query()
+            ->where(function ($query) use ($currentStudentId) {
+                $query->where('status', 'active');
+
+                if ($currentStudentId) {
+                    $query->orWhere('id', $currentStudentId);
+                }
+            })
+            ->with('portalUser')
+            ->orderBy('full_name')
+            ->get();
     }
 }

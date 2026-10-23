@@ -7,6 +7,7 @@ use App\Models\LessonSession;
 use App\Models\Program;
 use App\Models\SessionStudent;
 use App\Models\Student;
+use App\Models\StudentEnrollment;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,10 +25,10 @@ class SessionStudentHttpTest extends TestCase
     ): User {
         return User::query()->create([
             'id' => (string) Str::uuid(),
-            'username' => $roleCode . '_' . Str::lower(Str::random(8)),
-            'email' => Str::uuid() . '@example.com',
+            'username' => $roleCode.'_'.Str::lower(Str::random(8)),
+            'email' => Str::uuid().'@example.com',
             'password_hash' => Hash::make('password'),
-            'full_name' => 'Test ' . ucfirst($roleCode),
+            'full_name' => 'Test '.ucfirst($roleCode),
             'role_code' => $roleCode,
             'is_active' => $isActive,
         ]);
@@ -67,7 +68,7 @@ class SessionStudentHttpTest extends TestCase
     {
         return Branch::query()->create([
             'id' => (string) Str::uuid(),
-            'code' => 'BR-' . Str::upper(Str::random(6)),
+            'code' => 'BR-'.Str::upper(Str::random(6)),
             'name' => 'Test Branch',
             'address' => null,
             'timezone_name' => 'Asia/Makassar',
@@ -80,7 +81,7 @@ class SessionStudentHttpTest extends TestCase
     {
         return Program::query()->create([
             'id' => (string) Str::uuid(),
-            'code' => 'PRG-' . Str::upper(Str::random(6)),
+            'code' => 'PRG-'.Str::upper(Str::random(6)),
             'name' => 'Test Program',
             'class_type' => 'private',
             'monthly_video_target_override' => null,
@@ -94,7 +95,7 @@ class SessionStudentHttpTest extends TestCase
         $teacher = $this->makeTeacher();
         $program = $this->makeProgram();
 
-        $session = new LessonSession();
+        $session = new LessonSession;
 
         $session->forceFill([
             'id' => (string) Str::uuid(),
@@ -137,8 +138,8 @@ class SessionStudentHttpTest extends TestCase
     public function test_guest_cannot_access_session_students(): void
     {
         $response = $this->getJson(
-            '/superadmin/session-students/' .
-                Str::uuid() . '/' .
+            '/superadmin/session-students/'.
+                Str::uuid().'/'.
                 Str::uuid()
         );
 
@@ -150,8 +151,8 @@ class SessionStudentHttpTest extends TestCase
         $user = $this->makeUser('teacher');
 
         $response = $this->actingAs($user)->getJson(
-            '/superadmin/session-students/' .
-                Str::uuid() . '/' .
+            '/superadmin/session-students/'.
+                Str::uuid().'/'.
                 Str::uuid()
         );
 
@@ -164,6 +165,7 @@ class SessionStudentHttpTest extends TestCase
         $session = $this->makeLessonSession();
         $student = $this->makeStudent();
 
+        StudentEnrollment::create(['id' => (string) Str::uuid(), 'student_id' => $student->id, 'branch_id' => $session->branch_id, 'program_id' => $session->program_id, 'starts_on' => $student->began_on->toDateString()]);
         $response = $this->actingAs($user)->postJson(
             '/superadmin/session-students',
             [
@@ -207,8 +209,8 @@ class SessionStudentHttpTest extends TestCase
         $sessionStudent = $this->makeEvent();
 
         $response = $this->actingAs($user)->getJson(
-            '/superadmin/session-students/' .
-                $sessionStudent->session_id . '/' .
+            '/superadmin/session-students/'.
+                $sessionStudent->session_id.'/'.
                 $sessionStudent->student_id
         );
 
@@ -244,8 +246,8 @@ class SessionStudentHttpTest extends TestCase
         );
 
         $response = $this->actingAs($user)->getJson(
-            '/superadmin/lesson-sessions/' .
-                $session->id .
+            '/superadmin/lesson-sessions/'.
+                $session->id.
                 '/students'
         );
 
@@ -270,8 +272,8 @@ class SessionStudentHttpTest extends TestCase
         );
 
         $response = $this->actingAs($user)->getJson(
-            '/superadmin/students/' .
-                $student->id .
+            '/superadmin/students/'.
+                $student->id.
                 '/lesson-sessions'
         );
 
@@ -286,14 +288,16 @@ class SessionStudentHttpTest extends TestCase
         $sessionStudent = $this->makeEvent();
 
         $response = $this->actingAs($user)->putJson(
-            '/superadmin/session-students/' .
-                $sessionStudent->session_id . '/' .
+            '/superadmin/session-students/'.
+                $sessionStudent->session_id.'/'.
                 $sessionStudent->student_id,
             [
                 'session_id' => $sessionStudent->session_id,
                 'student_id' => $sessionStudent->student_id,
                 'attendance_status' => 'absent',
                 'individual_learning_note' => 'Updated note.',
+                'expected_version' => 0,
+                'correction_reason' => 'Koreksi catatan pertemuan.',
                 'recorded_at' => now()->toDateTimeString(),
             ]
         );
@@ -325,25 +329,20 @@ class SessionStudentHttpTest extends TestCase
         ]);
     }
 
-    public function test_can_destroy_session_student(): void
+    public function test_cannot_destroy_recorded_student_attendance(): void
     {
         $user = $this->makeUser('superadmin');
         $sessionStudent = $this->makeEvent();
 
         $response = $this->actingAs($user)->deleteJson(
-            '/superadmin/session-students/' .
-                $sessionStudent->session_id . '/' .
+            '/superadmin/session-students/'.
+                $sessionStudent->session_id.'/'.
                 $sessionStudent->student_id
         );
 
-        $response
-            ->assertOk()
-            ->assertJsonPath(
-                'message',
-                'Session student deleted successfully.'
-            );
+        $response->assertUnprocessable()->assertJsonValidationErrors('attendance_status');
 
-        $this->assertDatabaseMissing('session_students', [
+        $this->assertDatabaseHas('session_students', [
             'session_id' => $sessionStudent->session_id,
             'student_id' => $sessionStudent->student_id,
         ]);

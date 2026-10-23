@@ -1,0 +1,16 @@
+.dpe-series-days { margin: 0; padding: 16px; border: 1px solid var(--dpe-dashboard-border, #dbe4ef); border-radius: 10px; }
+.dpe-series-days legend { padding: 0 6px; }
+.dpe-series-days > div, .dpe-series-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.dpe-series-days label, .dpe-series-exclusion { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; }
+.dpe-dashboard-field.dpe-series-days label { display: inline-flex; margin-bottom: 0; }
+.dpe-dashboard-field.dpe-series-days input[type="checkbox"], .dpe-series-exclusion input[type="checkbox"] { width: 18px; height: 18px; min-height: 18px; flex: 0 0 18px; padding: 0; margin: 0; border-radius: 3px; accent-color: var(--dpe-dashboard-primary); cursor: pointer; }
+.dpe-dashboard-field.dpe-series-days input[type="checkbox"]:focus { box-shadow: none; }
+.dpe-dashboard-field.dpe-series-days input[type="checkbox"]:focus-visible { outline: 2px solid var(--dpe-dashboard-primary); outline-offset: 3px; }
+.dpe-series-table { min-width: 740px; }
+.dpe-series-table td { vertical-align: top; }
+.dpe-series-table td > small { display: block; margin-top: 6px; max-width: 32rem; white-space: normal; overflow-wrap: anywhere; color: var(--dpe-dashboard-muted); font-size: 13px; line-height: 1.6; }
+.dpe-series-history { margin-top: 24px; }
+.dpe-teacher-date-group + .dpe-teacher-date-group { margin-top: 24px; }
+.dpe-teacher-date-group > h3 { margin: 0 0 14px; font-size: 16px; line-height: 1.5; }
+.dpe-dashboard-page-header__actions[aria-label="Jenis jadwal"] { justify-content: flex-start; margin-bottom: 20px; }
+.dpe-series-preview .dpe-dashboard-form-actions { flex-wrap: wrap; gap: 12px; }

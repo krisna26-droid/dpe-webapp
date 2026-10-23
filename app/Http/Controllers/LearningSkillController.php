@@ -18,6 +18,7 @@ class LearningSkillController extends Controller
     public function index(): View
     {
         $learningSkills = LearningSkill::query()
+            ->withCount('reportSkills')
             ->orderBy('display_order')
             ->orderBy('name')
             ->paginate(15);
@@ -54,6 +55,8 @@ class LearningSkillController extends Controller
     public function show(
         LearningSkill $learningSkill
     ): View {
+        $learningSkill->loadCount('reportSkills');
+
         return view(
             'learning-skills.show',
             compact('learningSkill')

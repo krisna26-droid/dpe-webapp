@@ -5,15 +5,15 @@ namespace App\Http\Controllers\SuperAdmin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SuperAdmin\StoreUserRequest;
 use App\Http\Requests\SuperAdmin\UpdateUserRequest;
+use App\Models\Student;
+use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Http\Request;
-use App\Models\Student;
-use App\Models\Teacher;
-use Illuminate\Support\Facades\DB;  
 
 class UserController extends Controller
 {
@@ -38,7 +38,7 @@ class UserController extends Controller
     {
         $validated = $request->validated();
 
-        User::create([
+        $user = User::create([
             'id' => (string) Str::uuid(),
             'username' => $validated['username'],
             'email' => $validated['email'] ?? null,
@@ -48,9 +48,23 @@ class UserController extends Controller
             'is_active' => $validated['is_active'] ?? true,
         ]);
 
-        return redirect()
+        $response = redirect()
             ->route('superadmin.users.index')
-            ->with('success', 'User berhasil dibuat.');
+            ->with('success', 'Pengguna berhasil dibuat.');
+
+        if ($user->role_code === 'student' && $user->is_active) {
+            $response->with('created_student_user_id', $user->id);
+        }
+
+        if ($user->role_code === 'teacher' && $user->is_active) {
+            $response->with('created_teacher_user_id', $user->id);
+        }
+
+        if ($user->role_code === 'admin' && $user->is_active) {
+            $response->with('created_admin_user_id', $user->id);
+        }
+
+        return $response;
     }
 
     public function show(User $user): View
@@ -67,14 +81,13 @@ class UserController extends Controller
         ]);
     }
 
-    
     public function update(
         UpdateUserRequest $request,
         User $user
     ): RedirectResponse {
         $validated = $request->validated();
 
-        return DB::transaction(function () use ($validated, $user) {
+        return DB::transaction(function () use ($validated, $user, $request) {
             // Kunci data SuperAdmin aktif sebelum memeriksa jumlahnya.
             $activeSuperadmins = User::query()
                 ->where('role_code', 'superadmin')
@@ -95,6 +108,10 @@ class UserController extends Controller
                 FILTER_VALIDATE_BOOLEAN
             );
 
+            if ($target->id === $request->user()->id && ($newRole !== 'superadmin' || ! $newStatus)) {
+                return back()->withErrors(['user' => 'Super Admin tidak dapat menonaktifkan atau mengubah role akunnya sendiri.'])->withInput();
+            }
+
             // Akun siswa harus tetap menggunakan role student.
             $hasStudentProfile = Student::query()
                 ->where('portal_user_id', $target->id)
@@ -103,8 +120,7 @@ class UserController extends Controller
             if ($hasStudentProfile && $newRole !== 'student') {
                 return back()
                     ->withErrors([
-                        'role_code' =>
-                            'Role akun tidak dapat diubah karena akun terhubung dengan profil siswa.',
+                        'role_code' => 'Role akun tidak dapat diubah karena akun terhubung dengan profil siswa.',
                     ])
                     ->withInput();
             }
@@ -117,8 +133,7 @@ class UserController extends Controller
             if ($hasTeacherProfile && $newRole !== 'teacher') {
                 return back()
                     ->withErrors([
-                        'role_code' =>
-                            'Role akun tidak dapat diubah karena akun terhubung dengan profil guru.',
+                        'role_code' => 'Role akun tidak dapat diubah karena akun terhubung dengan profil guru.',
                     ])
                     ->withInput();
             }
@@ -140,8 +155,7 @@ class UserController extends Controller
             ) {
                 return back()
                     ->withErrors([
-                        'user' =>
-                            'SuperAdmin aktif terakhir tidak dapat dinonaktifkan atau diturunkan rolenya.',
+                        'user' => 'SuperAdmin aktif terakhir tidak dapat dinonaktifkan atau diturunkan rolenya.',
                     ])
                     ->withInput();
             }
@@ -168,8 +182,6 @@ class UserController extends Controller
         });
     }
 
-
-    
     public function toggleStatus(
         Request $request,
         User $user
@@ -194,8 +206,7 @@ class UserController extends Controller
             if ($target->id === $request->user()->id) {
                 return back()
                     ->withErrors([
-                        'user' =>
-                            'SuperAdmin tidak dapat mengubah status akunnya sendiri melalui fitur ini.',
+                        'user' => 'SuperAdmin tidak dapat mengubah status akunnya sendiri melalui fitur ini.',
                     ])
                     ->withInput();
             }
@@ -208,8 +219,7 @@ class UserController extends Controller
             ) {
                 return back()
                     ->withErrors([
-                        'user' =>
-                            'SuperAdmin aktif terakhir tidak dapat dinonaktifkan.',
+                        'user' => 'SuperAdmin aktif terakhir tidak dapat dinonaktifkan.',
                     ])
                     ->withInput();
             }
@@ -228,5 +238,4 @@ class UserController extends Controller
                 );
         });
     }
-
 }

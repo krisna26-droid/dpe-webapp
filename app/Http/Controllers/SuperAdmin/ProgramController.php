@@ -16,6 +16,10 @@ class ProgramController extends Controller
     public function index(): View
     {
         $programs = Program::query()
+            ->withCount([
+                'classGroups',
+                'enrollments',
+            ])
             ->orderBy('name')
             ->paginate(15);
 
@@ -50,6 +54,11 @@ class ProgramController extends Controller
 
     public function show(Program $program): View
     {
+        $program->loadCount([
+            'classGroups',
+            'enrollments',
+        ]);
+
         return view('superadmin.programs.show', [
             'program' => $program,
         ]);

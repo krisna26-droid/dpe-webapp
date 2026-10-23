@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\TeacherMessage\StoreTeacherMessageRequest;
 use App\Http\Requests\TeacherMessage\UpdateTeacherMessageRequest;
+use App\Models\FileAsset;
+use App\Models\LessonSession;
+use App\Models\Student;
+use App\Models\Teacher;
 use App\Models\TeacherMessage;
 use App\Services\TeacherMessageService;
 use Illuminate\Http\RedirectResponse;
@@ -19,9 +23,10 @@ class TeacherMessageController extends Controller
     {
         $teacherMessages = TeacherMessage::query()
             ->with([
-                'student',
-                'teacher',
-                'session',
+                'student.portalUser',
+                'teacher.user',
+                'session.branch',
+                'session.program',
                 'attachment',
             ])
             ->latest('created_at')
@@ -35,7 +40,10 @@ class TeacherMessageController extends Controller
 
     public function create(): View
     {
-        return view('teacher-messages.create');
+        return view(
+            'teacher-messages.create',
+            $this->formOptions()
+        );
     }
 
     public function store(
@@ -60,9 +68,12 @@ class TeacherMessageController extends Controller
         TeacherMessage $teacherMessage
     ): View {
         $teacherMessage->load([
-            'student',
-            'teacher',
-            'session',
+            'student.portalUser',
+            'teacher.user',
+            'session.branch',
+            'session.teacher.user',
+            'session.program',
+            'session.classGroup',
             'attachment',
         ]);
 
@@ -76,15 +87,21 @@ class TeacherMessageController extends Controller
         TeacherMessage $teacherMessage
     ): View {
         $teacherMessage->load([
-            'student',
-            'teacher',
-            'session',
+            'student.portalUser',
+            'teacher.user',
+            'session.branch',
+            'session.teacher.user',
+            'session.program',
+            'session.classGroup',
             'attachment',
         ]);
 
         return view(
             'teacher-messages.edit',
-            compact('teacherMessage')
+            [
+                'teacherMessage' => $teacherMessage,
+                ...$this->formOptions($teacherMessage),
+            ]
         );
     }
 
@@ -123,5 +140,79 @@ class TeacherMessageController extends Controller
                 'success',
                 'Teacher message berhasil dihapus.'
             );
+    }
+
+    private function formOptions(?TeacherMessage $current = null): array
+    {
+        $students = Student::query()
+            ->where(function ($query) use ($current) {
+                $query->where('status', 'active');
+
+                if ($current?->student_id !== null) {
+                    $query->orWhere('id', $current->student_id);
+                }
+            })
+            ->with('portalUser')
+            ->orderBy('full_name')
+            ->get();
+
+        $selectedTeacherId = $current?->teacher_id;
+        $teachers = Teacher::query()
+            ->where(function ($query) use ($selectedTeacherId) {
+                $query->where('is_active', true);
+
+                if ($selectedTeacherId !== null) {
+                    $query->orWhere('id', $selectedTeacherId);
+                }
+            })
+            ->with('user')
+            ->get()
+            ->sortBy(function (Teacher $teacher) {
+                return mb_strtolower((string) (
+                    $teacher->user?->full_name
+                    ?: $teacher->user?->username
+                    ?: $teacher->id
+                ));
+            })
+            ->values();
+
+        $selectedSessionId = $current?->session_id;
+        $sessions = LessonSession::query()
+            ->where(function ($query) use ($selectedSessionId) {
+                $query->whereNotNull('id');
+
+                if ($selectedSessionId !== null) {
+                    $query->orWhere('id', $selectedSessionId);
+                }
+            })
+            ->with([
+                'branch',
+                'teacher.user',
+                'program',
+                'classGroup',
+            ])
+            ->orderByDesc('planned_start_at')
+            ->limit(200)
+            ->get();
+
+        $selectedAttachmentId = $current?->attachment_file_id;
+        $attachments = FileAsset::query()
+            ->where(function ($query) use ($selectedAttachmentId) {
+                $query->whereNotNull('original_name');
+
+                if ($selectedAttachmentId !== null) {
+                    $query->orWhere('id', $selectedAttachmentId);
+                }
+            })
+            ->latest('created_at')
+            ->limit(200)
+            ->get();
+
+        return [
+            'students' => $students,
+            'teachers' => $teachers,
+            'sessions' => $sessions,
+            'attachments' => $attachments,
+        ];
     }
 }

@@ -6,7 +6,9 @@ use App\Http\Requests\SessionStudentStoreRequest;
 use App\Models\LessonSession;
 use App\Models\Student;
 use App\Services\SessionStudentService;
+use App\Services\StudentAttendanceService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
 
 class SessionStudentController extends Controller
 {
@@ -17,8 +19,13 @@ class SessionStudentController extends Controller
     public function store(
         SessionStudentStoreRequest $request
     ): JsonResponse {
-        $sessionStudent = $this->service->create(
-            $request->validated()
+        $data = $request->validated();
+        $sessionStudent = app(StudentAttendanceService::class)->record(
+            $request->user() ?? auth()->user(),
+            LessonSession::query()->findOrFail($data['session_id']),
+            Student::query()->findOrFail($data['student_id']),
+            $data,
+            true
         );
 
         return response()->json($sessionStudent, 201);
@@ -63,10 +70,16 @@ class SessionStudentController extends Controller
         string $sessionId,
         string $studentId
     ): JsonResponse {
-        $sessionStudent = $this->service->update(
-            $sessionId,
-            $studentId,
-            $request->validated()
+        $data = $request->validated();
+        if ($data['session_id'] !== $sessionId || $data['student_id'] !== $studentId) {
+            throw ValidationException::withMessages(['student_id' => 'Identitas siswa dan pertemuan pada catatan tidak dapat dipindahkan.']);
+        }
+        $this->service->find($sessionId, $studentId);
+        $sessionStudent = app(StudentAttendanceService::class)->record(
+            $request->user() ?? auth()->user(),
+            LessonSession::query()->findOrFail($sessionId),
+            Student::query()->findOrFail($studentId),
+            $data
         );
 
         return response()->json($sessionStudent);
@@ -76,9 +89,10 @@ class SessionStudentController extends Controller
         string $sessionId,
         string $studentId
     ): JsonResponse {
-        $this->service->delete(
-            $sessionId,
-            $studentId
+        app(StudentAttendanceService::class)->removeBlankParticipant(
+            auth()->user(),
+            LessonSession::query()->findOrFail($sessionId),
+            Student::query()->findOrFail($studentId)
         );
 
         return response()->json([

@@ -2,18 +2,23 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\SessionStudentController;
 use App\Http\Requests\SessionStudentStoreRequest;
 use App\Models\Branch;
 use App\Models\LessonSession;
 use App\Models\Program;
 use App\Models\SessionStudent;
 use App\Models\Student;
+use App\Models\StudentEnrollment;
 use App\Models\Teacher;
 use App\Models\User;
 use App\Services\SessionStudentService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class SessionStudentControllerTest extends TestCase
@@ -27,6 +32,7 @@ class SessionStudentControllerTest extends TestCase
         parent::setUp();
 
         $this->service = app(SessionStudentService::class);
+        $this->actingAs($this->makeUser());
     }
 
     private function makeUser(
@@ -35,10 +41,10 @@ class SessionStudentControllerTest extends TestCase
     ): User {
         return User::query()->create([
             'id' => (string) Str::uuid(),
-            'username' => $roleCode . '_' . Str::lower(Str::random(8)),
-            'email' => Str::uuid() . '@example.com',
+            'username' => $roleCode.'_'.Str::lower(Str::random(8)),
+            'email' => Str::uuid().'@example.com',
             'password_hash' => Hash::make('password'),
-            'full_name' => 'Test ' . ucfirst($roleCode),
+            'full_name' => 'Test '.ucfirst($roleCode),
             'role_code' => $roleCode,
             'is_active' => $isActive,
         ]);
@@ -78,7 +84,7 @@ class SessionStudentControllerTest extends TestCase
     {
         return Branch::query()->create([
             'id' => (string) Str::uuid(),
-            'code' => 'BR-' . Str::upper(Str::random(6)),
+            'code' => 'BR-'.Str::upper(Str::random(6)),
             'name' => 'Test Branch',
             'address' => null,
             'timezone_name' => 'Asia/Makassar',
@@ -91,7 +97,7 @@ class SessionStudentControllerTest extends TestCase
     {
         return Program::query()->create([
             'id' => (string) Str::uuid(),
-            'code' => 'PRG-' . Str::upper(Str::random(6)),
+            'code' => 'PRG-'.Str::upper(Str::random(6)),
             'name' => 'Test Program',
             'class_type' => 'private',
             'monthly_video_target_override' => null,
@@ -105,7 +111,7 @@ class SessionStudentControllerTest extends TestCase
         $teacher = $this->makeTeacher();
         $program = $this->makeProgram();
 
-        $session = new LessonSession();
+        $session = new LessonSession;
 
         $session->forceFill([
             'id' => (string) Str::uuid(),
@@ -156,7 +162,7 @@ class SessionStudentControllerTest extends TestCase
         $request->setContainer(app());
         $request->merge($data);
 
-        $validator = \Illuminate\Support\Facades\Validator::make(
+        $validator = Validator::make(
             $data,
             $request->rules()
         );
@@ -168,11 +174,12 @@ class SessionStudentControllerTest extends TestCase
 
     public function test_store_returns_created_session_student(): void
     {
-        $controller = app(\App\Http\Controllers\SessionStudentController::class);
+        $controller = app(SessionStudentController::class);
 
         $session = $this->makeLessonSession();
         $student = $this->makeStudent();
 
+        StudentEnrollment::create(['id' => (string) Str::uuid(), 'student_id' => $student->id, 'branch_id' => $session->branch_id, 'program_id' => $session->program_id, 'starts_on' => $student->began_on->toDateString()]);
         $request = $this->makeRequest([
             'session_id' => $session->id,
             'student_id' => $student->id,
@@ -205,7 +212,7 @@ class SessionStudentControllerTest extends TestCase
 
     public function test_show_returns_session_student(): void
     {
-        $controller = app(\App\Http\Controllers\SessionStudentController::class);
+        $controller = app(SessionStudentController::class);
 
         $sessionStudent = $this->makeEvent();
 
@@ -231,7 +238,7 @@ class SessionStudentControllerTest extends TestCase
 
     public function test_by_session_returns_session_students(): void
     {
-        $controller = app(\App\Http\Controllers\SessionStudentController::class);
+        $controller = app(SessionStudentController::class);
 
         $session = $this->makeLessonSession();
         $studentOne = $this->makeStudent();
@@ -264,7 +271,7 @@ class SessionStudentControllerTest extends TestCase
 
     public function test_by_student_returns_session_students(): void
     {
-        $controller = app(\App\Http\Controllers\SessionStudentController::class);
+        $controller = app(SessionStudentController::class);
 
         $sessionOne = $this->makeLessonSession();
         $sessionTwo = $this->makeLessonSession();
@@ -297,7 +304,7 @@ class SessionStudentControllerTest extends TestCase
 
     public function test_update_returns_updated_session_student(): void
     {
-        $controller = app(\App\Http\Controllers\SessionStudentController::class);
+        $controller = app(SessionStudentController::class);
 
         $sessionStudent = $this->makeEvent();
 
@@ -306,6 +313,8 @@ class SessionStudentControllerTest extends TestCase
             'student_id' => $sessionStudent->student_id,
             'attendance_status' => 'absent',
             'individual_learning_note' => 'Updated note.',
+            'expected_version' => 0,
+            'correction_reason' => 'Koreksi catatan pertemuan.',
             'recorded_at' => now()->toDateTimeString(),
         ], 'PUT');
 
@@ -330,38 +339,25 @@ class SessionStudentControllerTest extends TestCase
         );
     }
 
-    public function test_destroy_deletes_session_student(): void
+    public function test_destroy_refuses_recorded_attendance(): void
     {
-        $controller = app(\App\Http\Controllers\SessionStudentController::class);
+        $controller = app(SessionStudentController::class);
 
         $sessionStudent = $this->makeEvent();
 
-        $response = $controller->destroy(
+        $this->expectException(ValidationException::class);
+        $controller->destroy(
             $sessionStudent->session_id,
             $sessionStudent->student_id
         );
-
-        $this->assertSame(200, $response->getStatusCode());
-
-        $data = $response->getData(true);
-
-        $this->assertSame(
-            'Session student deleted successfully.',
-            $data['message']
-        );
-
-        $this->assertDatabaseMissing('session_students', [
-            'session_id' => $sessionStudent->session_id,
-            'student_id' => $sessionStudent->student_id,
-        ]);
     }
 
     public function test_show_throws_when_session_student_does_not_exist(): void
     {
-        $controller = app(\App\Http\Controllers\SessionStudentController::class);
+        $controller = app(SessionStudentController::class);
 
         $this->expectException(
-            \Illuminate\Database\Eloquent\ModelNotFoundException::class
+            ModelNotFoundException::class
         );
 
         $controller->show(

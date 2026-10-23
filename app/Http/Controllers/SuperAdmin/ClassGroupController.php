@@ -9,27 +9,17 @@ use App\Models\Branch;
 use App\Models\ClassGroup;
 use App\Models\Program;
 use App\Models\Teacher;
+use App\Services\ClassGroupFilterService;
 use App\Services\ClassGroupService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class ClassGroupController extends Controller
 {
-    public function index(): View
+    public function index(Request $request, ClassGroupFilterService $filters): View
     {
-        $classGroups = ClassGroup::query()
-            ->with([
-                'branch',
-                'program',
-                'defaultTeacher',
-            ])
-            ->orderBy('branch_id')
-            ->orderBy('code')
-            ->paginate(15);
-
-        return view('superadmin.class-groups.index', [
-            'classGroups' => $classGroups,
-        ]);
+        return view('superadmin.class-groups.index', $filters->listing($request));
     }
 
     public function create(): View
@@ -45,10 +35,7 @@ class ClassGroupController extends Controller
                 ->orderBy('name')
                 ->get(),
 
-            'teachers' => Teacher::query()
-                ->where('is_active', true)
-                ->orderBy('full_name')
-                ->get(),
+            'teachers' => $this->teacherOptions(),
         ]);
     }
 
@@ -77,8 +64,8 @@ class ClassGroupController extends Controller
         $classGroup->load([
             'branch',
             'program',
-            'defaultTeacher',
-            'memberships.student',
+            'defaultTeacher.user',
+            'memberships.student.portalUser',
         ]);
 
         return view('superadmin.class-groups.show', [
@@ -104,14 +91,9 @@ class ClassGroupController extends Controller
                 ->orderBy('name')
                 ->get(),
 
-            'teachers' => Teacher::query()
-                ->where('is_active', true)
-                ->orWhere(
-                    'id',
-                    $classGroup->default_teacher_id
-                )
-                ->orderBy('full_name')
-                ->get(),
+            'teachers' => $this->teacherOptions(
+                $classGroup->default_teacher_id
+            ),
         ]);
     }
 
@@ -153,5 +135,30 @@ class ClassGroupController extends Controller
                     ? 'Class group berhasil diaktifkan.'
                     : 'Class group berhasil dinonaktifkan.'
             );
+    }
+
+    /**
+     * Return active teachers sorted by the related portal user's display name.
+     * The teachers table stores user_id, not full_name.
+     */
+    private function teacherOptions(?string $selectedId = null)
+    {
+        return Teacher::query()
+            ->with('user')
+            ->where(function ($query) use ($selectedId) {
+                $query->where('is_active', true);
+
+                if ($selectedId !== null) {
+                    $query->orWhere('id', $selectedId);
+                }
+            })
+            ->get()
+            ->sortBy(function (Teacher $teacher) {
+                return mb_strtolower(
+                    $teacher->user?->full_name
+                        ?: ($teacher->user?->username ?: $teacher->id)
+                );
+            })
+            ->values();
     }
 }

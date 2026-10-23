@@ -1,0 +1,28 @@
+@extends('layouts.dashboard')
+@section('title', 'Pengaturan Akun')
+@section('heading', 'Pengaturan Akun')
+@section('description', 'Periksa informasi akun dan perbarui kata sandi Anda.')
+@push('scripts')<script src="{{ asset('assets/dpe/own-account.js') }}?v={{ filemtime(public_path('assets/dpe/own-account.js')) }}" defer></script>@endpush
+@section('content')
+    <section class="dpe-dashboard-page-header"><div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">{{ $role === 'teacher' ? 'Teacher' : 'Siswa / Parent' }} / Akun Saya</p><h2>Kelola keamanan akun Anda.</h2><p>Gunakan kata sandi yang hanya diketahui oleh pemilik akun.</p></div><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($role.'.dashboard') }}"><x-dashboard.icon name="back" />Kembali ke dashboard</a></section>
+    <div class="dpe-account-stack">
+        <article class="dpe-dashboard-card"><header class="dpe-dashboard-card__head"><div><h2>Informasi akun</h2><p>{{ $role === 'teacher' ? 'Akun Teacher yang sedang login.' : 'Satu akun portal terhubung ke satu anak.' }}</p></div></header><div class="dpe-dashboard-card__body"><div class="dpe-dashboard-detail-grid">
+            <div class="dpe-dashboard-detail"><p class="dpe-dashboard-detail__label">Nama akun</p><p class="dpe-dashboard-detail__value">{{ $actor->full_name }}</p></div>
+            <div class="dpe-dashboard-detail"><p class="dpe-dashboard-detail__label">Nama pengguna</p><p class="dpe-dashboard-detail__value">{{ $actor->username }}</p></div>
+            <div class="dpe-dashboard-detail"><p class="dpe-dashboard-detail__label">Email</p><p class="dpe-dashboard-detail__value">{{ $actor->email ?: 'Belum diisi' }}</p></div>
+            <div class="dpe-dashboard-detail"><p class="dpe-dashboard-detail__label">{{ $role === 'teacher' ? 'Peran' : 'Siswa terkait' }}</p><p class="dpe-dashboard-detail__value">{{ $role === 'teacher' ? 'Teacher' : ($student?->full_name ?: 'Profil anak belum terhubung') }}</p></div>
+        </div><div class="dpe-account-actions">@if($role === 'teacher')<a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route('teacher.profile.show') }}">Buka Profil Saya</a>@elseif($student)<a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route('student.profile') }}">Buka Profil Siswa</a>@endif</div></div></article>
+        <article class="dpe-dashboard-card"><header class="dpe-dashboard-card__head"><div><h2>Ubah kata sandi</h2><p>Minimal 8 karakter dengan kombinasi huruf dan angka. Maksimal 72 karakter.</p></div></header><div class="dpe-dashboard-card__body">
+            <form method="POST" action="{{ route($role.'.settings.password') }}" class="dpe-dashboard-form dpe-account-stack" data-confirm-form data-confirm-title="Ubah kata sandi?" data-confirm-message="Setelah tersimpan, Anda akan keluar dari akun dan perlu masuk dengan kata sandi baru." data-confirm-action="Ya, ubah kata sandi">
+                @csrf @method('PUT')
+                <div class="dpe-dashboard-field"><label for="account-current">Kata sandi lama <span>*</span></label><div class="dpe-account-password"><input id="account-current" name="current_password" type="password" required maxlength="255" autocomplete="current-password"><button type="button" class="dpe-account-password-toggle" data-account-toggle="account-current" data-account-label="kata sandi lama" aria-controls="account-current" aria-label="Tampilkan kata sandi lama" aria-pressed="false" hidden><x-dpe.icon name="eye" /></button></div>@error('current_password')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror</div>
+                <div class="dpe-dashboard-form-grid">
+                    <div class="dpe-dashboard-field"><label for="account-password">Kata sandi baru <span>*</span></label><div class="dpe-account-password"><input id="account-password" name="password" type="password" required minlength="8" maxlength="72" autocomplete="new-password"><button type="button" class="dpe-account-password-toggle" data-account-toggle="account-password" data-account-label="kata sandi baru" aria-controls="account-password" aria-label="Tampilkan kata sandi baru" aria-pressed="false" hidden><x-dpe.icon name="eye" /></button></div>@error('password')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror</div>
+                    <div class="dpe-dashboard-field"><label for="account-confirmation">Konfirmasi kata sandi baru <span>*</span></label><div class="dpe-account-password"><input id="account-confirmation" name="password_confirmation" type="password" required minlength="8" maxlength="72" autocomplete="new-password"><button type="button" class="dpe-account-password-toggle" data-account-toggle="account-confirmation" data-account-label="konfirmasi kata sandi baru" aria-controls="account-confirmation" aria-label="Tampilkan konfirmasi kata sandi baru" aria-pressed="false" hidden><x-dpe.icon name="eye" /></button></div>@error('password_confirmation')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror</div>
+                </div>
+                <div class="dpe-account-notice"><p>Setelah kata sandi berhasil diubah, Anda diminta masuk kembali menggunakan kata sandi baru. Jika lupa kata sandi lama, hubungi Admin cabang Anda.</p></div>
+                <div class="dpe-account-actions"><button type="submit" class="dpe-dashboard-button dpe-dashboard-button--primary">Simpan kata sandi baru</button><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($role.'.dashboard') }}">Batal</a></div>
+            </form>
+        </div></article>
+    </div>
+@endsection

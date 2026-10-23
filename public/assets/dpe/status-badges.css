@@ -1,0 +1,21 @@
+.dpe-dashboard-status.dpe-dashboard-badge {
+    justify-content: center;
+    max-width: 100%;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.45;
+    border: 1px solid transparent;
+}
+.dpe-dashboard-status.dpe-dashboard-status--success { color: #166534; background: #dcfce7; border-color: #a7e3b8; }
+.dpe-dashboard-status.dpe-dashboard-status--warning { color: #92400e; background: #fff3df; border-color: #f5d08b; }
+.dpe-dashboard-status.dpe-dashboard-status--danger { color: #991b1b; background: #fee2e2; border-color: #f3b2b2; }
+.dpe-dashboard-status.dpe-dashboard-status--info { color: #1e40af; background: #e8efff; border-color: #b8caf6; }
+.dpe-dashboard-status.dpe-dashboard-badge strong { color: inherit; font-size: inherit; }
+.dpe-dashboard-status.dpe-dashboard-badge a { color: inherit; }
+.dpe-dashboard-metric__value .dpe-dashboard-status { vertical-align: middle; font-size: 16px; }
+.dpe-settings-summary .dpe-dashboard-status { gap: 8px; }
+.dpe-settings-summary .dpe-dashboard-status strong { margin-right: 0; }
+@media (forced-colors: active) {
+    .dpe-dashboard-status.dpe-dashboard-badge { border-color: CanvasText; }
+}

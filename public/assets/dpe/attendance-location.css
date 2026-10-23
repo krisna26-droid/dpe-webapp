@@ -1,0 +1,10 @@
+.dpe-attendance-location { display: grid; gap: 10px; min-width: 0; justify-items: start; }
+.dpe-dashboard-detail--location { display: grid; grid-template-rows: auto 1fr; }
+.dpe-dashboard-detail--location > .dpe-attendance-location { margin-top: 6px; grid-template-rows: 1fr auto auto auto; }
+.dpe-attendance-location p { margin: 0; max-width: 100%; overflow-wrap: anywhere; }
+.dpe-attendance-location__coordinates { color: var(--dpe-dashboard-muted); font-size: 13px; line-height: 1.5; }
+.dpe-attendance-location__map { min-height: 38px; padding: 8px 12px; gap: 8px; }
+.dpe-attendance-location__credit { color: var(--dpe-dashboard-muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.dpe-attendance-location__credit a { color: inherit; text-decoration: underline; }
+/* Reserve equal attribution space while either address is still loading. */
+.dpe-attendance-location .dpe-attendance-location__credit[hidden] { display: block !important; visibility: hidden; }

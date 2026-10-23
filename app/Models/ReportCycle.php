@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ReportCycle extends Model
 {
@@ -14,10 +15,13 @@ class ReportCycle extends Model
     protected $table = 'report_cycles';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     const CREATED_AT = 'created_at';
+
     const UPDATED_AT = null;
 
     protected $fillable = [
@@ -60,5 +64,10 @@ class ReportCycle extends Model
             'cycle_id',
             'id'
         );
+    }
+
+    public function quarterlyReport(): HasOne
+    {
+        return $this->hasOne(QuarterlyReport::class, 'cycle_id');
     }
 }

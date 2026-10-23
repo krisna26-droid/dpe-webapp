@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\LessonSession;
 use App\Models\SessionStudent;
 use App\Models\Student;
+use App\Models\StudentAttendanceAudit;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SessionStudentService
 {
@@ -56,6 +58,7 @@ class SessionStudentService
             $studentId,
             $data
         ) {
+            $this->protectAttendanceHistory($sessionId, $studentId);
             $this->find($sessionId, $studentId);
 
             DB::table('session_students')
@@ -64,12 +67,9 @@ class SessionStudentService
                 ->update([
                     'session_id' => $data['session_id'],
                     'student_id' => $data['student_id'],
-                    'attendance_status' =>
-                    $data['attendance_status'] ?? null,
-                    'individual_learning_note' =>
-                    $data['individual_learning_note'] ?? null,
-                    'recorded_at' =>
-                    $data['recorded_at'] ?? null,
+                    'attendance_status' => $data['attendance_status'] ?? null,
+                    'individual_learning_note' => $data['individual_learning_note'] ?? null,
+                    'recorded_at' => $data['recorded_at'] ?? null,
                 ]);
 
             return $this->find(
@@ -87,6 +87,7 @@ class SessionStudentService
             $sessionId,
             $studentId
         ) {
+            $this->protectAttendanceHistory($sessionId, $studentId);
             $this->find($sessionId, $studentId);
 
             DB::table('session_students')
@@ -94,5 +95,13 @@ class SessionStudentService
                 ->where('student_id', $studentId)
                 ->delete();
         });
+    }
+
+    private function protectAttendanceHistory(string $sessionId, string $studentId): void
+    {
+        LessonSession::query()->whereKey($sessionId)->lockForUpdate()->firstOrFail();
+        if (StudentAttendanceAudit::query()->where('session_id', $sessionId)->where('student_id', $studentId)->exists()) {
+            throw ValidationException::withMessages(['attendance_status' => 'Gunakan pencatatan/koreksi absensi agar riwayat tetap tersimpan.']);
+        }
     }
 }

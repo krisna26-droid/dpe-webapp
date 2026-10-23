@@ -12,8 +12,7 @@ class MonthlyReportController extends Controller
 {
     public function __construct(
         private readonly MonthlyReportWorkflowService $workflowService
-    ) {
-    }
+    ) {}
 
     /**
      * Mengajukan laporan bulanan.
@@ -24,7 +23,8 @@ class MonthlyReportController extends Controller
     ): JsonResponse {
         $report = $this->workflowService->submit(
             $monthlyReport,
-            $request->user()
+            $request->user(),
+            $request->only('expected_snapshot')
         );
 
         return response()->json([

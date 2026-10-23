@@ -33,6 +33,20 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
+        // Only resume an internal child report link; never trust an arbitrary return URL.
+        $intended = $request->session()->pull('url.intended');
+        if (Auth::user()->role_code === 'student' && is_string($intended)) {
+            $parts = parse_url($intended);
+            $root = parse_url($request->root());
+            $path = is_array($parts) ? ($parts['path'] ?? '') : '';
+            $sameOrigin = is_array($parts) && ($parts['scheme'] ?? null) === ($root['scheme'] ?? null)
+                && ($parts['host'] ?? null) === ($root['host'] ?? null) && ($parts['port'] ?? null) === ($root['port'] ?? null)
+                && ! isset($parts['user']) && ! isset($parts['pass']) && ! isset($parts['query']) && ! isset($parts['fragment']);
+            if ($sameOrigin && preg_match('~^'.preg_quote($request->getBaseUrl(), '~').'/student/reports/quarterly/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$~iD', $path)) {
+                return redirect($path);
+            }
+        }
+
         return match (Auth::user()->role_code) {
             'superadmin' => redirect()->route('superadmin.dashboard'),
             'admin' => redirect()->route('admin.dashboard'),

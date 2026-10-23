@@ -10,7 +10,8 @@ class StoreTeacherRequest extends FormRequest
     public function authorize(): bool
     {
         return auth()->check()
-            && auth()->user()->role_code === 'admin';
+            && in_array(auth()->user()->role_code, ['admin', 'superadmin'], true)
+            && auth()->user()->is_active;
     }
 
     public function rules(): array

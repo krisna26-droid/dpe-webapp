@@ -67,8 +67,8 @@ class ClassGroupMembershipController extends Controller
         $classGroupMembership->load([
             'classGroup.branch',
             'classGroup.program',
-            'classGroup.defaultTeacher',
-            'student',
+            'classGroup.defaultTeacher.user',
+            'student.portalUser',
         ]);
 
         return view(

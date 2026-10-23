@@ -18,7 +18,7 @@ class TeacherBranchAssignmentController extends Controller
     {
         $assignments = TeacherBranchAssignment::query()
             ->with([
-                'teacher',
+                'teacher.user',
                 'branch',
             ])
             ->orderByDesc('starts_on')
@@ -34,21 +34,11 @@ class TeacherBranchAssignmentController extends Controller
 
     public function create(): View
     {
-        $teachers = Teacher::query()
-            ->where('is_active', true)
-            ->orderBy('full_name')
-            ->get();
-
-        $branches = Branch::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
-
         return view(
             'superadmin.teacher-branch-assignments.create',
             [
-                'teachers' => $teachers,
-                'branches' => $branches,
+                'teachers' => $this->teacherOptions(),
+                'branches' => $this->branchOptions(),
             ]
         );
     }
@@ -71,7 +61,7 @@ class TeacherBranchAssignmentController extends Controller
         TeacherBranchAssignment $teacherBranchAssignment
     ): View {
         $teacherBranchAssignment->load([
-            'teacher',
+            'teacher.user',
             'branch',
         ]);
 
@@ -86,24 +76,12 @@ class TeacherBranchAssignmentController extends Controller
     public function edit(
         TeacherBranchAssignment $teacherBranchAssignment
     ): View {
-        $teachers = Teacher::query()
-            ->where('is_active', true)
-            ->orWhere('id', $teacherBranchAssignment->teacher_id)
-            ->orderBy('full_name')
-            ->get();
-
-        $branches = Branch::query()
-            ->where('is_active', true)
-            ->orWhere('id', $teacherBranchAssignment->branch_id)
-            ->orderBy('name')
-            ->get();
-
         return view(
             'superadmin.teacher-branch-assignments.edit',
             [
                 'assignment' => $teacherBranchAssignment,
-                'teachers' => $teachers,
-                'branches' => $branches,
+                'teachers' => $this->teacherOptions($teacherBranchAssignment->teacher_id),
+                'branches' => $this->branchOptions($teacherBranchAssignment->branch_id),
             ]
         );
     }
@@ -141,5 +119,41 @@ class TeacherBranchAssignmentController extends Controller
                 'success',
                 'Assignment teacher berhasil dihapus.'
             );
+    }
+
+    private function teacherOptions(?string $selectedId = null)
+    {
+        return Teacher::query()
+            ->with('user')
+            ->where(function ($query) use ($selectedId) {
+                $query->where('is_active', true);
+
+                if ($selectedId !== null) {
+                    $query->orWhere('id', $selectedId);
+                }
+            })
+            ->get()
+            ->sortBy(function (Teacher $teacher) {
+                return strtolower((string) (
+                    $teacher->user?->full_name
+                    ?: $teacher->user?->username
+                    ?: $teacher->id
+                ));
+            })
+            ->values();
+    }
+
+    private function branchOptions(?string $selectedId = null)
+    {
+        return Branch::query()
+            ->where(function ($query) use ($selectedId) {
+                $query->where('is_active', true);
+
+                if ($selectedId !== null) {
+                    $query->orWhere('id', $selectedId);
+                }
+            })
+            ->orderBy('name')
+            ->get();
     }
 }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\MonthlyReport;
 use App\Models\ReportCycle;
 use App\Services\MonthlyReportService;
 use Illuminate\Database\Schema\Blueprint;
@@ -45,6 +44,9 @@ class MonthlyReportServiceTest extends TestCase
                     'student_enrollments',
                     'report_cycles',
                     'system_settings',
+                    'students',
+                    'teachers',
+                    'users',
                 ] as $table
             ) {
                 Schema::connection('sqlite')->dropIfExists($table);
@@ -56,6 +58,21 @@ class MonthlyReportServiceTest extends TestCase
 
     private function createTestSchema(): void
     {
+        Schema::create('students', function (Blueprint $table) {
+            $table->char('id', 36)->primary();
+            $table->date('began_on');
+        });
+        Schema::create('users', function (Blueprint $table) {
+            $table->char('id', 36)->primary();
+            $table->string('role_code');
+            $table->boolean('is_active');
+        });
+        Schema::create('teachers', function (Blueprint $table) {
+            $table->char('id', 36)->primary();
+            $table->char('user_id', 36);
+            $table->boolean('is_active');
+        });
+
         Schema::connection('sqlite')->create(
             'system_settings',
             function (Blueprint $table) {
@@ -156,6 +173,7 @@ class MonthlyReportServiceTest extends TestCase
     ): ReportCycle {
         $id = (string) Str::uuid();
         $studentId = (string) Str::uuid();
+        DB::table('students')->insert(['id' => $studentId, 'began_on' => $start]);
 
         DB::connection('sqlite')
             ->table('report_cycles')
@@ -196,6 +214,11 @@ class MonthlyReportServiceTest extends TestCase
         ?string $endsOn = null,
         bool $isOwner = true
     ): void {
+        if (! DB::table('teachers')->where('id', $teacherId)->exists()) {
+            $userId = (string) Str::uuid();
+            DB::table('users')->insert(['id' => $userId, 'role_code' => 'teacher', 'is_active' => true]);
+            DB::table('teachers')->insert(['id' => $teacherId, 'user_id' => $userId, 'is_active' => true]);
+        }
         DB::connection('sqlite')
             ->table('student_teacher_assignments')
             ->insert([
@@ -237,7 +260,7 @@ class MonthlyReportServiceTest extends TestCase
         $this->assertSame(
             ['2024-01-01', '2024-02-01', '2024-03-01'],
             $reports->pluck('report_month')
-                ->map(fn($date) => substr((string) $date, 0, 10))
+                ->map(fn ($date) => substr((string) $date, 0, 10))
                 ->all()
         );
 
@@ -429,7 +452,6 @@ class MonthlyReportServiceTest extends TestCase
         $this->assertDatabaseCount('monthly_reports', 0);
     }
 
-    
     public function test_it_fails_when_report_month_belongs_to_another_cycle(): void
     {
         $this->createSettings();
@@ -508,7 +530,6 @@ class MonthlyReportServiceTest extends TestCase
         );
     }
 
-    
     public function test_it_fails_when_cycle_end_month_is_before_start_month(): void
     {
         $this->createSettings();
@@ -534,7 +555,6 @@ class MonthlyReportServiceTest extends TestCase
         $this->assertDatabaseCount('monthly_reports', 0);
     }
 
-    
     public function test_it_fails_when_report_due_day_is_invalid(): void
     {
         $this->createSettings(dueDay: 0);
@@ -576,7 +596,7 @@ class MonthlyReportServiceTest extends TestCase
             $this->assertDatabaseCount('monthly_reports', 0);
         }
     }
-    
+
     public function test_it_uses_enrollment_and_teacher_assignment_valid_for_each_report_month(): void
     {
         $this->createSettings();
@@ -658,7 +678,7 @@ class MonthlyReportServiceTest extends TestCase
 
         $this->assertDatabaseCount('monthly_reports', 3);
     }
-    
+
     public function test_it_rolls_back_all_reports_when_a_later_month_fails(): void
     {
         $this->createSettings();
@@ -714,6 +734,4 @@ class MonthlyReportServiceTest extends TestCase
 
         $this->assertDatabaseCount('monthly_reports', 0);
     }
-
-
 }

@@ -3,23 +3,26 @@
 namespace Tests\Feature;
 
 use App\Models\BranchAdminAssignment;
+use App\Models\LearningSkill;
 use App\Models\MonthlyReport;
-use App\Models\ReportStatusEvent;
+use App\Models\MonthlyReportSkill;
 use App\Models\Teacher;
 use App\Models\User;
 use App\Services\MonthlyReportWorkflowService;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Tests\Concerns\MonthlyReportWorkflowFixtures;
 use Tests\TestCase;
-use App\Models\LearningSkill;
-use App\Models\MonthlyReportSkill;
 
 class MonthlyReportWorkflowServiceTest extends TestCase
 {
+    use MonthlyReportWorkflowFixtures;
+
     private MonthlyReportWorkflowService $service;
 
     protected function setUp(): void
@@ -38,6 +41,7 @@ class MonthlyReportWorkflowServiceTest extends TestCase
         DB::setDefaultConnection('sqlite');
 
         $this->createTestSchema();
+        $this->createWorkflowSupportTables();
 
         $this->service = app(MonthlyReportWorkflowService::class);
     }
@@ -47,6 +51,7 @@ class MonthlyReportWorkflowServiceTest extends TestCase
         try {
             foreach (
                 [
+                    'learning_videos', 'students', 'branches',
                     'monthly_report_skills',
                     'learning_skills',
                     'report_status_events',
@@ -164,10 +169,10 @@ class MonthlyReportWorkflowServiceTest extends TestCase
     {
         return User::query()->create([
             'id' => (string) Str::uuid(),
-            'username' => $role . '_' . Str::random(8),
-            'email' => Str::uuid() . '@example.test',
+            'username' => $role.'_'.Str::random(8),
+            'email' => Str::uuid().'@example.test',
             'password_hash' => 'test-password-hash',
-            'full_name' => ucfirst($role) . ' Test',
+            'full_name' => ucfirst($role).' Test',
             'role_code' => $role,
             'is_active' => true,
             'created_at' => now(),
@@ -189,7 +194,7 @@ class MonthlyReportWorkflowServiceTest extends TestCase
         string $status = 'draft',
         ?string $branchId = null
     ): MonthlyReport {
-        return MonthlyReport::query()->forceCreate([
+        $report = MonthlyReport::query()->forceCreate([
             'id' => (string) Str::uuid(),
             'cycle_id' => (string) Str::uuid(),
             'student_id' => (string) Str::uuid(),
@@ -206,7 +211,11 @@ class MonthlyReportWorkflowServiceTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        $this->addWorkflowReferences($report);
+
+        return $report;
     }
+
     /**
      * Menambahkan skill aktif dengan deskripsi valid ke laporan.
      */
@@ -214,20 +223,7 @@ class MonthlyReportWorkflowServiceTest extends TestCase
         MonthlyReport $report,
         string $description = 'Siswa menunjukkan perkembangan yang baik.'
     ): void {
-        $skill = LearningSkill::query()->forceCreate([
-            'id' => (string) Str::uuid(),
-            'code' => 'TEST-' . Str::upper(Str::random(8)),
-            'name' => 'Test Skill',
-            'display_order' => 1,
-            'is_active' => true,
-        ]);
-
-        MonthlyReportSkill::query()->forceCreate([
-            'report_id' => $report->id,
-            'skill_id' => $skill->id,
-            'trend' => 'improving',
-            'description' => $description,
-        ]);
+        $this->seedCompleteWorkflowSkills($report, $description);
     }
 
     private function assignAdmin(
@@ -469,7 +465,7 @@ class MonthlyReportWorkflowServiceTest extends TestCase
             $this->fail(
                 'Pengajuan seharusnya gagal ketika pencatatan riwayat gagal.'
             );
-        } catch (\Illuminate\Database\QueryException $exception) {
+        } catch (QueryException $exception) {
             $this->assertStringContainsString(
                 'Simulated status event insert failure',
                 $exception->getMessage()
@@ -583,42 +579,31 @@ class MonthlyReportWorkflowServiceTest extends TestCase
         $admin = $this->createUser('superadmin');
         $report = $this->createReport($teacher, 'submitted');
 
-        $skillId = (string) Str::uuid();
-
-        LearningSkill::query()->forceCreate([
-            'id' => $skillId,
-            'code' => 'LISTENING',
-            'name' => 'Listening',
-            'display_order' => 1,
-            'is_active' => true,
-        ]);
-
-        MonthlyReportSkill::query()->forceCreate([
-            'report_id' => $report->id,
-            'skill_id' => $skillId,
-            'trend' => 'improving',
-            'description' => 'Siswa mulai memahami instruksi sederhana.',
+        $skillId = LearningSkill::where('code', 'listening')->firstOrFail()->id;
+        DB::table('monthly_report_skills')->where('report_id', $report->id)->where('skill_id', $skillId)->update([
+            'trend' => 'Improving', 'description' => 'Siswa mulai memahami instruksi sederhana.',
         ]);
 
         $result = $this->service->approve($report, $admin);
 
         $this->assertSame('approved', $result->status);
 
-        $this->assertCount(1, $result->approved_snapshot['skills']);
+        $this->assertCount(8, $result->approved_snapshot['skills']);
+        $savedSkill = collect($result->approved_snapshot['skills'])->firstWhere('skill_id', $skillId);
 
         $this->assertSame(
             $skillId,
-            $result->approved_snapshot['skills'][0]['skill_id']
+            $savedSkill['skill_id']
         );
 
         $this->assertSame(
-            'improving',
-            $result->approved_snapshot['skills'][0]['trend']
+            'Improving',
+            $savedSkill['trend']
         );
 
         $this->assertSame(
             'Siswa mulai memahami instruksi sederhana.',
-            $result->approved_snapshot['skills'][0]['description']
+            $savedSkill['description']
         );
     }
 
@@ -747,6 +732,7 @@ class MonthlyReportWorkflowServiceTest extends TestCase
 
         $this->assertDatabaseCount('report_status_events', 0);
     }
+
     public function test_inactive_teacher_cannot_submit_report(): void
     {
         $user = $this->createUser('teacher');
@@ -773,6 +759,7 @@ class MonthlyReportWorkflowServiceTest extends TestCase
 
         $this->assertDatabaseCount('report_status_events', 0);
     }
+
     public function test_inactive_admin_cannot_approve_report(): void
     {
         $teacherUser = $this->createUser('teacher');
@@ -807,6 +794,7 @@ class MonthlyReportWorkflowServiceTest extends TestCase
 
         $this->assertDatabaseCount('report_status_events', 0);
     }
+
     public function test_approved_report_cannot_be_submitted_again(): void
     {
         $user = $this->createUser('teacher');
@@ -837,70 +825,69 @@ class MonthlyReportWorkflowServiceTest extends TestCase
         $this->assertDatabaseCount('report_status_events', 0);
     }
 
-    
-public function test_branch_admin_cannot_approve_before_assignment_starts(): void
-{
-    $teacherUser = $this->createUser('teacher');
-    $teacher = $this->createTeacher($teacherUser);
+    public function test_branch_admin_cannot_approve_before_assignment_starts(): void
+    {
+        $teacherUser = $this->createUser('teacher');
+        $teacher = $this->createTeacher($teacherUser);
 
-    $admin = $this->createUser('admin');
-    $branchId = (string) Str::uuid();
+        $admin = $this->createUser('admin');
+        $branchId = (string) Str::uuid();
 
-    BranchAdminAssignment::query()->forceCreate([
-        'id' => (string) Str::uuid(),
-        'admin_user_id' => $admin->id,
-        'branch_id' => $branchId,
-        'starts_on' => now()->addDay()->toDateString(),
-        'ends_on' => null,
-    ]);
+        BranchAdminAssignment::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'admin_user_id' => $admin->id,
+            'branch_id' => $branchId,
+            'starts_on' => now()->addDay()->toDateString(),
+            'ends_on' => null,
+        ]);
 
-    $report = $this->createReport(
-        $teacher,
-        'submitted',
-        $branchId
-    );
+        $report = $this->createReport(
+            $teacher,
+            'submitted',
+            $branchId
+        );
 
-    try {
-        $this->service->approve($report, $admin);
-        $this->fail('Admin belum mulai bertugas seharusnya ditolak.');
-    } catch (AuthorizationException) {
-        $this->assertSame('submitted', $report->fresh()->status);
+        try {
+            $this->service->approve($report, $admin);
+            $this->fail('Admin belum mulai bertugas seharusnya ditolak.');
+        } catch (AuthorizationException) {
+            $this->assertSame('submitted', $report->fresh()->status);
+        }
+
+        $this->assertDatabaseCount('report_status_events', 0);
     }
 
-    $this->assertDatabaseCount('report_status_events', 0);
-}
+    public function test_branch_admin_cannot_approve_after_assignment_ends(): void
+    {
+        $teacherUser = $this->createUser('teacher');
+        $teacher = $this->createTeacher($teacherUser);
 
-public function test_branch_admin_cannot_approve_after_assignment_ends(): void
-{
-    $teacherUser = $this->createUser('teacher');
-    $teacher = $this->createTeacher($teacherUser);
+        $admin = $this->createUser('admin');
+        $branchId = (string) Str::uuid();
 
-    $admin = $this->createUser('admin');
-    $branchId = (string) Str::uuid();
+        BranchAdminAssignment::query()->forceCreate([
+            'id' => (string) Str::uuid(),
+            'admin_user_id' => $admin->id,
+            'branch_id' => $branchId,
+            'starts_on' => now()->subDays(2)->toDateString(),
+            'ends_on' => now()->subDay()->toDateString(),
+        ]);
 
-    BranchAdminAssignment::query()->forceCreate([
-        'id' => (string) Str::uuid(),
-        'admin_user_id' => $admin->id,
-        'branch_id' => $branchId,
-        'starts_on' => now()->subDays(2)->toDateString(),
-        'ends_on' => now()->subDay()->toDateString(),
-    ]);
+        $report = $this->createReport(
+            $teacher,
+            'submitted',
+            $branchId
+        );
 
-    $report = $this->createReport(
-        $teacher,
-        'submitted',
-        $branchId
-    );
+        try {
+            $this->service->approve($report, $admin);
+            $this->fail('Admin yang masa tugasnya berakhir seharusnya ditolak.');
+        } catch (AuthorizationException) {
+            $this->assertSame('submitted', $report->fresh()->status);
+        }
 
-    try {
-        $this->service->approve($report, $admin);
-        $this->fail('Admin yang masa tugasnya berakhir seharusnya ditolak.');
-    } catch (AuthorizationException) {
-        $this->assertSame('submitted', $report->fresh()->status);
+        $this->assertDatabaseCount('report_status_events', 0);
     }
-
-    $this->assertDatabaseCount('report_status_events', 0);
-}
 
     public function test_branch_admin_can_approve_on_assignment_start_date(): void
     {
@@ -929,5 +916,4 @@ public function test_branch_admin_cannot_approve_after_assignment_ends(): void
         $this->assertSame('approved', $result->status);
         $this->assertSame($admin->id, $result->approved_by_user_id);
     }
-
 }

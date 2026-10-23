@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\MonthlyReport;
 use App\Models\ReportCycle;
+use App\Models\Student;
 use App\Models\StudentEnrollment;
 use App\Models\StudentTeacherAssignment;
 use App\Models\SystemSetting;
@@ -51,27 +52,18 @@ class MonthlyReportService
             );
         }
 
-        $start = CarbonImmutable::parse(
-            $cycle->start_month
-        )->startOfMonth();
-
-        $end = CarbonImmutable::parse(
-            $cycle->end_month
-        )->startOfMonth();
-
-        if ($end->lt($start)) {
-            throw new RuntimeException(
-                'Periode akhir siklus tidak boleh sebelum periode awal.'
-            );
-        }
-
         return DB::transaction(function () use (
             $cycle,
-            $settings,
-            $start,
-            $end
+            $settings
         ) {
-            $reports = new Collection();
+            $student = Student::whereKey($cycle->student_id)->lockForUpdate()->firstOrFail();
+            $cycle = ReportCycle::whereKey($cycle->id)->lockForUpdate()->firstOrFail();
+            $start = CarbonImmutable::parse($cycle->start_month)->startOfMonth();
+            $end = CarbonImmutable::parse($cycle->end_month)->startOfMonth();
+            if ($end->lt($start)) {
+                throw new RuntimeException('Periode akhir siklus tidak boleh sebelum periode awal.');
+            }
+            $reports = new Collection;
 
             for (
                 $month = $start;
@@ -89,7 +81,7 @@ class MonthlyReportService
                     if ($existing->cycle_id !== $cycle->id) {
                         throw new RuntimeException(
                             "Laporan {$reportMonth} sudah terdaftar "
-                            . 'pada siklus siswa yang berbeda.'
+                            .'pada siklus siswa yang berbeda.'
                         );
                     }
 
@@ -98,21 +90,38 @@ class MonthlyReportService
                     continue;
                 }
 
-                // Semua enrollment yang berlaku pada awal bulan laporan.
+                // Siswa baru dapat mulai setelah tanggal satu. Gunakan hari pertama
+                // enrollment dalam bulan jika belum ada enrollment pada awal bulan.
+                $referenceDate = max($reportMonth, $student->began_on->toDateString());
+                if ($referenceDate > $month->endOfMonth()->toDateString()) {
+                    throw new RuntimeException('Periode laporan tidak boleh sebelum bulan mulai les siswa.');
+                }
+                $hasEnrollmentAtStart = StudentEnrollment::query()
+                    ->where('student_id', $cycle->student_id)
+                    ->whereDate('starts_on', '<=', $referenceDate)
+                    ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', $referenceDate))
+                    ->exists();
+                if (! $hasEnrollmentAtStart) {
+                    $referenceDate = StudentEnrollment::query()->where('student_id', $cycle->student_id)
+                        ->whereDate('starts_on', '>=', $referenceDate)->whereDate('starts_on', '<=', $month->endOfMonth()->toDateString())
+                        ->min('starts_on') ?? $referenceDate;
+                    $referenceDate = CarbonImmutable::parse($referenceDate)->toDateString();
+                }
+
                 $enrollments = StudentEnrollment::query()
                     ->where('student_id', $cycle->student_id)
-                    ->whereDate('starts_on', '<=', $reportMonth)
-                    ->where(function ($query) use ($reportMonth) {
+                    ->whereDate('starts_on', '<=', $referenceDate)
+                    ->where(function ($query) use ($referenceDate) {
                         $query->whereNull('ends_on')
-                            ->orWhereDate('ends_on', '>=', $reportMonth);
+                            ->orWhereDate('ends_on', '>=', $referenceDate);
                     })
                     ->orderByDesc('starts_on')
                     ->get();
 
                 if ($enrollments->isEmpty()) {
                     throw new RuntimeException(
-                        "Enrollment cabang tidak ditemukan untuk "
-                        . "siswa {$cycle->student_id} pada {$reportMonth}."
+                        'Enrollment cabang tidak ditemukan untuk '
+                        ."siswa {$cycle->student_id} pada {$reportMonth}."
                     );
                 }
 
@@ -125,38 +134,46 @@ class MonthlyReportService
 
                 if ($branchIds->count() > 1) {
                     throw new RuntimeException(
-                        "Enrollment cabang ambigu untuk "
-                        . "siswa {$cycle->student_id} pada {$reportMonth}."
+                        'Enrollment cabang ambigu untuk '
+                        ."siswa {$cycle->student_id} pada {$reportMonth}."
                     );
                 }
 
                 // Gunakan enrollment terbaru dari cabang yang sama.
                 $enrollment = $enrollments->first();
 
-                // Semua penugasan guru pemilik yang berlaku
-                // pada awal bulan laporan.
+                // Automatic generation needs one explicit, active report owner during
+                // the student's enrollment in this month, even if the owner began later.
                 $assignments = StudentTeacherAssignment::query()
                     ->where('student_id', $cycle->student_id)
                     ->where('is_report_owner', true)
-                    ->whereDate('starts_on', '<=', $reportMonth)
-                    ->where(function ($query) use ($reportMonth) {
+                    ->whereHas('teacher', fn ($teacher) => $teacher->where('is_active', true)
+                        ->whereHas('user', fn ($user) => $user->where('is_active', true)->where('role_code', 'teacher')))
+                    ->whereDate('starts_on', '<=', $month->endOfMonth()->toDateString())
+                    ->where(function ($query) use ($referenceDate) {
                         $query->whereNull('ends_on')
-                            ->orWhereDate('ends_on', '>=', $reportMonth);
+                            ->orWhereDate('ends_on', '>=', $referenceDate);
                     })
                     ->orderByDesc('starts_on')
                     ->get();
+                $periodEnrollments = StudentEnrollment::where('student_id', $student->id)->where('branch_id', $enrollment->branch_id)
+                    ->whereDate('starts_on', '<=', $month->endOfMonth()->toDateString())
+                    ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', $referenceDate))->get();
+                $assignments = $assignments->filter(fn ($assignment) => $periodEnrollments->contains(fn ($period) => max($referenceDate, $assignment->starts_on->toDateString(), $period->starts_on->toDateString())
+                    <= min($month->endOfMonth()->toDateString(), $assignment->ends_on?->toDateString() ?? '9999-12-31', $period->ends_on?->toDateString() ?? '9999-12-31')))
+                    ->unique('teacher_id')->values();
 
                 if ($assignments->isEmpty()) {
                     throw new RuntimeException(
-                        "Guru pemilik laporan tidak ditemukan untuk "
-                        . "siswa {$cycle->student_id} pada {$reportMonth}."
+                        'Guru pemilik laporan tidak ditemukan untuk '
+                        ."siswa {$cycle->student_id} pada {$reportMonth}."
                     );
                 }
 
                 if ($assignments->count() > 1) {
                     throw new RuntimeException(
-                        "Guru pemilik laporan ambigu untuk "
-                        . "siswa {$cycle->student_id} pada {$reportMonth}."
+                        'Guru pemilik laporan ambigu untuk '
+                        ."siswa {$cycle->student_id} pada {$reportMonth}."
                     );
                 }
 
@@ -181,8 +198,7 @@ class MonthlyReportService
                     'teacher_id' => $assignment->teacher_id,
                     'report_month' => $reportMonth,
                     'due_on' => $dueOn,
-                    'video_target' =>
-                        $settings->default_monthly_video_target,
+                    'video_target' => $settings->default_monthly_video_target,
                     'status' => 'draft',
                 ]);
 
@@ -199,9 +215,9 @@ class MonthlyReportService
      * @return Collection<int, MonthlyReport>
      */
     public function generateForStudent(
-        \App\Models\Student $student
+        Student $student
     ): Collection {
-        $reports = new Collection();
+        $reports = new Collection;
 
         $cycles = ReportCycle::query()
             ->where('student_id', $student->id)

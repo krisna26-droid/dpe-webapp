@@ -12,6 +12,8 @@ class MonthlyReportSkillService
     public function create(array $data): MonthlyReportSkill
     {
         return DB::transaction(function () use ($data) {
+            app(MonthlyProgressLockService::class)->report($data['report_id']);
+
             return MonthlyReportSkill::query()->create([
                 'report_id' => $data['report_id'],
                 'skill_id' => $data['skill_id'],
@@ -57,6 +59,7 @@ class MonthlyReportSkillService
             $skillId,
             $data
         ) {
+            app(MonthlyProgressLockService::class)->report($reportId);
             $this->find(
                 $reportId,
                 $skillId
@@ -82,6 +85,7 @@ class MonthlyReportSkillService
             $reportId,
             $skillId
         ) {
+            app(MonthlyProgressLockService::class)->report($reportId);
             $this->find(
                 $reportId,
                 $skillId

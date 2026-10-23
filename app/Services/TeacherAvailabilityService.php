@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Branch;
 use App\Models\Teacher;
 use App\Models\TeacherAvailability;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +16,7 @@ class TeacherAvailabilityService
     {
         return DB::transaction(function () use ($data) {
             $teacher = Teacher::query()
+                ->lockForUpdate()
                 ->findOrFail($data['teacher_id']);
 
             $branch = Branch::query()
@@ -47,8 +49,12 @@ class TeacherAvailabilityService
             $availability,
             $data
         ) {
-            $teacher = Teacher::query()
-                ->findOrFail($data['teacher_id']);
+            // Serialize availability writes with the scheduling guard for the involved Teachers.
+            $teacherIds = array_unique([$availability->teacher_id, $data['teacher_id']]);
+            $teachers = Teacher::query()->whereIn('id', $teacherIds)->orderBy('id')->lockForUpdate()->get();
+            $teacher = $teachers->firstWhere('id', $data['teacher_id']);
+            if (! $teacher) { throw (new ModelNotFoundException)->setModel(Teacher::class, [$data['teacher_id']]); }
+            $availability = TeacherAvailability::query()->whereKey($availability->id)->lockForUpdate()->firstOrFail();
 
             $branch = Branch::query()
                 ->findOrFail($data['branch_id']);

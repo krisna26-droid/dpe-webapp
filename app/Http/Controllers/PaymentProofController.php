@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\PaymentProofStoreRequest;
 use App\Models\MonthlyCharge;
-use App\Models\PaymentProof;
 use App\Models\User;
 use App\Services\PaymentProofService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PaymentProofController extends Controller
 {
@@ -62,16 +62,19 @@ class PaymentProofController extends Controller
             'status' => [
                 'required',
                 'string',
-                'max:255',
+                Rule::in(['approved', 'rejected']),
             ],
             'reviewed_by_user_id' => [
                 'required',
                 'uuid',
                 'exists:users,id',
+                Rule::in([$request->user()?->id]),
             ],
             'rejection_reason' => [
                 'nullable',
+                'required_if:status,rejected',
                 'string',
+                'max:4000',
             ],
         ]);
 

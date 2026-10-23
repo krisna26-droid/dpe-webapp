@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\SystemSetting;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class SystemSettingService
 {
@@ -17,7 +19,8 @@ class SystemSettingService
     public function update(array $data): SystemSetting
     {
         return DB::transaction(function () use ($data) {
-            $setting = $this->get();
+            $setting = SystemSetting::whereKey(1)->lockForUpdate()->firstOrFail();
+            $before = $setting->getAttributes();
 
             $setting->update([
                 'organization_name' => $data['organization_name'],
@@ -29,6 +32,10 @@ class SystemSettingService
                 'default_monthly_video_target' => $data['default_monthly_video_target'],
                 'in_app_reminders_enabled' => $data['in_app_reminders_enabled'],
             ]);
+            $setting->forceFill(['updated_at' => now()])->save();
+            if (Schema::hasTable('student_portal_events') && ($actor = User::find(auth()->id()))) {
+                app(PortalPaymentService::class)->event($actor, 'system_settings_changed', before: $before, after: $setting->getAttributes());
+            }
 
             return $setting->refresh();
         });

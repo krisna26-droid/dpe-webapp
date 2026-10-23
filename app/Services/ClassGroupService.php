@@ -59,6 +59,13 @@ class ClassGroupService
             $classGroup,
             $data
         ) {
+            $classGroup = ClassGroup::whereKey($classGroup->id)->lockForUpdate()->firstOrFail();
+            if (($classGroup->memberships()->exists() || $classGroup->lessonSessions()->exists())
+                && ($classGroup->branch_id !== $data['branch_id'] || $classGroup->program_id !== $data['program_id'])) {
+                throw ValidationException::withMessages([
+                    'branch_id' => 'Cabang dan program kelas yang sudah memiliki peserta atau sesi tidak dapat dipindahkan. Buat kelompok baru untuk cabang/program lain.',
+                ]);
+            }
             $branch = Branch::query()
                 ->findOrFail($data['branch_id']);
 
@@ -78,7 +85,8 @@ class ClassGroupService
             $this->validateReferences(
                 $branch,
                 $program,
-                $teacher
+                $teacher,
+                $classGroup
             );
 
             $classGroup->update([
@@ -99,6 +107,7 @@ class ClassGroupService
     public function toggleStatus(ClassGroup $classGroup): ClassGroup
     {
         return DB::transaction(function () use ($classGroup) {
+            $classGroup = ClassGroup::whereKey($classGroup->id)->lockForUpdate()->firstOrFail();
             $classGroup->update([
                 'is_active' => ! $classGroup->is_active,
             ]);
@@ -110,16 +119,17 @@ class ClassGroupService
     private function validateReferences(
         Branch $branch,
         Program $program,
-        ?Teacher $teacher
+        ?Teacher $teacher,
+        ?ClassGroup $current = null
     ): void {
-        if (! $branch->is_active) {
+        if (! $branch->is_active && $current?->branch_id !== $branch->id) {
             throw ValidationException::withMessages([
                 'branch_id' =>
                     'Branch tidak aktif dan tidak dapat digunakan untuk class group.',
             ]);
         }
 
-        if (! $program->is_active) {
+        if (! $program->is_active && $current?->program_id !== $program->id) {
             throw ValidationException::withMessages([
                 'program_id' =>
                     'Program tidak aktif dan tidak dapat digunakan untuk class group.',
@@ -128,7 +138,8 @@ class ClassGroupService
 
         if (
             $teacher !== null
-            && ! $teacher->is_active
+            && $current?->default_teacher_id !== $teacher->id
+            && (! $teacher->is_active || ! $teacher->user?->is_active || $teacher->user?->role_code !== 'teacher')
         ) {
             throw ValidationException::withMessages([
                 'default_teacher_id' =>

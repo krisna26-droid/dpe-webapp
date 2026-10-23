@@ -7,10 +7,10 @@ use App\Models\ClassGroup;
 use App\Models\ClassGroupMembership;
 use App\Models\Program;
 use App\Models\Student;
+use App\Models\StudentEnrollment;
 use App\Models\Teacher;
 use App\Models\User;
 use App\Services\ClassGroupMembershipService;
-use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -79,7 +79,7 @@ class ClassGroupMembershipManagementTest extends TestCase
             'is_active' => true,
         ]);
 
-        return Student::query()->create(array_merge([
+        $student = Student::query()->create(array_merge([
             'id' => (string) Str::uuid(),
             'portal_user_id' => $portalUser->id,
             'full_name' => 'Test Student',
@@ -89,6 +89,11 @@ class ClassGroupMembershipManagementTest extends TestCase
             'status' => 'active',
             'special_notes_internal' => null,
         ], $overrides));
+        if (Branch::exists() && Program::exists()) {
+            StudentEnrollment::create(['id' => (string) Str::uuid(), 'student_id' => $student->id, 'branch_id' => Branch::first()->id, 'program_id' => Program::first()->id, 'starts_on' => '2026-01-01']);
+        }
+
+        return $student;
     }
 
     private function makeClassGroup(
@@ -230,7 +235,7 @@ class ClassGroupMembershipManagementTest extends TestCase
             'ends_on' => null,
         ]);
 
-        $this->expectException(QueryException::class);
+        $this->expectException(ValidationException::class);
 
         $service->create([
             'class_group_id' => $classGroup->id,
@@ -586,6 +591,4 @@ class ClassGroupMembershipManagementTest extends TestCase
                 'ends_on',
             ]);
     }
-
-    
 }

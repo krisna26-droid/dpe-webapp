@@ -2,13 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\MonthlyReport;
 use App\Models\ReportCycle;
+use App\Models\Student;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Str;
 
 class ReportCycleService
 {
@@ -20,6 +23,7 @@ class ReportCycleService
         $validated = $this->validateData($data);
 
         return DB::transaction(function () use ($validated) {
+            Student::whereKey($validated['student_id'])->lockForUpdate()->firstOrFail();
             $this->assertNoOverlap(
                 $validated['student_id'],
                 $validated['start_month'],
@@ -40,8 +44,8 @@ class ReportCycleService
     /**
      * Memperbarui siklus yang sudah ada.
      *
-     * Perubahan rentang tidak ditolak hanya karena laporan
-     * bulanan sudah ada. Constraint database tetap berlaku.
+     * Laporan bulanan yang sudah ada harus tetap berada
+     * dalam rentang siklus yang diperbarui.
      */
     public function update(
         ReportCycle $cycle,
@@ -58,6 +62,7 @@ class ReportCycleService
             $cycle,
             $validated
         ) {
+            Student::whereKey($cycle->student_id)->lockForUpdate()->firstOrFail();
             $currentCycle = ReportCycle::query()
                 ->whereKey($cycle->id)
                 ->lockForUpdate()
@@ -69,6 +74,22 @@ class ReportCycleService
                 $validated['end_month'],
                 $currentCycle->id
             );
+
+            if (Schema::hasTable('quarterly_reports') && $currentCycle->quarterlyReport()->exists()
+                && ($currentCycle->start_month->toDateString() !== $validated['start_month']
+                    || $currentCycle->end_month->toDateString() !== $validated['end_month']
+                    || $currentCycle->cycle_number !== $validated['cycle_number'])) {
+                throw ValidationException::withMessages(['start_month' => 'Identitas periode tidak dapat diubah setelah rapor final disiapkan. Riwayat rapor harus tetap sesuai periodenya.']);
+            }
+
+            if (MonthlyReport::where('cycle_id', $currentCycle->id)
+                ->where(fn ($query) => $query->whereDate('report_month', '<', $validated['start_month'])
+                    ->orWhereDate('report_month', '>', CarbonImmutable::parse($validated['end_month'])->endOfMonth()->toDateString()))
+                ->exists()) {
+                throw ValidationException::withMessages([
+                    'start_month' => 'Rentang siklus harus tetap mencakup seluruh laporan bulanan yang sudah dibuat.',
+                ]);
+            }
 
             $currentCycle->cycle_number =
                 $validated['cycle_number'];
@@ -141,8 +162,7 @@ class ReportCycleService
 
         if ($endMonth->lt($startMonth)) {
             throw ValidationException::withMessages([
-                'end_month' =>
-                    'Periode akhir siklus tidak boleh sebelum periode awal.',
+                'end_month' => 'Periode akhir siklus tidak boleh sebelum periode awal.',
             ]);
         }
 
@@ -152,7 +172,7 @@ class ReportCycleService
         $validated['end_month'] =
             $endMonth->toDateString();
 
-        if (!empty($validated['share_due_on'])) {
+        if (! empty($validated['share_due_on'])) {
             $validated['share_due_on'] = CarbonImmutable::parse(
                 $validated['share_due_on']
             )->toDateString();
@@ -184,8 +204,7 @@ class ReportCycleService
 
         if ($query->exists()) {
             throw ValidationException::withMessages([
-                'start_month' =>
-                    'Rentang siklus bertumpang tindih dengan siklus lain milik siswa ini.',
+                'start_month' => 'Rentang siklus bertumpang tindih dengan siklus lain milik siswa ini.',
             ]);
         }
     }

@@ -1,0 +1,8 @@
+.dpe-branch-filter-card { margin-bottom: 24px; }
+.dpe-branch-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: end; }
+.dpe-branch-filters .dpe-dashboard-field { min-width: 0; }
+.dpe-branch-filter-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-start; align-items: end; }
+.dpe-branch-filter-actions .dpe-dashboard-button { min-width: 108px; height: 50px; padding: 12px 18px; }
+.dpe-branch-record-notice { margin-bottom: 20px; }
+@media (max-width: 1100px) { .dpe-branch-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .dpe-branch-filters { grid-template-columns: minmax(0, 1fr); } .dpe-branch-filter-actions { justify-content: flex-start; } .dpe-branch-filter-actions .dpe-dashboard-button { flex: 1 1 108px; } }

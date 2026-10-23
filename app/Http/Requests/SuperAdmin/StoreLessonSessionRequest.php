@@ -16,6 +16,7 @@ class StoreLessonSessionRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'teaching_location' => ['sometimes', 'required', Rule::in(['branch', 'student_home'])],
             'branch_id' => [
                 'required',
                 'string',

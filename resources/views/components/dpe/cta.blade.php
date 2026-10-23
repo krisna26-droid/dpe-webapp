@@ -1,0 +1,1 @@
+<section class="container section-end"><div class="consultation-banner"><div><span class="eyebrow">Langkah berikutnya</span><h2>Mulai dari percakapan kecil.</h2><p>Konsultasikan kebutuhanmu dan temukan pilihan belajar yang sesuai.</p></div><a class="button button-white" href="{{ route('public.contact') }}">Hubungi DPE <x-dpe.icon name="arrow" /></a></div></section>

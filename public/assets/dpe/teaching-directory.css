@@ -1,0 +1,6 @@
+.dpe-teaching-people { display: grid; justify-items: center; gap: 8px; min-width: 160px; max-width: 280px; margin: 0 auto; }
+.dpe-teaching-names { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; text-align: center; }
+.dpe-teaching-names li { min-width: 0; overflow-wrap: anywhere; line-height: 1.6; }
+.dpe-teaching-people > span { color: var(--dpe-dashboard-muted); }
+.dpe-teaching-people .dpe-dashboard-button { min-height: 40px; margin-top: 4px; }
+.dpe-teaching-students-card { scroll-margin-top: 24px; }

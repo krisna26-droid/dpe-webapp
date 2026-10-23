@@ -3,19 +3,21 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\BranchAdminAssignment;
-use App\Models\LearningSkill;
 use App\Models\MonthlyReport;
-use App\Models\MonthlyReportSkill;
 use App\Models\Teacher;
 use App\Models\User;
+use App\Services\MonthlyReportContentService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Tests\Concerns\MonthlyReportWorkflowFixtures;
 use Tests\TestCase;
 
 class MonthlyReportControllerTest extends TestCase
 {
+    use MonthlyReportWorkflowFixtures;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -32,12 +34,14 @@ class MonthlyReportControllerTest extends TestCase
         DB::setDefaultConnection('sqlite');
 
         $this->createTestSchema();
+        $this->createWorkflowSupportTables();
     }
 
     protected function tearDown(): void
     {
         try {
             foreach ([
+                'learning_videos', 'students', 'branches',
                 'monthly_report_skills',
                 'learning_skills',
                 'report_status_events',
@@ -155,10 +159,10 @@ class MonthlyReportControllerTest extends TestCase
     {
         return User::query()->create([
             'id' => (string) Str::uuid(),
-            'username' => $role . '_' . Str::random(8),
-            'email' => Str::uuid() . '@example.test',
+            'username' => $role.'_'.Str::random(8),
+            'email' => Str::uuid().'@example.test',
             'password_hash' => 'test-password-hash',
-            'full_name' => ucfirst($role) . ' Test',
+            'full_name' => ucfirst($role).' Test',
             'role_code' => $role,
             'is_active' => true,
             'created_at' => now(),
@@ -180,7 +184,7 @@ class MonthlyReportControllerTest extends TestCase
         string $status = 'submitted',
         ?string $branchId = null
     ): MonthlyReport {
-        return MonthlyReport::query()->forceCreate([
+        $report = MonthlyReport::query()->forceCreate([
             'id' => (string) Str::uuid(),
             'cycle_id' => (string) Str::uuid(),
             'student_id' => (string) Str::uuid(),
@@ -197,6 +201,9 @@ class MonthlyReportControllerTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        $this->addWorkflowReferences($report);
+
+        return $report;
     }
 
     private function assignAdmin(
@@ -215,20 +222,7 @@ class MonthlyReportControllerTest extends TestCase
     private function attachActiveSkillToReport(
         MonthlyReport $report
     ): void {
-        $skill = LearningSkill::query()->forceCreate([
-            'id' => (string) Str::uuid(),
-            'code' => 'TEST-' . Str::upper(Str::random(8)),
-            'name' => 'Test Skill',
-            'display_order' => 1,
-            'is_active' => true,
-        ]);
-
-        MonthlyReportSkill::query()->forceCreate([
-            'report_id' => $report->id,
-            'skill_id' => $skill->id,
-            'trend' => 'improving',
-            'description' => 'Siswa menunjukkan perkembangan yang baik.',
-        ]);
+        $this->seedCompleteWorkflowSkills($report);
     }
 
     public function test_branch_admin_can_approve_report_through_http(): void
@@ -251,7 +245,7 @@ class MonthlyReportControllerTest extends TestCase
         $response = $this
             ->actingAs($admin)
             ->postJson(
-                route('admin.reports.approve', $report)
+                route('admin.reports.approve', $report), ['expected_snapshot' => app(MonthlyReportContentService::class)->signature($report)]
             );
 
         $response
@@ -299,7 +293,7 @@ class MonthlyReportControllerTest extends TestCase
         $response = $this
             ->actingAs($admin)
             ->postJson(
-                route('admin.reports.approve', $report)
+                route('admin.reports.approve', $report), ['expected_snapshot' => app(MonthlyReportContentService::class)->signature($report)]
             );
 
         $response->assertForbidden();
@@ -330,7 +324,7 @@ class MonthlyReportControllerTest extends TestCase
         $response = $this
             ->actingAs($superadmin)
             ->postJson(
-                route('admin.reports.approve', $report)
+                route('admin.reports.approve', $report), ['expected_snapshot' => app(MonthlyReportContentService::class)->signature($report)]
             );
 
         $response
@@ -378,7 +372,7 @@ class MonthlyReportControllerTest extends TestCase
             ->actingAs($admin)
             ->postJson(
                 route('admin.reports.revision', $report),
-                [
+                ['expected_snapshot' => app(MonthlyReportContentService::class)->signature($report),
                     'comment' => $comment,
                 ]
             );
@@ -429,7 +423,7 @@ class MonthlyReportControllerTest extends TestCase
             ->actingAs($admin)
             ->postJson(
                 route('admin.reports.revision', $report),
-                []
+                ['expected_snapshot' => app(MonthlyReportContentService::class)->signature($report)]
             );
 
         $response
@@ -460,7 +454,7 @@ class MonthlyReportControllerTest extends TestCase
         );
 
         $response = $this->postJson(
-            route('admin.reports.approve', $report)
+            route('admin.reports.approve', $report), ['expected_snapshot' => app(MonthlyReportContentService::class)->signature($report)]
         );
 
         $response->assertUnauthorized();
@@ -484,7 +478,7 @@ class MonthlyReportControllerTest extends TestCase
         $response = $this
             ->actingAs($teacherUser)
             ->postJson(
-                route('admin.reports.approve', $report)
+                route('admin.reports.approve', $report), ['expected_snapshot' => app(MonthlyReportContentService::class)->signature($report)]
             );
 
         $response->assertForbidden();
@@ -550,6 +544,7 @@ class MonthlyReportControllerTest extends TestCase
             ->postJson(
                 route('admin.reports.revision', $monthlyReport),
                 [
+                    'expected_snapshot' => app(MonthlyReportContentService::class)->signature($monthlyReport->fresh()),
                     'comment' => $comment,
                 ]
             );
@@ -565,6 +560,7 @@ class MonthlyReportControllerTest extends TestCase
                 'revision'
             );
     }
+
     public function test_admin_with_expired_branch_assignment_cannot_approve_report_through_http(): void
     {
         $teacherUser = $this->createUser('teacher');
@@ -591,7 +587,7 @@ class MonthlyReportControllerTest extends TestCase
         $response = $this
             ->actingAs($admin)
             ->postJson(
-                route('admin.reports.approve', $report)
+                route('admin.reports.approve', $report), ['expected_snapshot' => app(MonthlyReportContentService::class)->signature($report)]
             );
 
         $response->assertForbidden();
@@ -628,7 +624,7 @@ class MonthlyReportControllerTest extends TestCase
         $response = $this
             ->actingAs($admin)
             ->postJson(
-                route('admin.reports.approve', $report)
+                route('admin.reports.approve', $report), ['expected_snapshot' => app(MonthlyReportContentService::class)->signature($report)]
             );
 
         $response->assertForbidden();
@@ -666,7 +662,7 @@ class MonthlyReportControllerTest extends TestCase
             ->actingAs($admin)
             ->postJson(
                 route('admin.reports.revision', $report),
-                [
+                ['expected_snapshot' => app(MonthlyReportContentService::class)->signature($report),
                     'comment' => 'Mohon diperbaiki.',
                 ]
             );
@@ -706,7 +702,7 @@ class MonthlyReportControllerTest extends TestCase
             ->actingAs($admin)
             ->postJson(
                 route('admin.reports.revision', $report),
-                [
+                ['expected_snapshot' => app(MonthlyReportContentService::class)->signature($report),
                     'comment' => 'Mohon diperbaiki.',
                 ]
             );

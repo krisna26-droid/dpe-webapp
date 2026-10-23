@@ -44,6 +44,7 @@ class UpdateUserRequest extends FormRequest
                     'admin',
                     'teacher',
                     'student',
+                    ...($user->role_code === 'superadmin' ? ['superadmin'] : []),
                 ]),
             ],
 

@@ -1,0 +1,270 @@
+{
+  "generated_from": "Laravel student.payments.show rendered by StudentPortalWorkflowTest",
+  "tag": "body",
+  "attrs": {},
+  "children": [
+    {
+      "tag": "form",
+      "attrs": {
+        "method": "POST",
+        "enctype": "multipart/form-data",
+        "action": "http://localhost/student/payments/0e863df6-bdce-4ab2-b47f-c68e8d0b0347/upload",
+        "class": "dpe-portal-upload-form",
+        "data-payment-upload": "",
+        "data-payment-context-url": "http://localhost/student/payments/0e863df6-bdce-4ab2-b47f-c68e8d0b0347/upload-context",
+        "data-payment-return-url": "http://localhost/student/payments/0e863df6-bdce-4ab2-b47f-c68e8d0b0347",
+        "data-confirm-form": "",
+        "data-confirm-title": "Kirim bukti pembayaran?",
+        "data-confirm-message": "Bukti untuk bulan ini akan dikirim ke Super Admin untuk divalidasi.",
+        "data-confirm-action": "Kirim Bukti"
+      },
+      "text": "\n                    ",
+      "children": [
+        {
+          "tag": "input",
+          "attrs": {
+            "type": "hidden",
+            "name": "_token",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "autocomplete": "off"
+          },
+          "text": "",
+          "children": []
+        },
+        {
+          "tag": "input",
+          "attrs": {
+            "type": "hidden",
+            "name": "expected_snapshot",
+            "value": "c7a0f5237bf2dc2e64159edae0f8e178c0c272ecbd0c6e36347f7ecd7c0344c7"
+          },
+          "text": "",
+          "children": []
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "dpe-dashboard-field"
+          },
+          "text": "",
+          "children": [
+            {
+              "tag": "label",
+              "attrs": {
+                "for": "payment-image"
+              },
+              "text": "Bukti transfer",
+              "children": []
+            },
+            {
+              "tag": "input",
+              "attrs": {
+                "id": "payment-image",
+                "type": "file",
+                "name": "image",
+                "accept": "image/jpeg,image/png,image/webp",
+                "required": ""
+              },
+              "text": "",
+              "children": []
+            },
+            {
+              "tag": "p",
+              "attrs": {
+                "class": "dpe-dashboard-field__hint"
+              },
+              "text": "JPG, PNG, atau WEBP, maksimal 5 MB dan 20 megapiksel.",
+              "children": []
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "dpe-portal-actions"
+          },
+          "text": "",
+          "children": [
+            {
+              "tag": "button",
+              "attrs": {
+                "type": "submit",
+                "class": "dpe-dashboard-button dpe-dashboard-button--primary"
+              },
+              "text": "Kirim Bukti Pembayaran",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "dpe-portal-upload-feedback",
+        "data-payment-feedback": "",
+        "role": "status",
+        "aria-live": "polite",
+        "hidden": ""
+      },
+      "text": "\n                    ",
+      "children": [
+        {
+          "tag": "p",
+          "attrs": {
+            "data-payment-message": ""
+          },
+          "text": "",
+          "children": []
+        },
+        {
+          "tag": "a",
+          "attrs": {
+            "href": "http://localhost/student/payments/0e863df6-bdce-4ab2-b47f-c68e8d0b0347"
+          },
+          "text": "Muat halaman terbaru",
+          "children": []
+        }
+      ]
+    },
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "dpe-dashboard-confirm",
+        "data-dashboard-confirm": "",
+        "hidden": ""
+      },
+      "text": "\n        ",
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "dpe-dashboard-confirm__backdrop",
+            "data-confirm-backdrop": ""
+          },
+          "text": "",
+          "children": []
+        },
+        {
+          "tag": "section",
+          "attrs": {
+            "class": "dpe-dashboard-confirm__dialog",
+            "role": "dialog",
+            "aria-modal": "true",
+            "aria-labelledby": "dpe-dashboard-confirm-title",
+            "aria-describedby": "dpe-dashboard-confirm-message"
+          },
+          "text": "\n            ",
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "dpe-dashboard-confirm__icon"
+              },
+              "text": "",
+              "children": [
+                {
+                  "tag": "svg",
+                  "attrs": {
+                    "class": "dpe-dashboard-icon",
+                    "viewbox": "0 0 24 24",
+                    "fill": "none",
+                    "stroke": "currentColor",
+                    "stroke-width": "1.8",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round",
+                    "aria-hidden": "true",
+                    "focusable": "false"
+                  },
+                  "text": "\n                ",
+                  "children": [
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "m12 3 10 18H2L12 3Z"
+                      },
+                      "text": "",
+                      "children": []
+                    },
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "M12 9v4m0 4h.01"
+                      },
+                      "text": "",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "dpe-dashboard-confirm__copy"
+              },
+              "text": "\n                ",
+              "children": [
+                {
+                  "tag": "p",
+                  "attrs": {
+                    "class": "dpe-dashboard-kicker"
+                  },
+                  "text": "Konfirmasi tindakan",
+                  "children": []
+                },
+                {
+                  "tag": "h2",
+                  "attrs": {
+                    "id": "dpe-dashboard-confirm-title",
+                    "data-confirm-title": ""
+                  },
+                  "text": "Konfirmasi",
+                  "children": []
+                },
+                {
+                  "tag": "p",
+                  "attrs": {
+                    "id": "dpe-dashboard-confirm-message",
+                    "data-confirm-message": ""
+                  },
+                  "text": "Periksa kembali tindakan ini sebelum melanjutkan.",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "dpe-dashboard-confirm__actions"
+              },
+              "text": "\n                ",
+              "children": [
+                {
+                  "tag": "button",
+                  "attrs": {
+                    "class": "dpe-dashboard-button dpe-dashboard-button--outline",
+                    "type": "button",
+                    "data-confirm-cancel": ""
+                  },
+                  "text": "Batal",
+                  "children": []
+                },
+                {
+                  "tag": "button",
+                  "attrs": {
+                    "class": "dpe-dashboard-button dpe-dashboard-button--danger",
+                    "type": "button",
+                    "data-confirm-submit": ""
+                  },
+                  "text": "Konfirmasi",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

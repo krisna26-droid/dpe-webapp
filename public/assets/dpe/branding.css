@@ -1,0 +1,43 @@
+/* Keep the supplied transparent wordmark intact on both light and dark pages. */
+.dpe-brand-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 88px;
+    width: 88px;
+    height: 58px;
+    padding: 4px;
+    overflow: hidden;
+    border: 1px solid #dfe7f3;
+    border-radius: 10px;
+    background: #fff;
+    box-sizing: border-box;
+}
+.dpe-brand-logo .dpe-brand-logo__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+    object-position: center;
+}
+.dpe-brand-logo__fallback { color: #1f55c7; font: 800 14px/1 Arial, sans-serif; }
+.dpe-site .brand { gap: 12px; }
+.dpe-site .header-inner > .brand { max-width: 300px; }
+.dpe-site .brand-wordmark { min-width: 0; }
+.dpe-site .brand-wordmark strong { font-size: 23px; overflow-wrap: anywhere; }
+.dpe-auth-brand .dpe-brand-logo { flex-basis: 96px; width: 96px; height: 64px; }
+.dpe-login-page .dpe-auth-mobile-brand { display: none; }
+.dpe-dashboard-brand .dpe-brand-logo { flex-basis: 70px; width: 70px; height: 48px; padding: 3px; }
+.dpe-dashboard-brand .dpe-dashboard-brand__copy strong { font-size: 16px; }
+@media (max-width: 800px) {
+    .dpe-site .header-inner > .brand { max-width: calc(100% - 64px); }
+    .dpe-site .brand .dpe-brand-logo { flex-basis: 72px; width: 72px; height: 48px; }
+    .dpe-site .brand-wordmark strong { font-size: 20px; line-height: 1.25; letter-spacing: -.4px; }
+    .dpe-login-page .dpe-auth-mobile-brand { display: flex; justify-content: center; margin: 0 0 24px; }
+    .dpe-auth-mobile-brand .dpe-brand-logo { flex-basis: 152px; width: 152px; height: 100px; padding: 5px; }
+}
+@media (max-width: 380px) {
+    .dpe-site .brand { gap: 8px; }
+    .dpe-site .brand-wordmark strong { font-size: 18px; }
+}

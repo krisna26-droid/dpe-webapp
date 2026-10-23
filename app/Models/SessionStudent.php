@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class SessionStudent extends Pivot
 {
@@ -20,12 +20,17 @@ class SessionStudent extends Pivot
         'attendance_status',
         'individual_learning_note',
         'recorded_at',
+        'attendance_updated_at',
+        'attendance_recorded_by_user_id',
+        'attendance_version',
     ];
 
     protected function casts(): array
     {
         return [
             'recorded_at' => 'datetime',
+            'attendance_updated_at' => 'datetime',
+            'attendance_version' => 'integer',
         ];
     }
 

@@ -8,20 +8,55 @@ use App\Http\Requests\Admin\UpdateStudentRequest;
 use App\Models\Student;
 use App\Models\User;
 use App\Services\StudentService;
+use App\Services\TeachingDirectoryService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 
 class StudentController extends Controller
 {
-    public function index(): View
+    public function index(TeachingDirectoryService $directory): View
     {
+        $actor = auth()->user();
+        $today = Carbon::today();
         $students = Student::query()
-            ->with('portalUser')
+            ->with([
+                'portalUser',
+                'enrollments' => fn ($query) => $directory->scopeEnrollments($query, $actor)->with(['branch', 'program']),
+            ])
+            ->when(
+                auth()->user()?->role_code === 'admin',
+                function ($query) use ($today) {
+                    $query->whereHas('enrollments', function ($enrollments) use ($today) {
+                        $enrollments
+                            ->whereDate('starts_on', '<=', $today)
+                            ->where(function ($period) use ($today) {
+                                $period
+                                    ->whereNull('ends_on')
+                                    ->orWhereDate('ends_on', '>=', $today);
+                            })
+                            ->whereIn('branch_id', function ($branches) use ($today) {
+                                $branches
+                                    ->select('branch_id')
+                                    ->from('branch_admin_assignments')
+                                    ->where('admin_user_id', auth()->id())
+                                    ->whereDate('starts_on', '<=', $today)
+                                    ->where(function ($period) use ($today) {
+                                        $period
+                                            ->whereNull('ends_on')
+                                            ->orWhereDate('ends_on', '>=', $today);
+                                    });
+                            });
+                    });
+                }
+            )
             ->orderBy('full_name')
             ->paginate(15);
 
-        return view('admin.students.index', compact('students'));
+        $studentTeachers = $directory->teachersForStudents($actor, $students->getCollection()->pluck('id'));
+
+        return view('admin.students.index', compact('students', 'studentTeachers'));
     }
 
     public function create(): View
@@ -49,7 +84,11 @@ class StudentController extends Controller
     {
         Gate::authorize('view', $student);
 
-        $student->load('portalUser');
+        $student->load([
+            'portalUser',
+            'enrollments.branch',
+            'enrollments.program',
+        ]);
 
         return view('admin.students.show', compact('student'));
     }

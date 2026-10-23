@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\PaymentProofController;
+use App\Http\Requests\PaymentProofStoreRequest;
 use App\Models\Branch;
 use App\Models\FileAsset;
 use App\Models\MonthlyCharge;
@@ -11,9 +12,9 @@ use App\Models\Student;
 use App\Models\User;
 use App\Services\PaymentProofService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Tests\TestCase;
-use App\Http\Requests\PaymentProofStoreRequest;
 
 class PaymentProofControllerTest extends TestCase
 {
@@ -24,13 +25,13 @@ class PaymentProofControllerTest extends TestCase
     ): User {
         return User::query()->create([
             'id' => (string) Str::uuid(),
-            'username' => $role . '_' . Str::random(8),
-            'email' => Str::uuid() . '@example.test',
+            'username' => $role.'_'.Str::random(8),
+            'email' => Str::uuid().'@example.test',
             'password_hash' => password_hash(
                 'password',
                 PASSWORD_BCRYPT
             ),
-            'full_name' => 'Test ' . ucfirst($role),
+            'full_name' => 'Test '.ucfirst($role),
             'role_code' => $role,
             'is_active' => true,
         ]);
@@ -56,7 +57,7 @@ class PaymentProofControllerTest extends TestCase
     {
         return Branch::query()->create([
             'id' => (string) Str::uuid(),
-            'code' => 'BR-' . Str::upper(Str::random(6)),
+            'code' => 'BR-'.Str::upper(Str::random(6)),
             'name' => 'Test Branch',
             'address' => 'Test Address',
             'timezone_name' => 'Asia/Makassar',
@@ -84,7 +85,7 @@ class PaymentProofControllerTest extends TestCase
     {
         return FileAsset::query()->create([
             'id' => (string) Str::uuid(),
-            'storage_key' => 'payment-proofs/' . Str::uuid() . '.jpg',
+            'storage_key' => 'payment-proofs/'.Str::uuid().'.jpg',
             'original_name' => 'payment-proof.jpg',
             'mime_type' => 'image/jpeg',
             'size_bytes' => 1024,
@@ -243,14 +244,16 @@ class PaymentProofControllerTest extends TestCase
 
         $controller = app(PaymentProofController::class);
 
-        $request = \Illuminate\Http\Request::create(
-            '/payment-proofs/' . $proof->id . '/review',
+        $request = Request::create(
+            '/payment-proofs/'.$proof->id.'/review',
             'PATCH',
             [
                 'status' => 'approved',
                 'reviewed_by_user_id' => $reviewer->id,
             ]
         );
+
+        $request->setUserResolver(fn () => $reviewer);
 
         $response = $controller->review(
             $request,
@@ -287,8 +290,8 @@ class PaymentProofControllerTest extends TestCase
 
         $controller = app(PaymentProofController::class);
 
-        $request = \Illuminate\Http\Request::create(
-            '/payment-proofs/' . $proof->id . '/review',
+        $request = Request::create(
+            '/payment-proofs/'.$proof->id.'/review',
             'PATCH',
             [
                 'status' => 'rejected',
@@ -296,6 +299,8 @@ class PaymentProofControllerTest extends TestCase
                 'rejection_reason' => 'Bukti tidak dapat dibaca.',
             ]
         );
+
+        $request->setUserResolver(fn () => $reviewer);
 
         $response = $controller->review(
             $request,

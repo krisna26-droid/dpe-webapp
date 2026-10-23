@@ -1,0 +1,5 @@
+<nav class="dpe-teacher-tabs" aria-label="Ruang kerja Teacher">
+    <a class="dpe-dashboard-button {{ request()->routeIs('teacher.schedule.*') ? 'dpe-dashboard-button--primary' : 'dpe-dashboard-button--outline' }}" href="{{ route('teacher.schedule.index') }}" @if(request()->routeIs('teacher.schedule.*')) aria-current="page" @endif><x-dashboard.icon name="calendar" />Jadwal Mengajar</a>
+    <a class="dpe-dashboard-button {{ request()->routeIs('teacher.availability.*') ? 'dpe-dashboard-button--primary' : 'dpe-dashboard-button--outline' }}" href="{{ route('teacher.availability.index') }}" @if(request()->routeIs('teacher.availability.*')) aria-current="page" @endif><x-dashboard.icon name="clock" />Slot Ketersediaan</a>
+    <a class="dpe-dashboard-button {{ request()->routeIs('teacher.students.*') ? 'dpe-dashboard-button--primary' : 'dpe-dashboard-button--outline' }}" href="{{ route('teacher.students.index') }}" @if(request()->routeIs('teacher.students.*')) aria-current="page" @endif><x-dashboard.icon name="student" />Siswa Binaan</a>
+</nav>

@@ -20,8 +20,8 @@ class MonthlyChargeRequestTest extends TestCase
     ): User {
         return User::query()->create([
             'id' => (string) Str::uuid(),
-            'username' => $role . '_' . Str::random(8),
-            'email' => Str::uuid() . '@example.test',
+            'username' => $role.'_'.Str::random(8),
+            'email' => Str::uuid().'@example.test',
             'password_hash' => password_hash(
                 'password',
                 PASSWORD_BCRYPT
@@ -90,7 +90,7 @@ class MonthlyChargeRequestTest extends TestCase
                 'amount_idr' => 500000,
                 'due_on' => '2026-10-10',
             ],
-            (new StoreMonthlyChargeRequest())->rules()
+            (new StoreMonthlyChargeRequest)->rules()
         );
 
         /*
@@ -120,7 +120,7 @@ class MonthlyChargeRequestTest extends TestCase
                 'amount_idr' => 500000,
                 'due_on' => '10 October 2026',
             ],
-            (new StoreMonthlyChargeRequest())->rules()
+            (new StoreMonthlyChargeRequest)->rules()
         );
 
         $this->assertTrue(
@@ -142,7 +142,7 @@ class MonthlyChargeRequestTest extends TestCase
                 'amount_idr' => -1,
                 'due_on' => '2026-10-10',
             ],
-            (new StoreMonthlyChargeRequest())->rules()
+            (new StoreMonthlyChargeRequest)->rules()
         );
 
         $this->assertTrue(
@@ -150,11 +150,11 @@ class MonthlyChargeRequestTest extends TestCase
         );
     }
 
-    public function test_store_request_requires_all_fields(): void
+    public function test_store_request_requires_identity_and_period_but_nominal_is_optional(): void
     {
         $validator = Validator::make(
             [],
-            (new StoreMonthlyChargeRequest())->rules()
+            (new StoreMonthlyChargeRequest)->rules()
         );
 
         $this->assertTrue(
@@ -169,15 +169,15 @@ class MonthlyChargeRequestTest extends TestCase
             $validator->errors()->has('charge_month')
         );
 
-        $this->assertTrue(
+        $this->assertFalse(
             $validator->errors()->has('amount_idr')
         );
     }
 
     public function test_update_request_has_same_validation_rules(): void
     {
-        $storeRules = (new StoreMonthlyChargeRequest())->rules();
-        $updateRules = (new UpdateMonthlyChargeRequest())->rules();
+        $storeRules = (new StoreMonthlyChargeRequest)->rules();
+        $updateRules = (new UpdateMonthlyChargeRequest)->rules();
 
         $this->assertSame(
             $storeRules['student_id'][0],
@@ -241,7 +241,7 @@ class MonthlyChargeRequestTest extends TestCase
                 'amount_idr' => 500000,
                 'due_on' => null,
             ],
-            (new StoreMonthlyChargeRequest())->rules()
+            (new StoreMonthlyChargeRequest)->rules()
         );
 
         $this->assertFalse(

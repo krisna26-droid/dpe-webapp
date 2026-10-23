@@ -13,7 +13,9 @@ class TeacherPolicy
      */
     public function view(User $user, Teacher $teacher): bool
     {
-        return $this->canAccessTeacher($user, $teacher);
+        return $this->canAccessTeacher($user, $teacher)
+            || ($user->role_code === 'admin' && $user->is_active
+                && app(\App\Services\TeachingDirectoryService::class)->hasStudents($user, $teacher));
     }
 
     /**

@@ -20,8 +20,8 @@ class StudentEnrollmentManagementTest extends TestCase
     ): User {
         return User::query()->create([
             'id' => (string) Str::uuid(),
-            'username' => 'superadmin-' . Str::random(8),
-            'email' => 'superadmin-' . Str::random(8) . '@test.local',
+            'username' => 'superadmin-'.Str::random(8),
+            'email' => 'superadmin-'.Str::random(8).'@test.local',
             'password_hash' => bcrypt('password'),
             'full_name' => 'SuperAdmin Test',
             'role_code' => 'superadmin',
@@ -34,8 +34,8 @@ class StudentEnrollmentManagementTest extends TestCase
     ): User {
         return User::query()->create([
             'id' => (string) Str::uuid(),
-            'username' => 'admin-' . Str::random(8),
-            'email' => 'admin-' . Str::random(8) . '@test.local',
+            'username' => 'admin-'.Str::random(8),
+            'email' => 'admin-'.Str::random(8).'@test.local',
             'password_hash' => bcrypt('password'),
             'full_name' => 'Admin Test',
             'role_code' => 'admin',
@@ -48,8 +48,8 @@ class StudentEnrollmentManagementTest extends TestCase
     ): Student {
         $user = User::query()->create([
             'id' => (string) Str::uuid(),
-            'username' => 'student-' . Str::random(8),
-            'email' => 'student-' . Str::random(8) . '@test.local',
+            'username' => 'student-'.Str::random(8),
+            'email' => 'student-'.Str::random(8).'@test.local',
             'password_hash' => bcrypt('password'),
             'full_name' => 'Student Test',
             'role_code' => 'student',
@@ -70,7 +70,7 @@ class StudentEnrollmentManagementTest extends TestCase
     ): Branch {
         return Branch::query()->create([
             'id' => (string) Str::uuid(),
-            'code' => 'BR-' . Str::upper(Str::random(6)),
+            'code' => 'BR-'.Str::upper(Str::random(6)),
             'name' => 'Branch Test',
             'address' => 'Denpasar',
             'timezone_name' => 'Asia/Makassar',
@@ -84,7 +84,7 @@ class StudentEnrollmentManagementTest extends TestCase
     ): Program {
         return Program::query()->create([
             'id' => (string) Str::uuid(),
-            'code' => 'PROG-' . Str::upper(Str::random(6)),
+            'code' => 'PROG-'.Str::upper(Str::random(6)),
             'name' => 'English Program',
             'class_type' => 'Regular',
             'monthly_video_target_override' => 4,
@@ -471,7 +471,7 @@ class StudentEnrollmentManagementTest extends TestCase
             '2026-12-31'
         );
 
-        $this->actingAs($superadmin)
+        $response = $this->actingAs($superadmin)
             ->get(
                 route(
                     'superadmin.student-enrollments.show',
@@ -482,6 +482,13 @@ class StudentEnrollmentManagementTest extends TestCase
             ->assertViewIs(
                 'superadmin.student-enrollments.show'
             );
+
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $back = $xpath->query('//a[span[contains(text(), "Kembali ke Siswa")]]')->item(0);
+        $this->assertNotNull($back);
+        $this->assertSame(route('superadmin.students.index'), $back->getAttribute('href'));
     }
 
     public function test_superadmin_can_open_enrollment_edit_page(): void

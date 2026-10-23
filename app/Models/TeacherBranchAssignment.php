@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 class TeacherBranchAssignment extends Model
 {
@@ -44,5 +45,13 @@ class TeacherBranchAssignment extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function isActiveOn(?Carbon $date = null): bool
+    {
+        $day = ($date ?? Carbon::today())->toDateString();
+
+        return $this->starts_on->toDateString() <= $day
+            && ($this->ends_on === null || $this->ends_on->toDateString() >= $day);
     }
 }

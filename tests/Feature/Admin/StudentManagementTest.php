@@ -14,6 +14,8 @@ use Tests\TestCase;
 
 class StudentManagementTest extends TestCase
 {
+    use \Tests\Concerns\TeachingDirectorySchema;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -107,6 +109,7 @@ class StudentManagementTest extends TestCase
             $table->string('sha256_hex', 255)->nullable();
             $table->dateTime('created_at')->nullable();
         });
+        $this->createTeachingDirectoryTables();
     }
 
     protected function tearDown(): void

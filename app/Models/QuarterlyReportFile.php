@@ -29,6 +29,9 @@ class QuarterlyReportFile extends Model
         'generated_by_user_id',
         'generated_at',
         'source_snapshot_hash',
+        'quarterly_report_id',
+        'approval_revision',
+        'public_snapshot',
     ];
 
     protected function casts(): array
@@ -36,6 +39,8 @@ class QuarterlyReportFile extends Model
         return [
             'version_number' => 'integer',
             'generated_at' => 'datetime',
+            'approval_revision' => 'integer',
+            'public_snapshot' => 'array',
         ];
     }
 
@@ -46,6 +51,11 @@ class QuarterlyReportFile extends Model
             'cycle_id',
             'id'
         );
+    }
+
+    public function quarterlyReport(): BelongsTo
+    {
+        return $this->belongsTo(QuarterlyReport::class);
     }
 
     public function file(): BelongsTo
@@ -74,5 +84,4 @@ class QuarterlyReportFile extends Model
             'id'
         );
     }
-
 }

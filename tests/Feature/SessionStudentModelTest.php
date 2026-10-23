@@ -9,7 +9,9 @@ use App\Models\SessionStudent;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -24,10 +26,10 @@ class SessionStudentModelTest extends TestCase
     ): User {
         return User::query()->create([
             'id' => (string) Str::uuid(),
-            'username' => $roleCode . '_' . Str::lower(Str::random(8)),
-            'email' => Str::uuid() . '@example.com',
+            'username' => $roleCode.'_'.Str::lower(Str::random(8)),
+            'email' => Str::uuid().'@example.com',
             'password_hash' => Hash::make('password'),
-            'full_name' => 'Test ' . ucfirst($roleCode),
+            'full_name' => 'Test '.ucfirst($roleCode),
             'role_code' => $roleCode,
             'is_active' => $isActive,
         ]);
@@ -67,7 +69,7 @@ class SessionStudentModelTest extends TestCase
     {
         return Branch::query()->create([
             'id' => (string) Str::uuid(),
-            'code' => 'BR-' . Str::upper(Str::random(6)),
+            'code' => 'BR-'.Str::upper(Str::random(6)),
             'name' => 'Test Branch',
             'address' => null,
             'timezone_name' => 'Asia/Makassar',
@@ -80,7 +82,7 @@ class SessionStudentModelTest extends TestCase
     {
         return Program::query()->create([
             'id' => (string) Str::uuid(),
-            'code' => 'PRG-' . Str::upper(Str::random(6)),
+            'code' => 'PRG-'.Str::upper(Str::random(6)),
             'name' => 'Test Program',
             'class_type' => 'private',
             'monthly_video_target_override' => null,
@@ -94,7 +96,7 @@ class SessionStudentModelTest extends TestCase
         $teacher = $this->makeTeacher();
         $program = $this->makeProgram();
 
-        $session = new LessonSession();
+        $session = new LessonSession;
 
         $session->forceFill([
             'id' => (string) Str::uuid(),
@@ -134,7 +136,7 @@ class SessionStudentModelTest extends TestCase
 
     public function test_uses_correct_table(): void
     {
-        $model = new SessionStudent();
+        $model = new SessionStudent;
 
         $this->assertSame(
             'session_students',
@@ -144,21 +146,21 @@ class SessionStudentModelTest extends TestCase
 
     public function test_does_not_use_auto_increment(): void
     {
-        $model = new SessionStudent();
+        $model = new SessionStudent;
 
         $this->assertFalse($model->incrementing);
     }
 
     public function test_does_not_use_timestamps(): void
     {
-        $model = new SessionStudent();
+        $model = new SessionStudent;
 
         $this->assertFalse($model->usesTimestamps());
     }
 
     public function test_has_expected_fillable_columns(): void
     {
-        $model = new SessionStudent();
+        $model = new SessionStudent;
 
         $this->assertSame([
             'session_id',
@@ -166,6 +168,9 @@ class SessionStudentModelTest extends TestCase
             'attendance_status',
             'individual_learning_note',
             'recorded_at',
+            'attendance_updated_at',
+            'attendance_recorded_by_user_id',
+            'attendance_version',
         ], $model->getFillable());
     }
 
@@ -174,7 +179,7 @@ class SessionStudentModelTest extends TestCase
         $sessionStudent = $this->makeSessionStudent();
 
         $this->assertInstanceOf(
-            \Illuminate\Support\Carbon::class,
+            Carbon::class,
             $sessionStudent->recorded_at
         );
     }
@@ -271,7 +276,7 @@ class SessionStudentModelTest extends TestCase
     {
         $sessionStudent = $this->makeSessionStudent();
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
 
         SessionStudent::query()->create([
             'session_id' => $sessionStudent->session_id,

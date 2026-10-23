@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\MonthlyCharge\StoreMonthlyChargeRequest;
 use App\Http\Requests\MonthlyCharge\UpdateMonthlyChargeRequest;
+use App\Models\Branch;
 use App\Models\MonthlyCharge;
+use App\Models\Student;
 use App\Services\MonthlyChargeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -18,7 +20,13 @@ class MonthlyChargeController extends Controller
     public function index(): View
     {
         $monthlyCharges = MonthlyCharge::query()
-            ->with(['student', 'branch'])
+            ->with([
+                'student.portalUser',
+                'branch',
+                'paymentProofs' => function ($query) {
+                    $query->latest('submitted_at');
+                },
+            ])
             ->latest('charge_month')
             ->latest('created_at')
             ->paginate(15);
@@ -31,7 +39,10 @@ class MonthlyChargeController extends Controller
 
     public function create(): View
     {
-        return view('monthly-charges.create');
+        return view(
+            'monthly-charges.create',
+            $this->formOptions()
+        );
     }
 
     public function store(
@@ -56,8 +67,11 @@ class MonthlyChargeController extends Controller
         MonthlyCharge $monthlyCharge
     ): View {
         $monthlyCharge->load([
-            'student',
+            'student.portalUser',
             'branch',
+            'paymentProofs.imageFile',
+            'paymentProofs.uploadedBy',
+            'paymentProofs.reviewedBy',
         ]);
 
         return view(
@@ -70,13 +84,16 @@ class MonthlyChargeController extends Controller
         MonthlyCharge $monthlyCharge
     ): View {
         $monthlyCharge->load([
-            'student',
+            'student.portalUser',
             'branch',
         ]);
 
         return view(
             'monthly-charges.edit',
-            compact('monthlyCharge')
+            [
+                'monthlyCharge' => $monthlyCharge,
+                ...$this->formOptions($monthlyCharge),
+            ]
         );
     }
 
@@ -115,5 +132,37 @@ class MonthlyChargeController extends Controller
                 'success',
                 'Monthly charge berhasil dihapus.'
             );
+    }
+
+    private function formOptions(?MonthlyCharge $current = null): array
+    {
+        $students = Student::query()
+            ->where(function ($query) use ($current) {
+                $query->where('status', 'active');
+
+                if ($current?->student_id !== null) {
+                    $query->orWhere('id', $current->student_id);
+                }
+            })
+            ->with('portalUser')
+            ->orderBy('full_name')
+            ->get();
+
+        $selectedBranchId = $current?->branch_id;
+        $branches = Branch::query()
+            ->where(function ($query) use ($selectedBranchId) {
+                $query->where('is_active', true);
+
+                if ($selectedBranchId !== null) {
+                    $query->orWhere('id', $selectedBranchId);
+                }
+            })
+            ->orderBy('name')
+            ->get();
+
+        return [
+            'students' => $students,
+            'branches' => $branches,
+        ];
     }
 }

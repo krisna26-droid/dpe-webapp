@@ -5,6 +5,8 @@ namespace App\Http\Controllers\SuperAdmin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SuperAdmin\StoreTeacherAvailabilityRequest;
 use App\Http\Requests\SuperAdmin\UpdateTeacherAvailabilityRequest;
+use App\Models\Branch;
+use App\Models\Teacher;
 use App\Models\TeacherAvailability;
 use App\Services\TeacherAvailabilityService;
 use Illuminate\Contracts\View\View;
@@ -20,7 +22,7 @@ class TeacherAvailabilityController extends Controller
     {
         $availabilities = TeacherAvailability::query()
             ->with([
-                'teacher',
+                'teacher.user',
                 'branch',
             ])
             ->orderByDesc('available_on')
@@ -38,7 +40,11 @@ class TeacherAvailabilityController extends Controller
     public function create(): View
     {
         return view(
-            'superadmin.teacher-availability.create'
+            'superadmin.teacher-availability.create',
+            [
+                'teachers' => $this->teacherOptions(),
+                'branches' => $this->branchOptions(),
+            ]
         );
     }
 
@@ -64,7 +70,7 @@ class TeacherAvailabilityController extends Controller
         TeacherAvailability $teacherAvailability
     ): View {
         $teacherAvailability->load([
-            'teacher',
+            'teacher.user',
             'branch',
         ]);
 
@@ -80,7 +86,7 @@ class TeacherAvailabilityController extends Controller
         TeacherAvailability $teacherAvailability
     ): View {
         $teacherAvailability->load([
-            'teacher',
+            'teacher.user',
             'branch',
         ]);
 
@@ -88,6 +94,8 @@ class TeacherAvailabilityController extends Controller
             'superadmin.teacher-availability.edit',
             [
                 'availability' => $teacherAvailability,
+                'teachers' => $this->teacherOptions($teacherAvailability->teacher_id),
+                'branches' => $this->branchOptions($teacherAvailability->branch_id),
             ]
         );
     }
@@ -110,5 +118,41 @@ class TeacherAvailabilityController extends Controller
                 'success',
                 'Teacher availability berhasil diperbarui.'
             );
+    }
+
+    private function teacherOptions(?string $selectedId = null)
+    {
+        return Teacher::query()
+            ->with('user')
+            ->where(function ($query) use ($selectedId) {
+                $query->where('is_active', true);
+
+                if ($selectedId !== null) {
+                    $query->orWhere('id', $selectedId);
+                }
+            })
+            ->get()
+            ->sortBy(function (Teacher $teacher) {
+                return strtolower((string) (
+                    $teacher->user?->full_name
+                    ?: $teacher->user?->username
+                    ?: $teacher->id
+                ));
+            })
+            ->values();
+    }
+
+    private function branchOptions(?string $selectedId = null)
+    {
+        return Branch::query()
+            ->where(function ($query) use ($selectedId) {
+                $query->where('is_active', true);
+
+                if ($selectedId !== null) {
+                    $query->orWhere('id', $selectedId);
+                }
+            })
+            ->orderBy('name')
+            ->get();
     }
 }

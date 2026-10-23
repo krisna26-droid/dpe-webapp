@@ -35,9 +35,10 @@ class UpdateMonthlyChargeRequest extends FormRequest
             ],
 
             'amount_idr' => [
-                'required',
+                'nullable',
                 'numeric',
                 'min:0',
+                'max:999999999999.99',
             ],
 
             'due_on' => [

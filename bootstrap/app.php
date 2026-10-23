@@ -12,6 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'auth.session' => \App\Http\Middleware\AccountSession::class,
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
     })

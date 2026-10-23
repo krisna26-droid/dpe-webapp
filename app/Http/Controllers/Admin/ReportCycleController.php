@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\ReportCycle;
 use App\Models\Student;
 use App\Services\ReportCycleService;
+use App\Services\StudentProgressAccessService;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -21,9 +23,13 @@ class ReportCycleController extends Controller
     /**
      * Menampilkan daftar siklus laporan.
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse|View
     {
+        $filters = $request->validate(['q' => ['nullable', 'string', 'max:120']]);
         $query = ReportCycle::query();
+        if (($filters['q'] ?? '') !== '') {
+            $query->whereHas('student', fn ($q) => $q->where('full_name', 'like', '%'.$filters['q'].'%'));
+        }
 
         if ($request->user()->role_code === 'admin') {
             if (! $request->user()->is_active) {
@@ -68,7 +74,16 @@ class ReportCycleController extends Controller
             ->orderBy('start_month')
             ->orderBy('student_id')
             ->orderBy('cycle_number')
-            ->paginate(15);
+            ->paginate(15)->withQueryString();
+
+        if (! $request->expectsJson()) {
+            $access = app(StudentProgressAccessService::class);
+            $cycles->getCollection()->load(['student', 'monthlyReports' => fn ($q) => $q
+                ->whereIn('id', $access->reports($request->user())->select('id'))->with('teacher.user')->orderBy('report_month')]);
+
+            return view('admin.report-cycles.index', ['cycles' => $cycles, 'filters' => $filters,
+                'operationRoutePrefix' => $request->user()->role_code === 'superadmin' ? 'superadmin' : 'admin']);
+        }
 
         return response()->json([
             'data' => $cycles->items(),

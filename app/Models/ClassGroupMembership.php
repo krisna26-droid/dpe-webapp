@@ -14,7 +14,9 @@ class ClassGroupMembership extends Model
     protected $table = 'class_group_memberships';
 
     protected $primaryKey = 'id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     public $timestamps = false;
@@ -57,10 +59,9 @@ class ClassGroupMembership extends Model
     {
         $date ??= Carbon::today();
 
-        return $this->starts_on->lte($date)
-            && (
-                $this->ends_on === null
-                || $this->ends_on->gte($date)
-            );
+        $day = $date->toDateString();
+
+        return $this->starts_on->toDateString() <= $day
+            && ($this->ends_on === null || $this->ends_on->toDateString() >= $day);
     }
 }
