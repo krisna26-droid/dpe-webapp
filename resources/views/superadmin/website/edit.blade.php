@@ -22,7 +22,7 @@
                 <div class="dpe-dashboard-field"><label for="website-title">{{ $isMaster ? 'Nama '.$definition::TABS[$tab] : ($tab === 'identity' ? 'Nama lembaga' : 'Judul') }}</label><input id="website-title" name="title" required maxlength="255" value="{{ $isMaster ? $master->name : old('title', $payload['title']) }}" @readonly($isMaster)>@if ($isMaster)<small class="dpe-dashboard-field__hint">Nama mengikuti menu {{ $definition::TABS[$tab] }}.</small>@endif @error('title')<small class="dpe-website-field-error">{{ $message }}</small>@enderror</div>
                 @foreach ($definition::fields($key) as $field => $fieldLabel)
                     <div class="dpe-dashboard-field"><label for="website-{{ $field }}">{{ $fieldLabel }}</label>
-                        @if (in_array($field, ['description', 'detail', 'features']))<textarea id="website-{{ $field }}" name="{{ $field }}" rows="{{ $field === 'features' ? 5 : 4 }}" maxlength="5000">{{ old($field, $fields[$field]) }}</textarea>
+                        @if (in_array($field, ['description', 'detail', 'features', 'service_hours']))<textarea id="website-{{ $field }}" name="{{ $field }}" rows="{{ $field === 'features' ? 5 : 4 }}" maxlength="5000">{{ old($field, $fields[$field]) }}</textarea>
                         @else<input id="website-{{ $field }}" name="{{ $field }}" type="{{ $field === 'email' ? 'email' : 'text' }}" value="{{ old($field, $fields[$field]) }}">@endif
                         @if (str_ends_with($field, '_url'))<small class="dpe-dashboard-field__hint">Contoh: #program, #kontak, /kontak, atau https://alamat-website.</small>@endif
                         @error($field)<small class="dpe-website-field-error">{{ $message }}</small>@enderror
