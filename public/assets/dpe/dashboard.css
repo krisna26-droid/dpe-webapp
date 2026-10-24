@@ -145,6 +145,8 @@
 }
 .dpe-dashboard-role-card__badge {
     display: grid;
+    position: relative;
+    overflow: hidden;
     width: 38px;
     height: 38px;
     flex: 0 0 38px;
@@ -270,6 +272,8 @@
 .dpe-dashboard-account__toggle > .dpe-dashboard-icon { width: 16px; height: 16px; margin-left: 1px; color: var(--dpe-dashboard-muted); transition: transform .18s ease; }
 .dpe-dashboard-account__toggle[aria-expanded="true"] > .dpe-dashboard-icon { transform: rotate(180deg); }
 .dpe-dashboard-avatar { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 13px; color: var(--dpe-dashboard-primary); background: #e4eeff; font-size: 14px; font-weight: 800; letter-spacing: .4px; }
+.dpe-dashboard-avatar { position: relative; overflow: hidden; }
+.dpe-dashboard-avatar img, .dpe-dashboard-role-card__badge img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: inherit; }
 .dpe-dashboard-account__copy { display: flex; min-width: 110px; flex-direction: column; }
 .dpe-dashboard-account__copy strong { overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
 .dpe-dashboard-account__copy small { margin-top: 3px; color: var(--dpe-dashboard-muted); font-size: 13px; }

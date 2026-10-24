@@ -1,0 +1,21 @@
+.dpe-report-approval,
+.dpe-report-approval__form {
+    display: contents;
+}
+
+.dpe-report-approval [hidden] {
+    display: none !important;
+}
+
+/* Reserve the confirmation button's width before the first click. */
+.dpe-report-approval > [data-report-approval-open],
+.dpe-report-approval__form > [data-report-approval-submit] {
+    min-width: 220px;
+    justify-content: center;
+}
+
+/* The monthly action group must not grow and wrap below its description. */
+.dpe-monthly-action-buttons:has(.dpe-report-approval) {
+    width: 480px;
+    max-width: 100%;
+}

@@ -36,10 +36,20 @@ class SaveOwnProfileRequest extends FormRequest
             'whatsapp_number' => ['bail', 'required', 'string', 'max:32', 'regex:/^\+?[0-9][0-9 ()-]{5,30}[0-9]$/D',
                 function ($field, $value, $fail) { $length = strlen(preg_replace('/\D/', '', $value)); if ($length < 8 || $length > 15) { $fail('Nomor WhatsApp harus memuat 8–15 angka.'); } }],
             'photo' => ['bail', 'nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'extensions:jpg,jpeg,png,webp', 'max:2048', 'dimensions:max_width=4096,max_height=4096'],
+            'remove_photo' => ['sometimes', 'boolean'],
             'record_version' => ['required', 'string', 'size:64'],
             'user_id' => ['prohibited'], 'teacher_id' => ['prohibited'], 'role_code' => ['prohibited'],
             'username' => ['prohibited'], 'is_active' => ['prohibited'], 'photo_file_id' => ['prohibited'], 'password_hash' => ['prohibited'],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if ($this->boolean('remove_photo') && $this->hasFile('photo')) {
+                $validator->errors()->add('photo', 'Pilih unggah foto baru atau hapus foto profil, salah satu saja.');
+            }
+        });
     }
 
     public function messages(): array
@@ -47,6 +57,7 @@ class SaveOwnProfileRequest extends FormRequest
         return ['whatsapp_number.regex' => 'Isi nomor WhatsApp yang valid, misalnya 081234567890 atau +6281234567890.',
             'photo.max' => 'Ukuran foto maksimal 2 MB.', 'photo.mimes' => 'Gunakan foto JPG, PNG, atau WebP.',
             'photo.extensions' => 'Nama file foto harus berakhiran JPG, PNG, atau WebP.',
-            'photo.dimensions' => 'Ukuran foto maksimal 4096 × 4096 piksel.'];
+            'photo.dimensions' => 'Ukuran foto maksimal 4096 × 4096 piksel.',
+            'remove_photo.boolean' => 'Pilihan hapus foto profil tidak valid.'];
     }
 }

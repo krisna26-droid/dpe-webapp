@@ -55,8 +55,13 @@ class MonthlyReportPageController extends Controller
     {
         $this->access->authorize($request->user(), $monthlyReport);
         $teacher = $request->user()->role_code === 'teacher';
-        abort_unless(($teacher && $action === 'submit') || (! $teacher && in_array($action, ['approve', 'revision'], true)), 403);
-        if (($action === 'submit' && ! in_array($monthlyReport->status, ['draft', 'revision'], true)) || ($action !== 'submit' && $monthlyReport->status !== 'submitted')) {
+        abort_unless(($teacher && in_array($action, ['submit', 'reopen'], true)) || (! $teacher && in_array($action, ['approve', 'revision'], true)), 403);
+        $valid = match ($action) {
+            'submit' => in_array($monthlyReport->status, ['draft', 'revision'], true),
+            'reopen' => $monthlyReport->status === 'approved',
+            default => $monthlyReport->status === 'submitted',
+        };
+        if (! $valid) {
             return redirect()->route($this->base($request).'.show', $monthlyReport)->withErrors(['status' => 'Status laporan sudah berubah. Periksa laporan terbaru.']);
         }
 
@@ -98,6 +103,15 @@ class MonthlyReportPageController extends Controller
         $this->workflow->requestRevision($monthlyReport, $request->user(), $data['comment'], $request->only('expected_snapshot'));
 
         return $this->done($request, $monthlyReport, 'Laporan dikembalikan untuk revisi. Teacher dapat memperbaiki draf.');
+    }
+
+    public function reopen(Request $request, MonthlyReport $monthlyReport): RedirectResponse
+    {
+        $this->access->authorize($request->user(), $monthlyReport);
+        $report = $this->workflow->reopen($monthlyReport, $request->user(), $request->only('expected_snapshot', 'comment'));
+
+        return redirect()->route(str_replace('monthly-reports', 'student-progress', $this->base($request)).'.edit', $report)
+            ->with('success', 'Revisi laporan bulanan dibuka. Isi lama tetap tersimpan; perbaiki, simpan, lalu ajukan ulang kepada Admin.');
     }
 
     private function done(Request $request, MonthlyReport $report, string $message): RedirectResponse

@@ -14,7 +14,7 @@
             <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route('student.reports.pdf', [$quarterlyReport, $file, 'download' => 1]) }}">Unduh PDF</a>
         </div>
         <div class="dpe-dashboard-table-wrap"><table class="dpe-dashboard-table dpe-portal-skills"><thead><tr><th>Skill</th><th>Skor</th><th>Deskripsi</th></tr></thead><tbody>
-            @foreach (\App\Services\QuarterlyReportContentService::SKILLS as $code => $label)
+            @foreach (\App\Services\QuarterlyReportContentService::snapshotSkillLabels($public) as $code => $label)
                 <tr><td><strong>{{ $label }}</strong></td><td><span class="dpe-dashboard-badge">{{ $public['skills'][$code]['score'] }}</span></td><td class="dpe-portal-text">{{ $public['skills'][$code]['description'] }}</td></tr>
             @endforeach
         </tbody></table></div>

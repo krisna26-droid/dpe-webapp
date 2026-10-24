@@ -15,7 +15,7 @@
 @foreach($context['errors'] as $error)<p>{{ $error }}</p>
 @endforeach<a href="{{ route($progressBase.'.index', ['month' => $cycle->start_month->format('Y-m')]) }}">Buka Perkembangan &amp; Pesan</a></div>
 @endif</div></article>
-<article class="dpe-dashboard-card"><header class="dpe-dashboard-card__head"><div><h2>Teacher pemilik rapor final</h2><p>Teacher terpilih mengisi empat skill dan mengajukan rapor untuk tinjauan.</p></div></header><div class="dpe-dashboard-card__body"><form method="POST" action="{{ route($routeBase.'.store', $cycle) }}" class="dpe-dashboard-form">
+<article class="dpe-dashboard-card"><header class="dpe-dashboard-card__head"><div><h2>Teacher pemilik rapor final</h2><p>Teacher terpilih mengisi delapan skill dan mengajukan rapor untuk tinjauan.</p></div></header><div class="dpe-dashboard-card__body"><form method="POST" action="{{ route($routeBase.'.store', $cycle) }}" class="dpe-dashboard-form">
 @csrf<input type="hidden" name="expected_snapshot" value="{{ old('expected_snapshot', $expectedSnapshot) }}">
 @if($teacher)<input type="hidden" name="teacher_id" value="{{ $ownTeacherId }}"><div class="dpe-final-notice">Teacher pemilik: <strong>{{ auth()->user()->full_name }}</strong></div>
 @else<div class="dpe-dashboard-field"><label for="final-owner">Teacher</label><select id="final-owner" name="teacher_id" required><option value="">Pilih Teacher pemilik</option>

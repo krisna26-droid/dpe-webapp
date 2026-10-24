@@ -38,3 +38,6 @@
 .dpe-final-history small { display: block; margin-top: .35rem; color: #62748a; }
 @media (max-width: 1150px) { .dpe-final-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dpe-final-filter-actions { justify-content: flex-end; } }
 @media (max-width: 700px) { .dpe-final-filter-grid, .dpe-final-editor-grid, .dpe-final-source-grid { grid-template-columns: minmax(0, 1fr); } .dpe-final-filter-actions { justify-content: flex-start; } .dpe-final-actions .dpe-dashboard-button { flex: 1 1 auto; } }
+
+.dpe-final-skill legend { max-width: 100%; overflow-wrap: anywhere; }
+.dpe-final-skills-table td:first-child { overflow-wrap: anywhere; }

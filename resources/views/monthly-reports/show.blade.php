@@ -3,6 +3,8 @@
     $public = $display['public'];
     $canSubmit = $teacher && in_array($monthlyReport->status, ['draft', 'revision'], true);
     $canReview = ! $teacher && $monthlyReport->status === 'submitted';
+    $canReopen = $teacher && $monthlyReport->status === 'approved';
+    $reopened = $monthlyReport->status === 'draft' && $monthlyReport->statusEvents()->where('from_status', 'approved')->where('to_status', 'draft')->exists();
     $lastRevision = $monthlyReport->statusEvents()->where('to_status', 'revision')->orderByDesc('occurred_at')->orderByDesc('id')->first();
 @endphp
 @extends('layouts.dashboard')
@@ -48,18 +50,28 @@
         </article>
     @endunless
     @if ($action)
-        <x-dashboard.form-panel :title="['submit' => 'Ajukan laporan kepada Admin?', 'approve' => 'Setujui laporan bulanan?', 'revision' => 'Kembalikan laporan untuk revisi?'][$action]" description="Periksa isi laporan di bawah. Tindakan dilakukan setelah Anda menekan tombol konfirmasi." :close-url="route($routeBase.'.show', $monthlyReport)">
+        <x-dashboard.form-panel id="monthly-confirmation" :title="['submit' => 'Ajukan laporan kepada Admin?', 'approve' => 'Setujui laporan bulanan?', 'revision' => 'Kembalikan laporan untuk revisi?', 'reopen' => 'Mulai revisi laporan bulanan?'][$action]" :description="$action === 'reopen' ? 'Isi laporan tetap tersimpan. Setelah revisi dibuka, perbaiki dan ajukan ulang untuk persetujuan Admin. Akses orang tua dan berbagi laporan menunggu persetujuan ulang; PDF lama tetap tersimpan.' : 'Periksa isi laporan di bawah. Tindakan dilakukan setelah Anda menekan tombol konfirmasi.'" :close-url="route($routeBase.'.show', $monthlyReport)">
             <form method="POST" action="{{ route($routeBase.'.'.$action, $monthlyReport) }}" class="dpe-dashboard-form" data-monthly-action="{{ $action }}">
                 @csrf
                 <input type="hidden" name="expected_snapshot" value="{{ old('expected_snapshot', $expectedSnapshot) }}">
-                @if ($action === 'revision')<div class="dpe-dashboard-field"><label for="monthly-comment">Alasan revisi</label><textarea id="monthly-comment" name="comment" maxlength="255" rows="4" required @readonly($stale)>{{ old('comment') }}</textarea><p class="dpe-dashboard-field__hint">Tulis perbaikan yang diperlukan. Alasan ini akan terlihat oleh Teacher.</p>@error('comment')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror</div>@endif
-                <div class="dpe-dashboard-form-actions"><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.show', $monthlyReport) }}">Batal</a><button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit" @disabled($stale || ($action !== 'revision' && ! ($readiness['ready'] ?? false)))>{{ ['submit' => 'Ya, ajukan laporan', 'approve' => 'Ya, setujui laporan', 'revision' => 'Kirim permintaan revisi'][$action] }}</button></div>
+                @if (in_array($action, ['revision', 'reopen'], true))<div class="dpe-dashboard-field"><label for="monthly-comment">{{ $action === 'reopen' ? 'Alasan revisi baru' : 'Alasan revisi' }}</label><textarea id="monthly-comment" name="comment" maxlength="255" rows="4" required @readonly($stale)>{{ old('comment') }}</textarea><p class="dpe-dashboard-field__hint">{{ $action === 'reopen' ? 'Jelaskan bagian yang perlu diperbaiki. Alasan dan petugas dicatat pada riwayat laporan.' : 'Tulis perbaikan yang diperlukan. Alasan ini akan terlihat oleh Teacher.' }}</p>@error('comment')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror</div>@endif
+                <div class="dpe-dashboard-form-actions"><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.show', $monthlyReport) }}">Batal</a><button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit" @disabled($stale || (in_array($action, ['submit', 'approve'], true) && ! ($readiness['ready'] ?? false)))>{{ ['submit' => 'Ya, ajukan laporan', 'approve' => 'Ya, setujui laporan', 'revision' => 'Kirim permintaan revisi', 'reopen' => 'Ya, mulai revisi baru'][$action] }}</button></div>
             </form>
         </x-dashboard.form-panel>
     @else
-        @if ($canSubmit || $canReview)<article class="dpe-dashboard-card dpe-progress-spaced"><div class="dpe-dashboard-card__body dpe-monthly-actions"><p>{{ $canSubmit ? 'Pengajuan memakai isian tersimpan. Periksa semua bagian laporan sebelum melanjutkan.' : 'Persetujuan mengunci salinan isi. Jika perlu perbaikan, kembalikan laporan dengan alasan.' }}</p><div class="dpe-monthly-action-buttons">
-            @if ($canSubmit && ! $stale)<a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($routeBase.'.confirm', ['monthlyReport' => $monthlyReport, 'action' => 'submit']) }}">{{ $monthlyReport->status === 'revision' ? 'Ajukan ulang laporan' : 'Ajukan laporan' }}</a>@endif
-            @if ($canReview && ! $stale)<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.confirm', ['monthlyReport' => $monthlyReport, 'action' => 'revision']) }}">Minta revisi</a><a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($routeBase.'.confirm', ['monthlyReport' => $monthlyReport, 'action' => 'approve']) }}">Setujui laporan</a>@endif
+        @if ($canSubmit || $canReview || $canReopen)<article class="dpe-dashboard-card dpe-progress-spaced"><div class="dpe-dashboard-card__body dpe-monthly-actions"><p>{{ $canReopen ? 'Perlu perbaikan setelah disetujui? Mulai revisi baru, perbaiki isi, lalu ajukan ulang kepada Admin.' : ($canSubmit ? 'Pengajuan memakai isian tersimpan. Periksa semua bagian laporan sebelum melanjutkan.' : 'Persetujuan mengunci salinan isi. Jika perlu perbaikan, kembalikan laporan dengan alasan.') }}</p><div class="dpe-monthly-action-buttons">
+            @if ($canReopen && ! $stale)<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.confirm', ['monthlyReport' => $monthlyReport, 'action' => 'reopen']).'#monthly-confirmation' }}">Mulai revisi baru</a>@endif
+            @if ($canSubmit && ! $stale)<a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($routeBase.'.confirm', ['monthlyReport' => $monthlyReport, 'action' => 'submit']) }}">{{ $monthlyReport->status === 'revision' || $reopened ? 'Ajukan ulang laporan' : 'Ajukan laporan' }}</a>@endif
+            @if ($canReview && ! $stale)<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.confirm', ['monthlyReport' => $monthlyReport, 'action' => 'revision']) }}">Minta revisi</a>
+                <x-dashboard.report-approval
+                    :confirm-url="route($routeBase.'.confirm', ['monthlyReport' => $monthlyReport, 'action' => 'approve'])"
+                    :approve-url="route($routeBase.'.approve', $monthlyReport)"
+                    :expected-snapshot="$expectedSnapshot"
+                    :disabled="! ($readiness['ready'] ?? false)"
+                    label="Setujui laporan"
+                    confirm-label="Ya, setujui laporan"
+                />
+            @endif
         </div></div></article>@endif
     @endif
     <div class="dpe-monthly-public {{ $action ? 'dpe-monthly-after-confirm' : '' }}" data-monthly-public>

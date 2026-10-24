@@ -30,7 +30,9 @@
         : url('/');
     $userName = trim((string) ($user?->full_name ?: $user?->username ?: 'Pengguna'));
     $userEmail = trim((string) ($user?->email ?: ''));
-    $initials = strtoupper(substr($userName, 0, 2));
+    $initials = mb_strtoupper(mb_substr($userName, 0, 2));
+    $profilePhotoId = $roleCode === 'teacher' && $user ? $user->teacherProfile()->value('photo_file_id') : null;
+    $profilePhotoUrl = $profilePhotoId ? route('teacher.profile.photo', ['v' => $profilePhotoId]) : null;
     $productName = 'DPE Learning Center';
 
     $menus = [
@@ -247,7 +249,7 @@
             </div>
 
             <div class="dpe-dashboard-role-card">
-                <span class="dpe-dashboard-role-card__badge">{{ $role['short'] }}</span>
+                <span class="dpe-dashboard-role-card__badge" aria-hidden="true">{{ $role['short'] }}@if($roleCode === 'teacher')<img data-account-avatar-image @if($profilePhotoUrl) src="{{ $profilePhotoUrl }}" @else hidden @endif alt="" width="38" height="38">@endif</span>
                 <span>
                     <small>Masuk sebagai</small>
                     <strong>{{ $role['label'] }}</strong>
@@ -356,7 +358,7 @@
 
                     <div class="dpe-dashboard-account">
                         <button class="dpe-dashboard-account__toggle" type="button" data-account-toggle aria-expanded="false" aria-controls="dpe-dashboard-account-menu">
-                            <span class="dpe-dashboard-avatar">{{ $initials }}</span>
+                            <span class="dpe-dashboard-avatar" aria-hidden="true">{{ $initials }}@if($roleCode === 'teacher')<img data-account-avatar-image @if($profilePhotoUrl) src="{{ $profilePhotoUrl }}" @else hidden @endif alt="" width="42" height="42">@endif</span>
                             <span class="dpe-dashboard-account__copy">
                                 <strong>{{ $userName }}</strong>
                                 <small>{{ $role['label'] }}</small>

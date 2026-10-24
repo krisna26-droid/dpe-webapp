@@ -4,6 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\{Guardian, MonthlyReport, MonthlyReportFile, MonthlyReportWhatsappShare, Teacher};
 use App\Services\{MonthlyReportPdfService, MonthlyReportWhatsappService, PortalPaymentService, ReportTemplateService};
+use App\Services\MonthlyReportContentService;
+use App\Services\MonthlyReportWorkflowService;
+use App\Services\StudentPortalService;
+use App\Services\StudentProgressService;
+use App\Services\QuarterlyReportContentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -507,4 +512,73 @@ class MonthlyReportDeliveryWorkflowTest extends TestCase
         $this->postJson($this->monthlyUrl($report, 'open', $share))->assertStatus($status);
         $this->assertNull($share->fresh()->opened_at);
     }
+    public function test_reopened_month_blocks_parent_and_old_whatsapp_actions_but_preserves_pdf_history(): void
+    {
+        $report = $this->readyMonth();
+        $share = $this->startMonth($report);
+        $file = $share->pdf;
+        $pdf = app(MonthlyReportPdfService::class);
+        $oldBytes = $pdf->verifiedBytes($file);
+        $oldSnapshot = $file->public_snapshot;
+        $this->assertNotNull($oldBytes);
+        $this->assertTrue(app(StudentPortalService::class)->monthlyState($report)['ready']);
+        $this->actingAs($this->teacher->user)->post(route('teacher.monthly-reports.reopen', $report), [
+            'expected_snapshot' => app(MonthlyReportContentService::class)->signature($report->fresh()), 'comment' => 'Perbaiki pesan orang tua',
+        ])->assertSessionHasNoErrors()->assertRedirect();
+        $report->refresh();
+        $this->assertFalse(app(StudentPortalService::class)->monthlyState($report)['ready']);
+        $this->actingAs($this->parent)->get(route('student.reports.monthly', $report))->assertOk()->assertViewIs('student.portal.locked')->assertDontSee('PESAN PUBLIK');
+        $this->actingAs($this->teacher->user)->get(route('teacher.monthly-reports.pdf.preview', $report))->assertForbidden();
+        foreach (['open', 'download', 'confirm'] as $action) {
+            $this->postJson($this->monthlyUrl($report, $action, $share), ['sent_confirmed' => '1'])->assertUnprocessable();
+        }
+        $this->assertSame($oldBytes, $pdf->verifiedBytes($file->fresh()));
+        $this->assertSame($oldSnapshot, $file->fresh()->public_snapshot);
+        $this->assertDatabaseHas('payment_proofs', ['charge_id' => $this->chargeId($report), 'status' => 'approved']);
+        $progress = app(StudentProgressService::class);
+        $data = ['expected_snapshot' => $progress->signature($report),
+            'skills' => $progress->categories()->mapWithKeys(function ($skill, $code) use ($report) {
+                $row = $report->reportSkills()->where('skill_id', $skill->id)->firstOrFail();
+                return [$code => ['trend' => $row->trend, 'description' => $row->description]];
+            })->all(), ...$report->only(array_keys(StudentProgressService::CONTENT))];
+        $data['parent_message'] = 'Pesan orang tua setelah revisi';
+        $progress->save($this->teacher->user, $report, $data);
+        $workflow = app(MonthlyReportWorkflowService::class);
+        $report = $workflow->submit($report, $this->teacher->user);
+        $report = $workflow->approve($report, $this->admin);
+        $this->assertTrue(app(StudentPortalService::class)->monthlyState($report)['ready']);
+        $this->actingAs($this->parent)->get(route('student.reports.monthly', $report))->assertOk()->assertViewIs('student.portal.monthly')->assertSee('Pesan orang tua setelah revisi');
+        $this->actingAs($this->teacher->user)->postJson($this->monthlyUrl($report, 'download', $share))->assertUnprocessable();
+        $newShare = $this->startMonth($report);
+        $this->assertSame(2, $newShare->pdf->version_number);
+        $this->assertSame('Pesan orang tua setelah revisi', $newShare->pdf->public_snapshot['parent_message']);
+        $this->assertSame($oldSnapshot, $file->fresh()->public_snapshot);
+        $this->assertSame($oldBytes, $pdf->verifiedBytes($file->fresh()));
+        $this->assertDatabaseCount('monthly_report_files', 2);
+    }
+
+    private function chargeId(MonthlyReport $report): string
+    {
+        return \App\Models\MonthlyCharge::where('student_id', $report->student_id)->whereDate('charge_month', $report->report_month->toDateString())->value('id');
+    }
+
+    public function test_monthly_reopen_temporarily_blocks_final_parent_pdf_without_deleting_it(): void
+    {
+        [$final, $file] = $this->publish();
+        $before = $file->fresh()->getAttributes();
+        $snapshot = $final->approved_snapshot;
+        $this->assertTrue(app(StudentPortalService::class)->quarterlyState($final)['ready']);
+        $report = $this->student->monthlyReports()->oldest('report_month')->firstOrFail();
+        $this->actingAs($this->teacher->user)->post(route('teacher.monthly-reports.reopen', $report), [
+            'expected_snapshot' => app(MonthlyReportContentService::class)->signature($report), 'comment' => 'Revisi ringkasan bulanan',
+        ])->assertSessionHasNoErrors();
+        $this->assertFalse(app(QuarterlyReportContentService::class)->gate($final->fresh())['internal_pdf_ready']);
+        $this->assertFalse(app(StudentPortalService::class)->quarterlyState($final->fresh())['ready']);
+        $this->actingAs($this->parent)->get(route('student.reports.quarterly', $final))->assertOk()->assertViewIs('student.portal.locked');
+        $this->get(route('student.reports.pdf', [$final, $file]))->assertForbidden();
+        $this->assertSame($snapshot, $final->fresh()->approved_snapshot);
+        $this->assertSame($before, $file->fresh()->getAttributes());
+        $this->assertNotNull(app(\App\Services\QuarterlyReportPdfService::class)->verifiedBytes($file->fresh()));
+    }
+
 }

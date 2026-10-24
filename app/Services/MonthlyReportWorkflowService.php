@@ -3,12 +3,14 @@
 namespace App\Services;
 
 use App\Models\BranchAdminAssignment;
+use App\Models\MonthlyProgressAudit;
 use App\Models\MonthlyReport;
 use App\Models\ReportStatusEvent;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -153,6 +155,48 @@ class MonthlyReportWorkflowService
                 'revision',
                 $comment
             );
+
+            return $report->fresh();
+        });
+    }
+
+    /**
+     * Guru pemilik membuka revisi baru tanpa menghapus riwayat persetujuan.
+     */
+    public function reopen(MonthlyReport $report, User $actor, array $formData): MonthlyReport
+    {
+        return DB::transaction(function () use ($report, $actor, $formData) {
+            $report = $this->lockReport($report);
+            $actor = $actor->fresh() ?? throw new AuthorizationException('Akun petugas tidak tersedia.');
+            $this->authorizeTeacherOwner($report, $actor);
+
+            if ($report->status !== 'approved') {
+                throw ValidationException::withMessages(['status' => 'Revisi baru hanya dapat dimulai dari laporan Disetujui.']);
+            }
+
+            $this->content->assertSnapshot($report, $formData);
+            $validated = Validator::make($formData, ['comment' => ['required', 'string', 'max:255']])->validate();
+            $comment = trim($validated['comment']);
+            if ($comment === '') {
+                throw ValidationException::withMessages(['comment' => 'Alasan revisi wajib diisi.']);
+            }
+
+            $fields = ['status', 'student_id', 'branch_id', 'teacher_id', 'cycle_id', 'report_month',
+                'submitted_at', 'approved_at', 'approved_by_user_id', 'approved_snapshot'];
+            $progress = app(StudentProgressService::class);
+            $before = $progress->snapshot($report) + ['approval' => $report->only($fields)];
+            $report->status = 'draft';
+            $report->submitted_at = null;
+            $report->approved_at = null;
+            $report->approved_by_user_id = null;
+            $report->approved_snapshot = null;
+            $report->save();
+
+            $this->recordStatusChange($report, $actor, 'approved', 'draft', $comment);
+            MonthlyProgressAudit::create(['report_id' => $report->id, 'actor_user_id' => $actor->id,
+                'event_type' => 'report_reopened', 'before_snapshot' => $before,
+                'after_snapshot' => $progress->snapshot($report) + ['approval' => $report->only($fields), 'reopen_reason' => $comment],
+                'happened_at' => now()]);
 
             return $report->fresh();
         });

@@ -3,6 +3,10 @@
     'use strict';
 
     function initDashboard() {
+        document.querySelectorAll('[data-account-avatar-image]').forEach(function (image) {
+            image.addEventListener('error', function () { image.hidden = true; });
+            if (image.hasAttribute('src') && image.complete && image.naturalWidth === 0) image.hidden = true;
+        });
         var body = document.body;
         var sidebar = document.querySelector('[data-sidebar]');
         var sidebarToggle = document.querySelector('[data-sidebar-toggle]');

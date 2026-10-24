@@ -12,13 +12,27 @@ use Illuminate\Validation\ValidationException;
 
 class QuarterlyReportContentService
 {
-    public const SKILLS = ['speaking' => 'Speaking', 'reading' => 'Reading', 'listening' => 'Listening', 'writing' => 'Writing'];
+    public const SKILLS = StudentProgressService::CATEGORIES;
+
+    public const LEGACY_SKILLS = ['speaking' => 'Speaking', 'reading' => 'Reading', 'listening' => 'Listening', 'writing' => 'Writing'];
+
+    public const SNAPSHOT_VERSION = 2;
 
     public const SCORES = ['A', 'B', 'C'];
 
     public const STATUSES = ['draft' => 'Draf', 'submitted' => 'Diajukan', 'revision' => 'Perlu revisi', 'approved' => 'Disetujui'];
 
     public function __construct(private ReportTemplateService $template, private ReportSignatureService $signatures) {}
+
+    public static function snapshotSkillLabels(array $snapshot): array
+    {
+        $skills = is_array($snapshot['skills'] ?? null) ? $snapshot['skills'] : [];
+        // Old approvals retain their original four-skill schema. Never silently
+        // discard an additional category from an unversioned imported snapshot.
+        return ($snapshot['snapshot_version'] ?? 1) >= self::SNAPSHOT_VERSION
+            || array_diff(array_keys($skills), array_keys(self::LEGACY_SKILLS)) !== []
+                ? self::SKILLS : self::LEGACY_SKILLS;
+    }
 
     public function months(ReportCycle $cycle): array
     {
@@ -77,6 +91,9 @@ class QuarterlyReportContentService
         $report->loadMissing(['cycle.student', 'branch', 'student', 'teacher.user']);
         $errors = $this->cycleErrors($report->cycle);
         $completed = 0;
+        if (is_array($report->skills) && array_diff(array_keys($report->skills), array_keys(self::SKILLS)) !== []) {
+            $errors['skills'] = 'Gunakan delapan kategori skill yang tersedia pada formulir.';
+        }
         foreach (self::SKILLS as $code => $label) {
             $row = is_array($report->skills) ? ($report->skills[$code] ?? []) : [];
             if (! is_array($row) || ! in_array($row['score'] ?? null, self::SCORES, true) || ! is_string($row['description'] ?? null) || blank($row['description']) || mb_strlen($row['description']) > 4000) {
@@ -155,7 +172,7 @@ class QuarterlyReportContentService
     {
         $report->loadMissing(['student', 'teacher.user', 'cycle', 'branch']);
 
-        return ['snapshot_version' => 1, 'report_id' => $report->id, 'revision_number' => $report->revision_number,
+        return ['snapshot_version' => self::SNAPSHOT_VERSION, 'report_id' => $report->id, 'revision_number' => $report->revision_number,
             'student_id' => $report->student_id, 'student_name' => $report->student->full_name, 'branch_id' => $report->branch_id,
             'teacher_id' => $report->teacher_id, 'teacher_name' => $report->teacher?->user?->full_name,
             'cycle_id' => $report->cycle_id, 'start_month' => $report->cycle->start_month->toDateString(), 'end_month' => $report->cycle->end_month->toDateString(),

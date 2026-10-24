@@ -29,13 +29,14 @@ class QuarterlyReportPdfRenderer
         $font = $metrics->getFont('DejaVu Serif');
         $bold = $metrics->getFont('DejaVu Serif', 'bold');
         $rows = [];
-        $skillLabels = $this->skillLabels();
+        $skillLabels = $this->isMonthly() ? $this->skillLabels() : QuarterlyReportContentService::snapshotSkillLabels($snapshot);
+        $expandedSkills = ! $this->isMonthly() && count($skillLabels) > count(QuarterlyReportContentService::LEGACY_SKILLS);
         foreach ($skillLabels as $code => $label) {
-            $chunks = array_chunk($this->wrap($snapshot['skills'][$code]['description'], $this->isMonthly() ? 275 : 342, $metrics, $font, 10.4), 10);
+            $chunks = array_chunk($this->wrap($snapshot['skills'][$code]['description'], $this->isMonthly() ? 275 : ($expandedSkills ? 305 : 342), $metrics, $font, 10.4), 10);
             foreach ($chunks as $part => $lines) {
                 $rows[] = ['number' => array_search($code, array_keys($skillLabels), true) + 1,
-                    'label' => $label, 'label_lines' => $this->wrap($this->isMonthly() ? str_replace('/', '/ ', $label) : $label,
-                        $this->isMonthly() ? 76 : 65, $metrics, $font, 10.4),
+                    'label' => $label, 'label_lines' => $this->wrap($this->isMonthly() || $expandedSkills ? str_replace('/', '/ ', $label) : $label,
+                        $this->isMonthly() ? 76 : ($expandedSkills ? 98 : 65), $metrics, $font, 10.4),
                     'continued' => $part > 0, 'lines' => $lines, 'score' => $snapshot['skills'][$code]['score']];
             }
         }
@@ -66,7 +67,7 @@ class QuarterlyReportPdfRenderer
             'managerLines' => $this->wrap('('.$fields['manager_name'].')', 235, $metrics, $bold, 10.4),
             'studentLabelWidth' => $studentLabelWidth,
             'studentLines' => $this->wrap($snapshot['student_name'], 510 - $studentLabelWidth, $metrics, $font, 10.4),
-            'monthly' => $this->isMonthly(), ...$this->additionalContent($snapshot, $metrics, $font)])->render();
+            'monthly' => $this->isMonthly(), 'expandedSkills' => $expandedSkills, ...$this->additionalContent($snapshot, $metrics, $font)])->render();
         $pdf->loadHtml($html, 'UTF-8');
         $pdf->setPaper('A4', 'portrait');
         $pdf->render();
@@ -87,7 +88,12 @@ class QuarterlyReportPdfRenderer
     public function validateSnapshot(array $snapshot): void
     {
         $errors = [];
-        foreach (QuarterlyReportContentService::SKILLS as $key => $label) {
+        $skillLabels = QuarterlyReportContentService::snapshotSkillLabels($snapshot);
+        if (! is_array($snapshot['skills'] ?? null) || count($snapshot['skills']) !== count($skillLabels)
+            || array_diff(array_keys($snapshot['skills']), array_keys($skillLabels)) !== []) {
+            $errors['skills'] = 'Kategori skill pada salinan rapor tidak sesuai format penilaiannya.';
+        }
+        foreach ($skillLabels as $key => $label) {
             $row = $snapshot['skills'][$key] ?? null;
             if (! is_array($row) || ! is_string($row['description'] ?? null) || blank($row['description']) || mb_strlen($row['description']) > 4000 || ! in_array($row['score'] ?? null, QuarterlyReportContentService::SCORES, true)) {
                 $errors['skills.'.$key] = 'Lengkapi deskripsi dan skor '.$label.' sebelum melihat PDF.';

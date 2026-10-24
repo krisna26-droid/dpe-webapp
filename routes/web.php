@@ -675,10 +675,11 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
                     Route::post('/{monthlyReport}/whatsapp/{share}/confirm', [$wa, 'confirm'])->whereUuid('share')->middleware('throttle:20,1')->name('whatsapp.confirm');
                 });
                 Route::get('/{monthlyReport}/confirm/{action}', [MonthlyReportPageController::class, 'confirmation'])
-                    ->where('action', 'submit|approve|revision')->name('confirm');
+                    ->where('action', 'submit|approve|revision|reopen')->name('confirm');
                 Route::get('/{monthlyReport}', [MonthlyReportPageController::class, 'show'])->name('show');
                 if ($role === 'teacher') {
                     Route::post('/{monthlyReport}/submit', [MonthlyReportPageController::class, 'submit'])->name('submit');
+                    Route::post('/{monthlyReport}/reopen', [MonthlyReportPageController::class, 'reopen'])->name('reopen');
                 } else {
                     Route::post('/{monthlyReport}/approve', [MonthlyReportPageController::class, 'approve'])->name('approve');
                     Route::post('/{monthlyReport}/revision', [MonthlyReportPageController::class, 'revision'])->name('revision');

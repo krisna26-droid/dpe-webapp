@@ -73,7 +73,7 @@ class QuarterlyReportPageController extends Controller
     {
         $report = $this->workflow->prepare($request->user(), $reportCycle, $request->only('teacher_id', 'expected_snapshot'));
 
-        return redirect()->route($this->base($request).'.edit', $report)->with('success', 'Draf rapor tiga bulan siap. Teacher pemilik dapat mengisi empat skill dan Note.');
+        return redirect()->route($this->base($request).'.edit', $report)->with('success', 'Draf rapor tiga bulan siap. Teacher pemilik dapat mengisi delapan skill dan Note.');
     }
 
     public function show(Request $request, QuarterlyReport $quarterlyReport): View
@@ -124,10 +124,13 @@ class QuarterlyReportPageController extends Controller
         $history = $report->events()->with('actor')->orderByDesc('id')->paginate(10, ['*'], 'history_page')->withQueryString()->fragment('report-history');
         $files = $report->files()->with('generatedBy')->orderByDesc('version_number')->get();
         $display = $report->status === 'approved' ? $report->approved_snapshot : $this->content->snapshot($report);
+        $skillLabels = $report->status === 'approved' && is_array($display)
+            ? QuarterlyReportContentService::snapshotSkillLabels($display) : QuarterlyReportContentService::SKILLS;
 
         return view('quarterly-reports.show', ['report' => $report, 'display' => $display, 'readiness' => $this->content->readiness($report),
             'gate' => $this->content->gate($report), 'history' => $history, 'files' => $files, 'action' => $action,
-            'expectedSnapshot' => $this->content->signature($report)] + $this->common($request));
+            'expectedSnapshot' => $this->content->signature($report), 'skillLabels' => $skillLabels,
+            'legacySkillSnapshot' => $report->status === 'approved' && count($skillLabels) < count(QuarterlyReportContentService::SKILLS)] + $this->common($request));
     }
 
     public function submit(Request $request, QuarterlyReport $quarterlyReport): RedirectResponse

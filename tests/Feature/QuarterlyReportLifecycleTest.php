@@ -149,13 +149,13 @@ class QuarterlyReportLifecycleTest extends TestCase
         return $charge;
     }
 
-    public function test_teacher_and_admin_pages_expose_correct_actions_and_all_four_manual_skills(): void
+    public function test_teacher_and_admin_pages_expose_correct_actions_and_all_eight_manual_skills(): void
     {
         $this->actingAs($this->teacher->user)->get(route('teacher.quarterly-reports.index'))->assertOk()->assertSee('Siswa Contoh Rapor')->assertSee('Siapkan rapor');
         $this->get(route('teacher.quarterly-reports.prepare', $this->cycle))->assertOk()->assertSee('Dipta Rapor')->assertSee('Siapkan draf rapor');
         $report = $this->prepare();
         $this->get($this->url('edit', $report))->assertOk()->assertSee('skills[speaking][score]', false)->assertSee('skills[writing][description]', false)->assertSee('Simpan &amp; periksa rapor', false);
-        $this->get($this->url('show', $report))->assertOk()->assertSeeInOrder(['Speaking', 'Reading', 'Listening', 'Writing', 'NOTE PUBLIK FINAL']);
+        $this->get($this->url('show', $report))->assertOk()->assertSeeInOrder(['Speaking', 'Listening', 'Reading', 'Writing', 'Vocabulary', 'Grammar', 'Pronunciation', 'Confidence/Participation', 'NOTE PUBLIK FINAL']);
         $this->actingAs($this->admin)->get($this->url('edit', $report, 'admin'))->assertOk()->assertSee('Teacher pemilik')->assertDontSee('name="skills[', false);
         $this->get($this->url('show', $report, 'admin'))->assertOk()->assertDontSee('Setujui rapor final');
     }
@@ -264,7 +264,7 @@ class QuarterlyReportLifecycleTest extends TestCase
             $cases[$code.' too long'] = ['skills.'.$code.'.description', str_repeat('x', 4001)];
             $cases[$code.' not text'] = ['skills.'.$code.'.description', ['x']];
         }
-        $cases['fifth skill'] = ['skills.grammar', ['description' => 'Extra', 'score' => 'A']];
+        $cases['ninth skill'] = ['skills.unknown', ['description' => 'Extra', 'score' => 'A']];
         $cases['note too long'] = ['parent_note', str_repeat('n', 8001)];
         $cases['note not text'] = ['parent_note', ['secret']];
 
@@ -276,7 +276,7 @@ class QuarterlyReportLifecycleTest extends TestCase
         $report = $this->prepare(false);
         $data = ['skills' => collect(QuarterlyReportContentService::SKILLS)->map(fn () => ['description' => null, 'score' => null])->all(), 'parent_note' => null];
         $this->actingAs($this->teacher->user)->put($this->url('save', $report), $this->form($report, $data))->assertSessionHasNoErrors();
-        $this->post($this->url('submit', $report), $this->form($report))->assertSessionHasErrors(['skills.speaking', 'skills.reading', 'skills.listening', 'skills.writing', 'parent_note']);
+        $this->post($this->url('submit', $report), $this->form($report))->assertSessionHasErrors([...array_map(fn ($code) => 'skills.'.$code, array_keys(StudentProgressService::CATEGORIES)), 'parent_note']);
         $this->assertSame('draft', $report->fresh()->status);
     }
 
@@ -461,7 +461,7 @@ class QuarterlyReportLifecycleTest extends TestCase
         foreach (['RAHASIA', 'CHALLENGES BULANAN', 'TEACHER MESSAGE BULANAN', 'BULANAN speaking', 'attendance', 'video_url', 'Improving'] as $private) {
             $this->assertStringNotContainsString($private, $json);
         }
-        $this->assertSame(['speaking', 'reading', 'listening', 'writing'], array_keys($file->public_snapshot['skills']));
+        $this->assertSame(array_keys(StudentProgressService::CATEGORIES), array_keys($file->public_snapshot['skills']));
         $this->actingAs($this->teacher->user)->get(route('teacher.quarterly-reports.download', [$report, $file]))->assertOk()->assertHeader('Cache-Control', 'max-age=0, no-store, private')->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->get(route('teacher.quarterly-reports.download', [$report, $file, 'download' => 1]))->assertOk()->assertHeader('Content-Disposition', 'attachment; filename="DPE-Evaluation-v1.pdf"');
         $this->actingAs($this->student->portalUser)->get(route('teacher.quarterly-reports.download', [$report, $file]))->assertForbidden();
@@ -710,6 +710,177 @@ class QuarterlyReportLifecycleTest extends TestCase
         $this->assertFalse(Schema::hasTable('quarterly_reports'));
         $this->assertDatabaseCount('quarterly_report_files', 1);
         $this->assertDatabaseCount('monthly_reports', 3);
+    }
+
+
+    public function test_eight_skill_schema_matches_monthly_categories_and_exposes_all_manual_fields(): void
+    {
+        $this->assertSame(['speaking', 'listening', 'reading', 'writing', 'vocabulary', 'grammar', 'pronunciation', 'confidence_participation'], array_keys(QuarterlyReportContentService::SKILLS));
+        $this->assertSame(StudentProgressService::CATEGORIES, QuarterlyReportContentService::SKILLS);
+        $report = $this->prepare();
+        $response = $this->actingAs($this->teacher->user)->get($this->url('edit', $report))->assertOk()->assertSee('Delapan skill');
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(8, $xpath->query('//select[starts-with(@name, "skills[")]')->length);
+        $this->assertSame(8, $xpath->query('//textarea[starts-with(@name, "skills[")]')->length);
+        foreach (QuarterlyReportContentService::SKILLS as $code => $label) {
+            $response->assertSee('skills['.$code.'][score]', false)->assertSee('skills['.$code.'][description]', false);
+        }
+        $this->get($this->url('show', $report))->assertOk()->assertSee('8 / 8 skill lengkap');
+    }
+
+    public static function eightSkillCodes(): array
+    {
+        return array_map(fn ($code) => [$code], array_keys(QuarterlyReportContentService::SKILLS));
+    }
+
+    #[DataProvider('eightSkillCodes')]
+    public function test_eight_skill_submission_and_approval_require_every_assessment(string $code): void
+    {
+        $report = $this->prepare();
+        $data = $this->fields();
+        $data['skills'][$code] = ['description' => null, 'score' => null];
+        $this->actingAs($this->teacher->user)->put($this->url('save', $report), $this->form($report, $data))->assertSessionHasNoErrors();
+        $this->postJson($this->url('submit', $report), $this->form($report))->assertUnprocessable()->assertJsonValidationErrors('skills.'.$code);
+        $this->assertSame('draft', $report->fresh()->status);
+        $report->update(['status' => 'submitted']);
+        $this->actingAs($this->admin)->postJson($this->url('approve', $report, 'admin'), $this->form($report))->assertUnprocessable()->assertJsonValidationErrors('skills.'.$code);
+        $this->assertSame('submitted', $report->fresh()->status);
+        $this->assertNull($report->fresh()->approved_snapshot);
+    }
+
+    public function test_eight_skill_pdf_snapshot_and_parent_view_preserve_all_scores_in_monthly_order(): void
+    {
+        $report = $this->prepare();
+        $data = $this->fields();
+        $descriptions = [
+            'speaking' => 'Mampu menyampaikan gagasan dan menjawab pertanyaan sederhana dengan kalimat yang runtut.',
+            'listening' => 'Mampu memahami instruksi dan informasi utama dari percakapan dengan kecepatan wajar.',
+            'reading' => 'Mampu menemukan gagasan pokok serta rincian penting pada bacaan sesuai tingkat belajar.',
+            'writing' => 'Mampu menyusun kalimat dan paragraf pendek dengan struktur yang semakin konsisten.',
+            'vocabulary' => 'Menggunakan kosakata baru secara tepat dalam latihan lisan dan tulisan sehari-hari.',
+            'grammar' => 'Menerapkan tata bahasa dasar dengan baik dan memperbaiki kesalahan setelah mendapat umpan balik.',
+            'pronunciation' => 'Mengucapkan bunyi dan kata dengan lebih jelas serta menunjukkan kemajuan pada intonasi.',
+            'confidence_participation' => 'Percaya diri mencoba berbicara dan aktif berpartisipasi dalam diskusi serta kegiatan kelas.',
+        ];
+        foreach (array_keys($data['skills']) as $index => $code) {
+            $data['skills'][$code] = ['description' => $descriptions[$code], 'score' => ['A', 'B', 'C'][$index % 3]];
+        }
+        $data['parent_note'] = 'Siswa menunjukkan perkembangan yang baik selama tiga bulan. Lanjutkan latihan membaca dan berbicara secara teratur di rumah.';
+        $report = app(QuarterlyReportWorkflowService::class)->save($this->teacher->user, $report, $this->form($report, $data));
+        $report = $this->approve($report);
+        $snapshot = $report->approved_snapshot;
+        $this->assertSame(2, $snapshot['snapshot_version']);
+        $this->assertCount(8, $snapshot['skills']);
+        $this->assertSame($data['skills'], $snapshot['skills']);
+        $pdf = app(QuarterlyReportPdfService::class);
+        $file = $pdf->generate($this->teacher->user, $report, $this->form($report));
+        $bytes = $pdf->bytes($this->teacher->user, $report, $file);
+        $this->export('eight-skills.pdf', $bytes);
+        $this->assertSame($snapshot, $file->public_snapshot);
+        foreach (['admin' => $this->admin, 'superadmin' => $this->superadmin] as $role => $actor) {
+            $this->actingAs($actor)->get($this->url('show', $report, $role))->assertOk()->assertViewHas('skillLabels', QuarterlyReportContentService::SKILLS)->assertSee('Delapan skill');
+        }
+        foreach (['2026-07-01', '2026-08-01', '2026-09-01'] as $month) $this->pay($month);
+        $response = $this->actingAs($this->student->portalUser)->get(route('student.reports.quarterly', $report))->assertOk()->assertViewIs('student.portal.quarterly');
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(8, $xpath->query('//table[contains(@class,"dpe-portal-skills")]/tbody/tr')->length);
+        foreach ($descriptions as $text) $response->assertSee($text);
+        $this->get(route('student.reports.pdf', [$report, $file]))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_eight_skill_legacy_approval_requires_revision_and_preserves_its_original_pdf(): void
+    {
+        $report = $this->approve($this->prepare());
+        $legacy = $report->approved_snapshot;
+        $legacy['snapshot_version'] = 1;
+        $legacy['skills'] = array_intersect_key($legacy['skills'], QuarterlyReportContentService::LEGACY_SKILLS);
+        $report->update(['skills' => $legacy['skills'], 'approved_snapshot' => $legacy]);
+        $pdf = app(QuarterlyReportPdfService::class);
+        $oldFile = $pdf->generate($this->teacher->user, $report, $this->form($report));
+        $oldBytes = $pdf->bytes($this->teacher->user, $report, $oldFile);
+        $this->export('legacy-four-skills.pdf', $oldBytes);
+        $this->assertCount(4, $oldFile->public_snapshot['skills']);
+        $this->actingAs($this->teacher->user)->get($this->url('show', $report))->assertOk()->assertSee('format lama (4 skill)')->assertViewHas('skillLabels', QuarterlyReportContentService::LEGACY_SKILLS)->assertDontSee('Vocabulary');
+        foreach (['2026-07-01', '2026-08-01', '2026-09-01'] as $month) $this->pay($month);
+        $this->actingAs($this->student->portalUser)->get(route('student.reports.quarterly', $report))->assertOk()->assertViewIs('student.portal.quarterly')->assertDontSee('Vocabulary');
+        $this->actingAs($this->teacher->user)->post($this->url('reopen', $report), $this->form($report, ['comment' => 'Lengkapi penilaian delapan skill']))->assertSessionHasNoErrors();
+        $report->refresh();
+        $response = $this->get($this->url('edit', $report))->assertOk()->assertSee('skills[vocabulary][score]', false);
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame('', $xpath->query('//textarea[@name="skills[vocabulary][description]"]')->item(0)->textContent);
+        $this->assertSame(0, $xpath->query('//select[@name="skills[vocabulary][score]"]/option[@selected and @value!=""]')->length);
+        $this->assertSame($legacy['skills'], $report->skills);
+        $this->postJson($this->url('submit', $report), $this->form($report))->assertUnprocessable()->assertJsonValidationErrors(['skills.vocabulary', 'skills.grammar', 'skills.pronunciation', 'skills.confidence_participation']);
+        $data = $this->fields();
+        foreach ($legacy['skills'] as $code => $row) $data['skills'][$code] = $row;
+        $this->put($this->url('save', $report), $this->form($report, $data))->assertSessionHasNoErrors();
+        $report = $this->approve($report->fresh());
+        $newFile = $pdf->generate($this->teacher->user, $report, $this->form($report));
+        $this->assertSame(2, $newFile->version_number);
+        $this->assertSame(2, $newFile->approval_revision);
+        $this->assertSame(2, $newFile->public_snapshot['snapshot_version']);
+        $this->assertCount(8, $newFile->public_snapshot['skills']);
+        $this->assertSame($oldBytes, $pdf->bytes($this->teacher->user, $report, $oldFile->fresh()));
+        $this->assertSame($legacy, $oldFile->fresh()->public_snapshot);
+        $this->assertDatabaseCount('quarterly_report_files', 2);
+        $this->export('legacy-upgraded-eight-skills.pdf', $pdf->bytes($this->teacher->user, $report, $newFile));
+        $this->actingAs($this->student->portalUser)->get(route('student.reports.quarterly', $report))->assertOk()->assertSee('Vocabulary')->assertSee('Confidence/Participation');
+    }
+
+    public function test_eight_skill_old_submitted_report_cannot_be_approved_until_new_categories_are_filled(): void
+    {
+        $report = $this->prepare();
+        $legacy = array_intersect_key($report->skills, QuarterlyReportContentService::LEGACY_SKILLS);
+        $report->update(['skills' => $legacy, 'status' => 'submitted']);
+        $this->actingAs($this->admin)->get($this->url('show', $report, 'admin'))->assertOk()->assertSee('4 / 8 skill lengkap');
+        $this->postJson($this->url('approve', $report, 'admin'), $this->form($report))->assertUnprocessable()->assertJsonValidationErrors(['skills.vocabulary', 'skills.grammar', 'skills.pronunciation', 'skills.confidence_participation']);
+        $this->post($this->url('revision', $report, 'admin'), $this->form($report, ['comment' => 'Lengkapi empat penilaian tambahan']))->assertSessionHasNoErrors();
+        $this->assertSame('revision', $report->fresh()->status);
+        $this->assertSame($legacy, $report->fresh()->skills);
+        $this->actingAs($this->teacher->user)->get($this->url('edit', $report))->assertOk()->assertSee('skills[confidence_participation][score]', false);
+    }
+
+    public function test_eight_skill_renderer_does_not_hide_missing_or_unknown_categories(): void
+    {
+        $snapshot = app(QuarterlyReportContentService::class)->snapshot($this->prepare());
+        $cases = [];
+        $missing = $snapshot;
+        unset($missing['skills']['confidence_participation']);
+        $cases[] = $missing;
+        $extra = $snapshot;
+        $extra['skills']['unknown'] = ['score' => 'A', 'description' => 'Tidak boleh disembunyikan'];
+        $cases[] = $extra;
+        $incompleteImported = $snapshot;
+        unset($incompleteImported['snapshot_version']);
+        $incompleteImported['skills'] = array_intersect_key($snapshot['skills'], QuarterlyReportContentService::LEGACY_SKILLS + ['grammar' => 'Grammar']);
+        $cases[] = $incompleteImported;
+        foreach ($cases as $case) {
+            try {
+                app(QuarterlyReportPdfRenderer::class)->validateSnapshot($case);
+                $this->fail('Incomplete or unknown categories must not be hidden in a PDF.');
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                $this->assertNotEmpty($e->errors());
+            }
+        }
+    }
+
+    public function test_eight_skill_long_pdf_retains_all_category_end_markers(): void
+    {
+        $snapshot = app(QuarterlyReportContentService::class)->snapshot($this->prepare());
+        foreach ($snapshot['skills'] as $code => &$row) {
+            $row['description'] = str_repeat('Perkembangan '.$code.' menunjukkan kemajuan yang konsisten melalui latihan terarah. ', 8).' END-'.$code;
+        }
+        unset($row);
+        $snapshot['parent_note'] = str_repeat('Lanjutkan latihan teratur dan berikan kesempatan anak untuk mencoba secara mandiri. ', 22).' END-NOTE';
+        $bytes = app(QuarterlyReportPdfRenderer::class)->render($snapshot, true);
+        $this->assertStringStartsWith('%PDF-', $bytes);
+        $this->export('eight-skills-long.pdf', $bytes);
     }
 
     private function export(string $name, string $bytes): void

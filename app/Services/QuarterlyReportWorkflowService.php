@@ -87,7 +87,7 @@ class QuarterlyReportWorkflowService
                 $data['parent_note'] = $report->parent_note;
             }
             $before = $report->only(['teacher_id', 'skills', 'parent_note', 'revision_number']);
-            $rules = ['skills' => ['required', 'array:speaking,reading,listening,writing', 'size:4'], 'parent_note' => ['present', 'nullable', 'string', 'max:8000']];
+            $rules = ['skills' => ['required', 'array:'.implode(',', array_keys(QuarterlyReportContentService::SKILLS)), 'size:'.count(QuarterlyReportContentService::SKILLS)], 'parent_note' => ['present', 'nullable', 'string', 'max:8000']];
             foreach (QuarterlyReportContentService::SKILLS as $code => $label) {
                 $rules['skills.'.$code] = ['present', 'array:description,score'];
                 $rules['skills.'.$code.'.description'] = ['present', 'nullable', 'string', 'max:4000'];

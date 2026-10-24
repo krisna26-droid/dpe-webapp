@@ -47,10 +47,14 @@ class OwnAccountService
 
     public function saveProfile(User $user, array $data, ?UploadedFile $photo = null): Teacher
     {
+        $removePhoto = filter_var($data['remove_photo'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($photo && $removePhoto) {
+            throw ValidationException::withMessages(['photo' => 'Pilih unggah foto baru atau hapus foto profil, salah satu saja.']);
+        }
         $newPhoto = null;
         $oldPhoto = null;
         try {
-            $updated = DB::transaction(function () use ($user, $data, $photo, &$newPhoto, &$oldPhoto) {
+            $updated = DB::transaction(function () use ($user, $data, $photo, $removePhoto, &$newPhoto, &$oldPhoto) {
                 $actor = $this->actor($user, 'teacher', true);
                 $teacher = $this->teacher($actor, true, true);
                 if (! hash_equals($this->version($actor, $teacher), $data['record_version'])) {
@@ -66,6 +70,7 @@ class OwnAccountService
                 $actor->update(['full_name' => $data['full_name'], 'email' => $email]);
                 $teacher->whatsapp_number = $data['whatsapp_number'];
                 if ($newPhoto) { $teacher->photo_file_id = $newPhoto->id; }
+                elseif ($removePhoto) { $teacher->photo_file_id = null; }
                 $teacher->save();
 
                 return $teacher->fresh(['user', 'photoFile']);
@@ -77,7 +82,7 @@ class OwnAccountService
             throw $exception;
         }
         // Cleanup happens after the outer transaction commits. Shared/retained references are protected by FK checks.
-        if ($newPhoto && $oldPhoto && $newPhoto->id !== $oldPhoto->id) {
+        if ($oldPhoto && $updated->photo_file_id !== $oldPhoto->id) {
             try { $this->files->delete($oldPhoto); } catch (Throwable $cleanup) { report($cleanup); }
         }
 

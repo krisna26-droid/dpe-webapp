@@ -8,6 +8,7 @@ use App\Models\LearningSkill;
 use App\Models\LearningVideo;
 use App\Models\LessonSession;
 use App\Models\MonthlyReport;
+use App\Models\MonthlyProgressAudit;
 use App\Models\Program;
 use App\Models\ReportStatusEvent;
 use App\Models\SessionStudent;
@@ -61,6 +62,7 @@ class MonthlyReportLifecycleTest extends TestCase
     protected function tearDown(): void
     {
         ReportStatusEvent::flushEventListeners();
+        MonthlyProgressAudit::flushEventListeners();
         Carbon::setTestNow();
         parent::tearDown();
     }
@@ -679,4 +681,185 @@ class MonthlyReportLifecycleTest extends TestCase
         $this->assertSame($before, $report->fresh()->getAttributes());
         $this->assertSame($events, ReportStatusEvent::count());
     }
+    private function approvedForReopen(): MonthlyReport
+    {
+        $report = $this->report();
+        $this->submit($report);
+        return app(MonthlyReportWorkflowService::class)->approve($report, $this->admin, $this->form($report));
+    }
+
+    public function test_monthly_reopen_confirmation_and_cancel_are_read_only(): void
+    {
+        $report = $this->approvedForReopen();
+        $before = $report->getAttributes();
+        $audits = MonthlyProgressAudit::count();
+        $this->actingAs($this->teacher->user)->get($this->url('show', $report))->assertOk()->assertSee('Mulai revisi baru');
+        $response = $this->get(route('teacher.monthly-reports.confirm', [$report, 'reopen']))->assertOk()->assertSee('Alasan revisi baru')->assertSee('Ya, mulai revisi baru')->assertSee('Batal');
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(1, $xpath->query('//form[@data-monthly-action="reopen"]//button[@type="submit" and not(@disabled)]')->length);
+        $this->get($this->url('show', $report))->assertOk();
+        $this->assertSame($before, $report->fresh()->getAttributes());
+        $this->assertDatabaseCount('report_status_events', 2);
+        $this->assertSame($audits, MonthlyProgressAudit::count());
+    }
+
+    public function test_monthly_reopen_preserves_content_archives_approval_and_requires_new_review(): void
+    {
+        $video = $this->video();
+        $report = $this->approvedForReopen();
+        $oldSnapshot = $report->approved_snapshot;
+        $originalContent = app(StudentProgressService::class)->snapshot($report);
+        $reopen = $this->form($report, ['comment' => '  Perbaiki ringkasan perkembangan.  ', 'actor_user_id' => $this->superadmin->id]);
+        $this->actingAs($this->teacher->user)->post($this->url('reopen', $report), $reopen)->assertSessionHasNoErrors()->assertRedirect(route('teacher.student-progress.edit', $report));
+        $report->refresh();
+        $this->assertSame('draft', $report->status);
+        foreach (['submitted_at', 'approved_at', 'approved_by_user_id', 'approved_snapshot'] as $field) $this->assertNull($report->$field);
+        $newContent = app(StudentProgressService::class)->snapshot($report);
+        $originalContent['report']['status'] = 'draft';
+        $this->assertSame($originalContent, $newContent);
+        $this->assertDatabaseHas('learning_videos', ['id' => $video->id]);
+        $audit = MonthlyProgressAudit::where('event_type', 'report_reopened')->sole();
+        $this->assertSame($oldSnapshot, $audit->before_snapshot['approval']['approved_snapshot']);
+        $this->assertSame('Perbaiki ringkasan perkembangan.', $audit->after_snapshot['reopen_reason']);
+        $this->assertSame($this->teacher->user_id, $audit->actor_user_id);
+        $this->assertDatabaseHas('report_status_events', ['report_id' => $report->id, 'from_status' => 'approved', 'to_status' => 'draft', 'comment' => 'Perbaiki ringkasan perkembangan.', 'actor_user_id' => $this->teacher->user_id]);
+        $this->get(route('teacher.student-progress.edit', $report))->assertOk()->assertSee('Ringkasan publik asli')->assertSee('Perbaiki ringkasan perkembangan.')->assertViewHas('blockReason', null);
+        $this->get($this->url('show', $report))->assertOk()->assertSee('Ajukan ulang laporan')->assertDontSee('Mulai revisi baru');
+        $this->postJson($this->url('reopen', $report), $reopen)->assertUnprocessable()->assertJsonValidationErrors('status');
+        $this->assertSame(1, MonthlyProgressAudit::where('event_type', 'report_reopened')->count());
+        $this->put(route('teacher.student-progress.save', $report), $this->progressForm($report, ['next' => 'monthly_report']))->assertSessionHasNoErrors();
+        $this->assertSame('draft', $report->fresh()->status);
+        $this->submit($report);
+        $this->actingAs($this->admin)->post($this->url('approve', $report, 'admin'), $this->form($report))->assertSessionHasNoErrors();
+        $this->assertSame('approved', $report->fresh()->status);
+        $this->assertSame('Ringkasan setelah disimpan', $report->fresh()->approved_snapshot['public_content']['development_summary']);
+        $this->assertSame($oldSnapshot, $audit->fresh()->before_snapshot['approval']['approved_snapshot']);
+        $this->assertSame(['submitted', 'approved', 'draft', 'submitted', 'approved'], $report->statusEvents()->orderBy('id')->pluck('to_status')->all());
+        $this->actingAs($this->teacher->user)->postJson($this->url('reopen', $report), $reopen)->assertUnprocessable()->assertJsonValidationErrors('expected_snapshot');
+    }
+
+    public static function monthlyReopenReasons(): array
+    {
+        return [[null], [''], ['   '], [str_repeat('x', 256)], [['invalid']]];
+    }
+
+    #[DataProvider('monthlyReopenReasons')]
+    public function test_monthly_reopen_requires_a_valid_reason(mixed $comment): void
+    {
+        $report = $this->approvedForReopen();
+        $before = $report->getAttributes();
+        $audits = MonthlyProgressAudit::count();
+        $this->actingAs($this->teacher->user)->postJson($this->url('reopen', $report), $this->form($report, ['comment' => $comment]))->assertUnprocessable()->assertJsonValidationErrors('comment');
+        $this->assertSame($before, $report->fresh()->getAttributes());
+        $this->assertSame($audits, MonthlyProgressAudit::count());
+        $this->assertDatabaseCount('report_status_events', 2);
+    }
+
+    public static function monthlyReopenSnapshots(): array
+    {
+        return [[null], ['invalid'], [str_repeat('0', 64)]];
+    }
+
+    #[DataProvider('monthlyReopenSnapshots')]
+    public function test_monthly_reopen_rejects_missing_malformed_and_stale_versions(?string $version): void
+    {
+        $report = $this->approvedForReopen();
+        $this->actingAs($this->teacher->user)->postJson($this->url('reopen', $report), ['expected_snapshot' => $version, 'comment' => 'Perbaiki'])->assertUnprocessable()->assertJsonValidationErrors('expected_snapshot');
+        $this->assertSame('approved', $report->fresh()->status);
+        $this->assertDatabaseCount('report_status_events', 2);
+        $this->assertSame(0, MonthlyProgressAudit::where('event_type', 'report_reopened')->count());
+    }
+
+    public static function monthlyNonApprovedStates(): array
+    {
+        return [['draft'], ['revision'], ['submitted']];
+    }
+
+    #[DataProvider('monthlyNonApprovedStates')]
+    public function test_monthly_reopen_is_only_available_after_approval(string $state): void
+    {
+        $report = $this->report();
+        $report->update(['status' => $state]);
+        $this->actingAs($this->teacher->user)->get($this->url('show', $report))->assertOk()->assertDontSee('Mulai revisi baru');
+        $this->get(route('teacher.monthly-reports.confirm', [$report, 'reopen']))->assertRedirect($this->url('show', $report))->assertSessionHasErrors('status');
+        $this->postJson($this->url('reopen', $report), $this->form($report, ['comment' => 'Perbaiki']))->assertUnprocessable()->assertJsonValidationErrors('status');
+        $this->assertSame($state, $report->fresh()->status);
+        $this->assertSame(0, MonthlyProgressAudit::where('event_type', 'report_reopened')->count());
+    }
+
+    public static function monthlyReopenActors(): array
+    {
+        return [['admin'], ['superadmin'], ['other_teacher'], ['student'], ['inactive_user'], ['inactive_profile']];
+    }
+
+    #[DataProvider('monthlyReopenActors')]
+    public function test_monthly_reopen_is_restricted_to_the_active_teacher_owner(string $kind): void
+    {
+        $report = $this->approvedForReopen();
+        $actor = match ($kind) {
+            'admin' => $this->admin, 'superadmin' => $this->superadmin,
+            'student' => $this->student->portalUser,
+            'other_teacher' => $this->user('teacher'),
+            default => $this->teacher->user,
+        };
+        if ($kind === 'other_teacher') Teacher::create(['id' => (string) Str::uuid(), 'user_id' => $actor->id, 'whatsapp_number' => '081234567892', 'is_active' => true]);
+        if ($kind === 'inactive_user') $actor->update(['is_active' => false]);
+        if ($kind === 'inactive_profile') $this->teacher->update(['is_active' => false]);
+        $this->actingAs($actor)->get(route('teacher.monthly-reports.confirm', [$report, 'reopen']))->assertForbidden();
+        $this->postJson($this->url('reopen', $report), $this->form($report, ['comment' => 'Perbaiki']))->assertForbidden();
+        if (in_array($kind, ['admin', 'superadmin'], true)) {
+            $this->get($this->url('show', $report, $kind))->assertOk()->assertDontSee('Mulai revisi baru');
+            $this->get(route($kind.'.monthly-reports.confirm', [$report, 'reopen']))->assertForbidden();
+        }
+        $this->assertSame('approved', $report->fresh()->status);
+        $this->assertDatabaseCount('report_status_events', 2);
+    }
+
+    public function test_monthly_reopen_allows_repairing_legacy_incomplete_approved_content(): void
+    {
+        $report = $this->report(complete: false);
+        $report->update(['status' => 'approved', 'approved_at' => now(), 'approved_by_user_id' => $this->admin->id]);
+        $this->actingAs($this->teacher->user)->get(route('teacher.monthly-reports.confirm', [$report, 'reopen']))->assertOk()->assertSee('Ya, mulai revisi baru');
+        $this->post($this->url('reopen', $report), $this->form($report, ['comment' => 'Lengkapi laporan lama']))->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertSame('draft', $report->fresh()->status);
+        $this->postJson($this->url('submit', $report), $this->form($report))->assertUnprocessable()->assertJsonValidationErrors(['skills', 'parent_message']);
+    }
+
+    public static function monthlyReopenAuditFailures(): array
+    {
+        return [[ReportStatusEvent::class], [MonthlyProgressAudit::class]];
+    }
+
+    #[DataProvider('monthlyReopenAuditFailures')]
+    public function test_monthly_reopen_rolls_back_when_either_audit_write_fails(string $model): void
+    {
+        $report = $this->approvedForReopen();
+        $before = $report->getAttributes();
+        $audits = MonthlyProgressAudit::count();
+        $model::creating(fn () => throw new \RuntimeException('Reopen audit failed'));
+        try {
+            app(MonthlyReportWorkflowService::class)->reopen($report, $this->teacher->user, $this->form($report, ['comment' => 'Perbaiki']));
+            $this->fail('Audit failure must roll back the revision.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Reopen audit failed', $e->getMessage());
+        }
+        $this->assertSame($before, $report->fresh()->getAttributes());
+        $this->assertSame($audits, MonthlyProgressAudit::count());
+        $this->assertDatabaseCount('report_status_events', 2);
+    }
+
+    public function test_monthly_reopen_requires_csrf_before_writing(): void
+    {
+        $report = $this->approvedForReopen();
+        $form = $this->form($report, ['comment' => 'Perbaiki laporan']);
+        $this->app->instance('env', 'local');
+        $this->actingAs($this->teacher->user)->post($this->url('reopen', $report), $form)->assertStatus(419);
+        $this->assertSame('approved', $report->fresh()->status);
+        $this->assertDatabaseCount('report_status_events', 2);
+        $this->withSession(['_token' => 'test-csrf-reopen'])->post($this->url('reopen', $report), $form + ['_token' => 'test-csrf-reopen'])->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertSame('draft', $report->fresh()->status);
+    }
+
 }

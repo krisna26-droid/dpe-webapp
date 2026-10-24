@@ -8,17 +8,18 @@
 @endpush
 @section('content')
 @php($stale = old('expected_snapshot') && old('expected_snapshot') !== $expectedSnapshot)
-@php($previewReady = $readiness['completed'] === 4 && filled($report->parent_note))
+@php($previewReady = $readiness['completed'] === count(\App\Services\QuarterlyReportContentService::SKILLS) && filled($report->parent_note))
 @php($currentFile = $files->firstWhere('approval_revision', $report->revision_number))
 <section class="dpe-dashboard-page-header"><div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">Rapor / Revisi {{ $report->revision_number }}</p><h2>{{ $display['student_name'] ?? $report->student->full_name }}</h2><p>{{ $report->cycle->start_month->locale('id')->translatedFormat('F Y') }} – {{ $report->cycle->end_month->locale('id')->translatedFormat('F Y') }} · {{ $report->branch->name }} · {{ $display['teacher_name'] ?? $report->teacher->user->full_name }}</p></div><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.index') }}"><x-dashboard.icon name="back" />Kembali ke Rapor Tiga Bulan</a></section>
 <article class="dpe-dashboard-card dpe-progress-spaced"><header class="dpe-dashboard-card__head"><div><h2>Status rapor final</h2><p>{{ $report->status === 'approved' ? 'Isi persetujuan tersimpan. PDF memakai isi, identitas, dan template saat persetujuan.' : 'Isi terkunci saat Diajukan. Perubahan setelah persetujuan perlu tinjauan kembali.' }}</p></div><x-dashboard.status :status="$report->status" :label="$statusLabels[$report->status] ?? 'Periksa status'" /></header><div class="dpe-dashboard-card__body">
 @if($report->status === 'approved')<x-dashboard.approval :user="$report->approvedBy" :at="$report->approved_at" :timezone="$report->branch?->timezone_name" />@endif
-@if(in_array($report->status, ['draft','revision'], true) || $report->status === 'submitted')<p><strong>{{ $readiness['completed'] }} / 4 skill lengkap</strong></p>
+@if(in_array($report->status, ['draft','revision'], true) || $report->status === 'submitted')<p><strong>{{ $readiness['completed'] }} / {{ count(\App\Services\QuarterlyReportContentService::SKILLS) }} skill lengkap</strong></p>
 @if($readiness['errors'])<div class="dpe-final-notice">
 @foreach($readiness['errors'] as $error)<p>{{ $error }}</p>
 @endforeach</div>
 @endif 
 @endif
+@if($legacySkillSnapshot)<div class="dpe-final-notice"><strong>Rapor ini masih memakai format lama (4 skill).</strong><p>Untuk membuat PDF delapan skill, Teacher pemilik perlu memilih Mulai revisi baru, melengkapi delapan penilaian, lalu mengajukannya kembali kepada Admin. PDF dan persetujuan lama tetap tersimpan.</p></div>@endif
 <div class="dpe-final-notice"><p><strong>Tanda tangan pada {{ $report->status === 'approved' ? 'salinan persetujuan' : 'preview saat ini' }}:</strong> Teacher {{ ($display['signatures']['teacher'] ?? null) ? 'tersedia' : 'belum tersedia' }} · Manager {{ ($display['signatures']['manager'] ?? null) ? 'tersedia' : 'belum tersedia' }}.</p>
 <p>{{ $report->status === 'approved' ? 'Mengunggah tanda tangan baru tidak mengubah persetujuan ini. Untuk memperbaruinya, mulai revisi dan ajukan kembali.' : 'Unggah sebelum persetujuan agar masuk PDF. Teacher mengunggah melalui Profil Saya; Super Admin mengunggah tanda tangan Manager melalui Template PDF.' }}</p></div>
 @if(!$action)<div class="dpe-final-actions">
@@ -27,7 +28,16 @@
 @if($teacher)<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.confirm', [$report, 'submit']) }}">{{ $report->status === 'revision' ? 'Ajukan ulang rapor' : 'Ajukan rapor final' }}</a>
 @endif 
 @endif
-@if(!$teacher && $report->status === 'submitted')<a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($routeBase.'.confirm', [$report, 'approve']) }}">Setujui rapor final</a><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.confirm', [$report, 'revision']) }}">Minta revisi</a>
+@if(!$teacher && $report->status === 'submitted')
+<x-dashboard.report-approval
+    :confirm-url="route($routeBase.'.confirm', [$report, 'approve'])"
+    :approve-url="route($routeBase.'.approve', $report)"
+    :expected-snapshot="$expectedSnapshot"
+    :disabled="$stale || !$readiness['ready']"
+    label="Setujui rapor final"
+    confirm-label="Ya, setujui rapor final"
+/>
+<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.confirm', [$report, 'revision']) }}">Minta revisi</a>
 @endif
 @if($previewReady || $report->status === 'approved')<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.preview', $report) }}" target="_blank" rel="noopener">{{ $report->status === 'approved' ? 'Preview persetujuan' : 'Preview PDF draf' }}</a>
 @endif
@@ -38,7 +48,7 @@
 @endif
 @if($action)
 @php($actionLabels = ['submit' => 'Ya, ajukan rapor final', 'approve' => 'Ya, setujui rapor final', 'revision' => 'Ya, minta revisi', 'reopen' => 'Ya, mulai revisi baru', 'generate' => 'Ya, buat PDF final', 'regenerate' => 'Ya, buat ulang PDF'])
-<div class="dpe-final-confirm"><h3>Konfirmasi tindakan</h3><p>{{ ['submit' => 'Rapor akan diajukan kepada Admin dan isinya dikunci selama tinjauan.', 'approve' => 'Pastikan empat skill dan Note sudah benar. Persetujuan ini terpisah dari persetujuan laporan bulanan.', 'revision' => 'Teacher dapat memperbaiki rapor setelah dikembalikan untuk revisi.', 'reopen' => 'Persetujuan saat ini dibuka menjadi draf revisi baru. PDF lama tetap tersimpan dan perubahan harus diajukan kembali.', 'generate' => 'PDF dibuat dari salinan persetujuan. Pembayaran tetap harus tervalidasi sebelum akses orang tua atau pengiriman dapat dibuka.', 'regenerate' => 'PDF baru dibuat dari salinan persetujuan yang sama. File lama tetap tersimpan sebagai riwayat.'][$action] }}</p>
+<div class="dpe-final-confirm"><h3>Konfirmasi tindakan</h3><p>{{ ['submit' => 'Rapor akan diajukan kepada Admin dan isinya dikunci selama tinjauan.', 'approve' => 'Pastikan delapan skill dan Note sudah benar. Persetujuan ini terpisah dari persetujuan laporan bulanan.', 'revision' => 'Teacher dapat memperbaiki rapor setelah dikembalikan untuk revisi.', 'reopen' => 'Persetujuan saat ini dibuka menjadi draf revisi baru. PDF lama tetap tersimpan dan perubahan harus diajukan kembali.', 'generate' => 'PDF dibuat dari salinan persetujuan. Pembayaran tetap harus tervalidasi sebelum akses orang tua atau pengiriman dapat dibuka.', 'regenerate' => 'PDF baru dibuat dari salinan persetujuan yang sama. File lama tetap tersimpan sebagai riwayat.'][$action] }}</p>
 <form method="POST" action="{{ route($routeBase.'.'.$action, $report) }}" class="dpe-dashboard-form">
 @csrf<input type="hidden" name="expected_snapshot" value="{{ old('expected_snapshot', $expectedSnapshot) }}">
 @if(in_array($action, ['revision','reopen','regenerate'], true))<div class="dpe-dashboard-field"><label for="final-comment">Alasan</label><textarea id="final-comment" name="comment" rows="3" maxlength="255" required>{{ old('comment') }}</textarea></div>
@@ -49,7 +59,7 @@
 @endif</div>
 @endif
 </div></article>
-<article class="dpe-dashboard-card dpe-progress-spaced"><header class="dpe-dashboard-card__head"><div><h2>Empat skill</h2><p>A: 90–100 (Very Good) · B: 80–89 (Good) · C: 70–79 (Fair)</p></div></header><div class="dpe-dashboard-table-wrap"><table class="dpe-dashboard-table dpe-final-skills-table"><thead><tr><th>Skill</th><th>Deskripsi</th><th>Skor</th></tr></thead><tbody>
+<article class="dpe-dashboard-card dpe-progress-spaced"><header class="dpe-dashboard-card__head"><div><h2>{{ $legacySkillSnapshot ? 'Empat skill - salinan persetujuan lama' : 'Delapan skill' }}</h2><p>A: 90–100 (Very Good) · B: 80–89 (Good) · C: 70–79 (Fair)</p></div></header><div class="dpe-dashboard-table-wrap"><table class="dpe-dashboard-table dpe-final-skills-table"><thead><tr><th>Skill</th><th>Deskripsi</th><th>Skor</th></tr></thead><tbody>
 @foreach($skillLabels as $code => $label)<tr><td><strong>{{ $label }}</strong></td><td><div class="dpe-final-text">{{ $display['skills'][$code]['description'] ?? 'Belum diisi' }}</div></td><td><strong>{{ $display['skills'][$code]['score'] ?? '—' }}</strong></td></tr>
 @endforeach</tbody></table></div><div class="dpe-dashboard-card__body"><h3>Note untuk orang tua</h3><div class="dpe-final-text">{{ $display['parent_note'] ?? 'Belum diisi' }}</div></div></article>
 <article class="dpe-dashboard-card dpe-progress-spaced"><header class="dpe-dashboard-card__head"><div><h2>Kelengkapan tiga bulan</h2><p>PDF final internal memerlukan rapor final dan ketiga laporan bulanan disetujui. Akses orang tua dan pengiriman juga memerlukan pembayaran ketiga bulan tervalidasi.</p></div></header><div class="dpe-dashboard-card__body"><div class="dpe-final-source-grid">

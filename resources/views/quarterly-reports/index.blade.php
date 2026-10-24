@@ -2,7 +2,7 @@
 @extends('layouts.dashboard')
 @section('title', 'Rapor Tiga Bulan')
 @section('heading', 'Rapor Tiga Bulan')
-@section('description', 'Susun empat skill, tinjau rapor final, dan kelola PDF siswa.')
+@section('description', 'Susun delapan skill, tinjau rapor final, dan kelola PDF siswa.')
 @push('head')
 @include('quarterly-reports._head')
 @endpush

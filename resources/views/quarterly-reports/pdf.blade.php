@@ -25,6 +25,8 @@ h1 { font-size: 14pt; margin: 0 0 12pt; text-align: center; }
 .evaluation th.skill { width: 15%; }
 .evaluation th.description { width: 70%; }
 .evaluation th.score { width: 10%; }
+.evaluation--expanded th.skill { width: 22%; }
+.evaluation--expanded th.description { width: 63%; }
 .evaluation--monthly th.skill { width: 18%; }
 .evaluation--monthly th.description { width: 57%; }
 .evaluation--monthly th.score { width: 20%; }
@@ -56,7 +58,7 @@ h1 { font-size: 14pt; margin: 0 0 12pt; text-align: center; }
 @endforeach</td></tr></table></div>
 @unless($monthly ?? false)<div class="rubric">A: 90 - 100 (Very Good)<br>B: 80 - 89 (Good)<br>C: 70 - 79 (Fair)</div>@endunless
 <div class="period"><strong>Learning Period:</strong> {{ $period }}</div>
-<table class="evaluation {{ ($monthly ?? false) ? 'evaluation--monthly' : '' }}">
+<table class="evaluation {{ ($monthly ?? false) ? 'evaluation--monthly' : '' }} {{ ($expandedSkills ?? false) ? 'evaluation--expanded' : '' }}">
 <thead><tr><th class="number">No</th><th class="skill">Skills</th><th class="description">Descriptions</th><th class="score">{{ ($monthly ?? false) ? 'Progress' : 'Score' }}</th></tr></thead><tbody>
 @foreach ($rows as $row)<tr><td class="number">{{ $row['continued'] ? '' : $row['number'] }}</td><td>@foreach($row['label_lines'] ?? [$row['label']] as $labelLine)<div>{{ $labelLine }}</div>@endforeach
 @if ($row['continued'])<span class="continued">(continued)</span>
@@ -75,8 +77,11 @@ h1 { font-size: 14pt; margin: 0 0 12pt; text-align: center; }
 @foreach($videoBlocks as $video)<div style="margin-bottom:8pt;">@foreach($video['lines'] as $line)<div class="text-line">{{ $line }}</div>@endforeach
 <a href="{{ $video['url'] }}">Open learning video</a></div>@endforeach</div>@endif
 <div class="section">
+@if(($expandedSkills ?? false) && count($documentationLines) <= 12)<div class="section-start">@endif
 @foreach ($documentationLines as $line)<div class="text-line">{{ $line === '' ? "\u{00A0}" : $line }}</div>
-@endforeach<div style="height:5pt"></div>
+@endforeach
+@if(($expandedSkills ?? false) && count($documentationLines) <= 12)</div>@endif
+<div style="height:5pt"></div>
 @foreach ($socialLines as $line)<div class="text-line">{{ $line === '' ? "\u{00A0}" : $line }}</div>
 @endforeach</div>
 <div class="{{ count($closingLines) <= 12 && count($teacherLines) <= 8 && count($managerLines) <= 8 ? 'closing-keep' : '' }}"><div class="section">

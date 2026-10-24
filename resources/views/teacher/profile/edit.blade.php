@@ -12,8 +12,19 @@
         <form method="POST" action="{{ route('teacher.profile.update') }}" enctype="multipart/form-data" class="dpe-dashboard-form dpe-account-stack">
             @csrf @method('PUT')<input type="hidden" name="record_version" value="{{ $fieldValue('record_version', $recordVersion) }}">
             <div class="dpe-account-upload">
-                <div class="dpe-account-avatar dpe-account-avatar--edit"><span aria-hidden="true">{{ mb_strtoupper(mb_substr($actor->full_name ?: $actor->username, 0, 2)) }}</span><img data-account-photo-preview data-account-avatar-image @if($teacher->photoFile) src="{{ route('teacher.profile.photo') }}" @else hidden @endif alt="Pratinjau foto profil"></div>
-                <div class="dpe-dashboard-field"><label for="profile-photo">Foto profil</label><input id="profile-photo" data-account-photo type="file" name="photo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-describedby="profile-photo-hint"><p id="profile-photo-hint" data-account-photo-hint class="dpe-dashboard-field__hint" aria-live="polite">Foto JPG, PNG, atau WebP. Maksimal 2 MB dan 4096 × 4096 piksel.</p>@error('photo')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror</div>
+                <div class="dpe-account-avatar dpe-account-avatar--edit"><span aria-hidden="true">{{ mb_strtoupper(mb_substr($actor->full_name ?: $actor->username, 0, 2)) }}</span><img data-account-photo-preview data-account-avatar-image @if($teacher->photoFile) src="{{ route('teacher.profile.photo', ['v' => $teacher->photo_file_id]) }}" @else hidden @endif alt="Pratinjau foto profil"></div>
+                <div class="dpe-dashboard-field">
+                    <label for="profile-photo">Foto profil</label>
+                    <input id="profile-photo" data-account-photo type="file" name="photo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-describedby="profile-photo-hint">
+                    <p id="profile-photo-hint" data-account-photo-hint class="dpe-dashboard-field__hint" aria-live="polite">Foto JPG, PNG, atau WebP. Maksimal 2 MB dan 4096 × 4096 piksel.</p>
+                    <div class="dpe-account-photo-controls">
+                        <label class="dpe-dashboard-checkbox" data-account-photo-remove-fallback @if(!$teacher->photoFile) hidden @endif><input type="checkbox" name="remove_photo" value="1" data-account-photo-remove-input @checked(in_array(old('remove_photo'), [true, 1, '1'], true))>Hapus foto profil saat menyimpan</label>
+                        <button class="dpe-dashboard-button dpe-dashboard-button--danger" type="button" data-account-photo-remove aria-pressed="false" hidden>Hapus foto profil</button>
+                    </div>
+                    <p class="dpe-dashboard-field__hint">Penggantian atau penghapusan foto diterapkan setelah memilih Simpan profil.</p>
+                    @error('photo')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
+                    @error('remove_photo')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
+                </div>
             </div>
             <div class="dpe-dashboard-form-grid">
                 <div class="dpe-dashboard-field"><label for="profile-name">Nama lengkap <span>*</span></label><input id="profile-name" name="full_name" type="text" required maxlength="255" autocomplete="name" value="{{ $fieldValue('full_name', $actor->full_name) }}">@error('full_name')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror</div>

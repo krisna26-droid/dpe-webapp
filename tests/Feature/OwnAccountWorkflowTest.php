@@ -222,6 +222,156 @@ class OwnAccountWorkflowTest extends TestCase
         $this->assertDatabaseMissing('file_assets',['id'=>$old->id]);
     }
 
+    private function shellPhotoSources(string $html): array
+    {
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="utf-8" ?>'.$html);
+        $nodes = (new \DOMXPath($dom))->query('//span[contains(concat(" ", normalize-space(@class), " "), " dpe-dashboard-role-card__badge ") or contains(concat(" ", normalize-space(@class), " "), " dpe-dashboard-avatar ")]/img[@data-account-avatar-image]');
+
+        return array_map(fn ($image) => $image->getAttribute('src'), iterator_to_array($nodes));
+    }
+
+    public function test_saved_photo_appears_in_both_shell_boxes_across_pages_and_changes_after_replacement(): void
+    {
+        $photo = $this->photo();
+        $url = route('teacher.profile.photo', ['v' => $photo->id]);
+        foreach (['teacher.dashboard', 'teacher.profile.show', 'teacher.profile.edit', 'teacher.settings.index', 'inbox.index'] as $page) {
+            $html = $this->get(route($page))->assertOk()->getContent();
+            $this->assertSame([$url, $url], $this->shellPhotoSources($html));
+            if ($page === 'teacher.profile.edit' && ($dir = getenv('DPE_PROFILE_QA_DIR'))) {
+                if (! is_dir($dir)) mkdir($dir, 0777, true);
+                file_put_contents($dir.'/profile-with-photo.html', $html);
+            }
+        }
+        $replacement = $this->photo();
+        $newUrl = route('teacher.profile.photo', ['v' => $replacement->id]);
+        $this->assertNotSame($url, $newUrl);
+        $html = $this->get(route('teacher.dashboard'))->assertOk()->getContent();
+        $this->assertSame([$newUrl, $newUrl], $this->shellPhotoSources($html));
+    }
+
+    public static function dashboardRoles(): array { return [['superadmin'], ['admin'], ['teacher'], ['student']]; }
+
+    #[DataProvider('dashboardRoles')]
+    public function test_accounts_without_a_photo_keep_their_shell_fallbacks_and_do_not_borrow_another_photo(string $role): void
+    {
+        $this->photo();
+        $user = $role === 'teacher' ? $this->otherTeacher->user : ($role === 'student' ? $this->parent : $this->account($role));
+        $html = $this->actingAs($user)->get(route($role.'.dashboard'))->assertOk()->getContent();
+        $this->assertSame($role === 'teacher' ? ['', ''] : [], $this->shellPhotoSources($html));
+        $this->assertStringNotContainsString(route('teacher.profile.photo').'?v=', $html);
+        if ($role === 'teacher' && ($dir = getenv('DPE_PROFILE_QA_DIR'))) {
+            if (! is_dir($dir)) mkdir($dir, 0777, true);
+            $this->actingAs($this->teacherUser);
+            $this->teacher->update(['photo_file_id' => null]);
+            file_put_contents($dir.'/profile-without-photo.html', $this->get(route('teacher.profile.edit'))->assertOk()->getContent());
+        }
+    }
+
+    public function test_removing_photo_clears_both_shell_boxes_and_only_deletes_the_own_unreferenced_asset(): void
+    {
+        $photo = $this->photo();
+        $other = app(\App\Services\FileAssetService::class)->store(UploadedFile::fake()->image('other.png'), 'teacher-photos');
+        $this->otherTeacher->update(['photo_file_id' => $other->id]);
+        $this->put(route('teacher.profile.update'), $this->profileData(['remove_photo' => '1']))
+            ->assertRedirect(route('teacher.profile.show'));
+        $this->assertNull($this->teacher->fresh()->photo_file_id);
+        Storage::disk('local')->assertMissing($photo->storage_key);
+        $this->assertDatabaseMissing('file_assets', ['id' => $photo->id]);
+        $this->assertSame($other->id, $this->otherTeacher->fresh()->photo_file_id);
+        Storage::disk('local')->assertExists($other->storage_key);
+        $this->get(route('teacher.profile.photo'))->assertNotFound();
+        $this->assertSame(['', ''], $this->shellPhotoSources($this->get(route('teacher.dashboard'))->assertOk()->getContent()));
+        Http::assertNothingSent();
+    }
+
+    public function test_a_normal_save_or_cancelled_removal_preserves_the_existing_photo(): void
+    {
+        $photo = $this->photo();
+        foreach ([[], ['remove_photo' => false], ['remove_photo' => '0']] as $extra) {
+            $this->put(route('teacher.profile.update'), $this->profileData($extra))->assertRedirect();
+            $this->assertSame($photo->id, $this->teacher->fresh()->photo_file_id);
+            Storage::disk('local')->assertExists($photo->storage_key);
+        }
+    }
+
+    public function test_removing_an_already_empty_photo_is_safe(): void
+    {
+        $this->actingAs($this->teacherUser)->put(route('teacher.profile.update'), $this->profileData(['remove_photo' => true]))->assertRedirect();
+        $this->assertNull($this->teacher->fresh()->photo_file_id);
+        $this->assertDatabaseCount('file_assets', 0);
+    }
+
+    public function test_upload_and_removal_cannot_be_submitted_together(): void
+    {
+        $photo = $this->photo();
+        $name = $this->teacherUser->fresh()->full_name;
+        $this->putJson(route('teacher.profile.update'), $this->profileData(['full_name' => 'Should Not Save',
+            'remove_photo' => '1', 'photo' => UploadedFile::fake()->image('conflicting.png')]))
+            ->assertUnprocessable()->assertJsonValidationErrors('photo');
+        $this->assertSame($name, $this->teacherUser->fresh()->full_name);
+        $this->assertSame($photo->id, $this->teacher->fresh()->photo_file_id);
+        $this->assertDatabaseCount('file_assets', 1);
+        $this->assertCount(1, Storage::disk('local')->allFiles('teacher-photos'));
+    }
+
+    public static function invalidPhotoRemovalValues(): array { return [[['array']], ['yes'], [2]]; }
+
+    #[DataProvider('invalidPhotoRemovalValues')]
+    public function test_invalid_photo_removal_flags_do_not_delete_a_photo($value): void
+    {
+        $photo = $this->photo();
+        $this->putJson(route('teacher.profile.update'), $this->profileData(['remove_photo' => $value]))
+            ->assertUnprocessable()->assertJsonValidationErrors('remove_photo');
+        $this->assertSame($photo->id, $this->teacher->fresh()->photo_file_id);
+        Storage::disk('local')->assertExists($photo->storage_key);
+    }
+
+    public function test_an_old_edit_form_cannot_delete_a_newer_photo(): void
+    {
+        $this->photo();
+        $data = $this->profileData(['remove_photo' => '1']);
+        $current = $this->photo();
+        $this->from(route('teacher.profile.edit'))->put(route('teacher.profile.update'), $data)
+            ->assertRedirect(route('teacher.profile.edit'))->assertSessionHasErrors('record_version');
+        $this->assertSame($current->id, $this->teacher->fresh()->photo_file_id);
+        Storage::disk('local')->assertExists($current->storage_key);
+        $this->get(route('teacher.profile.edit'))->assertOk()->assertSee('data-account-photo-remove-input checked', false);
+    }
+
+    public function test_failed_profile_save_does_not_remove_photo_or_change_other_fields(): void
+    {
+        $photo = $this->photo();
+        $name = $this->teacherUser->fresh()->full_name;
+        DB::statement("CREATE TRIGGER fail_photo_removal BEFORE UPDATE ON teachers BEGIN SELECT RAISE(FAIL, 'Fixture failure'); END");
+        $this->put(route('teacher.profile.update'), $this->profileData(['remove_photo' => '1', 'full_name' => 'Should Roll Back']))->assertStatus(500);
+        $this->assertSame($name, $this->teacherUser->fresh()->full_name);
+        $this->assertSame($photo->id, $this->teacher->fresh()->photo_file_id);
+        Storage::disk('local')->assertExists($photo->storage_key);
+        $this->assertDatabaseHas('file_assets', ['id' => $photo->id]);
+    }
+
+    public function test_removing_a_shared_photo_keeps_the_other_profile_and_physical_file(): void
+    {
+        $photo = $this->photo();
+        $this->otherTeacher->update(['photo_file_id' => $photo->id]);
+        $this->put(route('teacher.profile.update'), $this->profileData(['remove_photo' => 1]))->assertRedirect();
+        $this->assertNull($this->teacher->fresh()->photo_file_id);
+        $this->assertSame($photo->id, $this->otherTeacher->fresh()->photo_file_id);
+        Storage::disk('local')->assertExists($photo->storage_key);
+        $this->assertDatabaseHas('file_assets', ['id' => $photo->id]);
+        $this->actingAs($this->otherTeacher->user)->get(route('teacher.profile.photo'))->assertOk();
+    }
+
+    public function test_photo_removal_cannot_be_used_to_target_another_profile(): void
+    {
+        $photo = $this->photo();
+        $this->putJson(route('teacher.profile.update'), $this->profileData(['remove_photo' => 1, 'teacher_id' => $this->otherTeacher->id]))
+            ->assertUnprocessable()->assertJsonValidationErrors('teacher_id');
+        $this->assertSame($photo->id, $this->teacher->fresh()->photo_file_id);
+        Storage::disk('local')->assertExists($photo->storage_key);
+    }
+
     public function test_photo_and_user_update_roll_back_together_if_teacher_save_fails(): void
     {
         $old=$this->photo();$name=$this->teacherUser->fresh()->full_name;
