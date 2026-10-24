@@ -184,7 +184,6 @@
                     <h3>{{ $site['contact']['title'] ?: 'Satu percakapan untuk langkah awalmu.' }}</h3>
                     <p>Ceritakan kebutuhan dan tujuan belajarmu. Tim DPE membantu menjelaskan pilihan program, cabang, dan jadwal.</p>
                     @if ($site['contact']['whatsapp_url'])<a class="button button-white" href="{{ $site['contact']['whatsapp_url'] }}" target="_blank" rel="noopener noreferrer"><x-dpe.icon name="message" /> Chat melalui WhatsApp</a>@else<a class="button button-white" href="#kontak"><x-dpe.icon name="message" /> Chat melalui WhatsApp</a>@endif
-                    @if ($contactNumber)<span class="onepage-contact-number">{{ $isSample ? 'Kontak contoh • ' : '' }}{{ $contactNumber }}</span>@endif
                 </div>
                 <div class="onepage-contact-cards">
                     <article><span class="icon-tile"><x-dpe.icon name="phone" /></span><div><h3>WhatsApp DPE</h3><strong>{{ $contactNumber ?: 'Nomor WhatsApp belum tersedia' }}</strong><p>Informasi program dan konsultasi awal.</p></div></article>
