@@ -60,3 +60,7 @@ Homestead.yaml
 # Folder paket update lokal
 /__dpe_update_*/
 /_dpe_dashboard_layout*/
+
+# Dokumentasi internal, tidak untuk deployment
+/docs/
+/DESIGN.md
