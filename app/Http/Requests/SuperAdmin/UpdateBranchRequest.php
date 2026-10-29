@@ -24,7 +24,7 @@ class UpdateBranchRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('branches', 'code')
+                Rule::unique('branches', 'code')->whereNull('deleted_at')
                     ->ignore($branch?->id),
             ],
 
@@ -52,10 +52,7 @@ class UpdateBranchRequest extends FormRequest
                 'between:1,31',
             ],
 
-            'is_active' => [
-                'sometimes',
-                'boolean',
-            ],
+            'is_active' => ['exclude'],
         ];
     }
 

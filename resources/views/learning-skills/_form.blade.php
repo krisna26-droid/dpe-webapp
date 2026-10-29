@@ -42,14 +42,7 @@
             @error('display_order')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
         </div>
 
-        <div class="dpe-dashboard-field dpe-dashboard-field--full">
-            <div class="dpe-dashboard-checkbox">
-                <input type="hidden" name="is_active" value="0">
-                <input id="is_active" name="is_active" type="checkbox" value="1" @checked($activeValue)>
-                <label for="is_active">Skill aktif dan dapat dipilih untuk laporan baru</label>
-            </div>
-            @error('is_active')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
-        </div>
+
     </div>
 
     <div class="dpe-dashboard-form-actions">

@@ -514,6 +514,7 @@ class ClassGroupMembershipManagementTest extends TestCase
                     'student_id' => $student->id,
                     'starts_on' => '2026-10-15',
                     'ends_on' => '2026-12-31',
+                    'record_version' => app(\App\Services\BranchOperationsService::class)->version($membership->fresh()),
                 ]
             )
             ->assertRedirect()

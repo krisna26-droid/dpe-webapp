@@ -59,15 +59,18 @@ class MonthlyReportServiceTest extends TestCase
     private function createTestSchema(): void
     {
         Schema::create('students', function (Blueprint $table) {
+            $table->softDeletes();
             $table->char('id', 36)->primary();
             $table->date('began_on');
         });
         Schema::create('users', function (Blueprint $table) {
+            $table->softDeletes();
             $table->char('id', 36)->primary();
             $table->string('role_code');
             $table->boolean('is_active');
         });
         Schema::create('teachers', function (Blueprint $table) {
+            $table->softDeletes();
             $table->char('id', 36)->primary();
             $table->char('user_id', 36);
             $table->boolean('is_active');

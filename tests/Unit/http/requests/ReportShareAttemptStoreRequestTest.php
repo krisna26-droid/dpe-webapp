@@ -20,6 +20,7 @@ class ReportShareAttemptStoreRequestTest extends TestCase
         });
 
         Schema::create('teachers', function (Blueprint $table) {
+            $table->softDeletes();
             $table->string('id', 36)->primary();
         });
 

@@ -30,6 +30,6 @@ class MonthlyReportFile extends Model
 
     public function generatedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'generated_by_user_id');
+        return $this->belongsTo(User::class, 'generated_by_user_id')->withTrashed();
     }
 }

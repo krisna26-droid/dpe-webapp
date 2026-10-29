@@ -4,12 +4,16 @@
 @section('description', 'Ubah pertemuan terpilih dan pertemuan berikutnya yang masih dapat dijadwalkan.')
 @push('head') @include('lesson-series._head') @endpush
 @section('content')
+    @php
+        $lessonList = app(\App\Services\LessonSessionListService::class);
+        $listParameters = $lessonList->parameters(request());
+    @endphp
     @php($formValue = fn($field, $default = null) => array_key_exists($field, $formValues) ? $formValues[$field] : $default)
-    <x-dashboard.form-panel title="Pertemuan ini dan berikutnya" description="Satu seri tetap memakai kelompok, cabang, program dan lokasi yang sama. Perubahan akan ditampilkan dahulu pada pratinjau." :close-url="route($operationRoutePrefix.'.lesson-series.show', $series)">
+    <x-dashboard.form-panel title="Pertemuan ini dan berikutnya" description="Satu seri tetap memakai kelompok, cabang, program dan lokasi yang sama. Perubahan akan ditampilkan dahulu pada pratinjau." :close-url="route($operationRoutePrefix.'.lesson-series.show', [$series] + $listParameters)">
         @if($errors->any())<div class="dpe-dashboard-alert dpe-dashboard-alert--error" role="alert"><ul>@foreach($errors->all() as $message)<li>{{ $message }}</li>@endforeach</ul></div>@endif
         <p>{{ $series->classGroup->name }} · {{ $series->branch->name }}</p>
         <p class="dpe-dashboard-field__hint">Mulai dari {{ $anchor->planned_start_at->locale('id')->translatedFormat('l, d F Y H:i') }}. Pertemuan sebelumnya tetap tersimpan. Jika tanggal acuan digeser, tanggal berikutnya bergeser dengan jumlah hari yang sama; pengecualian yang sudah dibuat tetap diikuti.</p>
-        <form method="POST" action="{{ route($operationRoutePrefix.'.lesson-series.preview-future', [$series, $anchor]) }}">
+        <form method="POST" action="{{ route($operationRoutePrefix.'.lesson-series.preview-future', [$series, $anchor] + $listParameters) }}">
             @csrf
             @if($formDraftId)<input type="hidden" name="draft_id" value="{{ $formDraftId }}">@endif
             <div class="dpe-dashboard-form-grid">
@@ -22,7 +26,7 @@
                 <div class="dpe-dashboard-field"><label for="series-activity">Aktivitas awal <span>(opsional)</span></label><input id="series-activity" name="activity" maxlength="255" value="{{ $formValue('activity', $anchor->activity) }}"></div>
             </div>
             <p class="dpe-dashboard-field__hint">Teacher, jam dan catatan awal diterapkan pada pertemuan yang siap diubah. Pertemuan dengan catatan belajar/absensi atau jadwal pengganti tidak ikut diubah.</p>
-            <div class="dpe-dashboard-form-actions"><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-sessions.edit', $anchor) }}">Pertemuan ini saja</a><button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit">Pratinjau perubahan</button></div>
+            <div class="dpe-dashboard-form-actions"><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-sessions.edit', [$anchor] + $listParameters) }}">Pertemuan ini saja</a><button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit">Pratinjau perubahan</button></div>
         </form>
     </x-dashboard.form-panel>
 @endsection

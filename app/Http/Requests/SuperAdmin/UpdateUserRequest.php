@@ -22,14 +22,14 @@ class UpdateUserRequest extends FormRequest
                 'string',
                 'max:255',
                 'alpha_dash',
-                Rule::unique('users', 'username')->ignore($user->id),
+                Rule::unique('users', 'username')->whereNull('deleted_at')->ignore($user->id),
             ],
 
             'email' => [
                 'nullable',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')->ignore($user->id),
+                Rule::unique('users', 'email')->whereNull('deleted_at')->ignore($user->id),
             ],
 
             'full_name' => [
@@ -55,10 +55,7 @@ class UpdateUserRequest extends FormRequest
                 'confirmed',
             ],
 
-            'is_active' => [
-                'required',
-                'boolean',
-            ],
+            'is_active' => ['exclude'],
         ];
     }
 

@@ -20,7 +20,7 @@
             <article class="dpe-dashboard-card">
                 <header class="dpe-dashboard-card__head"><div><h2>{{ $session['date']->locale('id')->translatedFormat('l, d F Y · H:i') }}</h2><p>{{ $session['branch_name'] }} · {{ $session['location'] }}</p></div><span class="dpe-dashboard-badge">{{ $session['label'] }}</span></header>
                 <div class="dpe-dashboard-card__body">
-                    <dl class="dpe-portal-details"><div><dt>Program / Kelas</dt><dd>{{ $session['program_name'] }}{{ $session['class_name'] ? ' / '.$session['class_name'] : '' }}</dd></div><div><dt>Teacher</dt><dd>{{ $session['teacher_name'] ?: 'Belum dipilih' }}</dd></div></dl>
+                    <dl class="dpe-portal-details"><div><dt>Program / Kelas</dt><dd>{{ $session['program_name'] }}{{ $session['class_name'] ? ' / '.$session['class_name'] : '' }}{{ ($session['learning_session_name'] ?? null) ? ' · '.$session['learning_session_name'] : '' }}</dd></div><div><dt>Teacher</dt><dd>{{ $session['teacher_name'] ?: 'Belum dipilih' }}</dd></div></dl>
                     @if ($session['topic'])<p><strong>Topik:</strong> {{ $session['topic'] }}</p>@endif
                     @if ($history && ! $session['cancelled'] && ! $session['superseded'])
                         @if ($session['material'])<p class="dpe-portal-text"><strong>Materi:</strong> {{ $session['material'] }}</p>@endif

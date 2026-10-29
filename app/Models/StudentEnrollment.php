@@ -43,7 +43,7 @@ class StudentEnrollment extends Model
         return $this->belongsTo(
             Student::class,
             'student_id'
-        );
+        )->withTrashed();
     }
 
     public function branch(): BelongsTo
@@ -51,7 +51,7 @@ class StudentEnrollment extends Model
         return $this->belongsTo(
             Branch::class,
             'branch_id'
-        );
+        )->withTrashed();
     }
 
     public function program(): BelongsTo
@@ -59,7 +59,7 @@ class StudentEnrollment extends Model
         return $this->belongsTo(
             Program::class,
             'program_id'
-        );
+        )->withTrashed();
     }
 
     public function isActiveOn(?Carbon $date = null): bool

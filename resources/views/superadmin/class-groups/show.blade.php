@@ -92,14 +92,14 @@
                     </div>
                 </div>
 
-                <form method="POST" action="{{ route($operationRoutePrefix.'.class-groups.status', $classGroup) }}" class="dpe-dashboard-form-actions">
+                <form method="POST" action="{{ route($operationRoutePrefix.'.class-groups.destroy', $classGroup) }}" data-confirm-form data-confirm-title="Hapus data ini?" data-confirm-message="Periode operasional diakhiri dan jadwal mendatang dibatalkan. Riwayat tersimpan tetap tersedia." data-confirm-action="Hapus" class="dpe-dashboard-form-actions">
                     @csrf
-                    @method('PATCH')
+                    @method('DELETE')
                     @if(isset($recordVersion))<input type="hidden" name="record_version" value="{{ $recordVersion }}">@endif
                     @error('record_version')<p class="dpe-dashboard-field__error" role="alert">{{ $message }}</p>@enderror
-                    <button class="dpe-dashboard-button {{ $classGroup->is_active ? 'dpe-dashboard-button--soft' : 'dpe-dashboard-button--primary' }}" type="submit">
-                        <x-dashboard.icon name="refresh" />
-                        <span>{{ $classGroup->is_active ? 'Nonaktifkan kelompok' : 'Aktifkan kelompok' }}</span>
+                    <button class="dpe-dashboard-button dpe-dashboard-button--danger" type="submit">
+                        <x-dashboard.icon name="trash" />
+                        <span>Hapus</span>
                     </button>
                 </form>
             </div>
@@ -164,4 +164,5 @@
             </div>
         @endif
     </article>
+    <x-dashboard.class-session-summary :group="$classGroup" />
 @endsection

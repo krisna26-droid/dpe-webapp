@@ -93,12 +93,12 @@ class TeacherAttendance extends Model
 
     public function teacher(): BelongsTo
     {
-        return $this->belongsTo(Teacher::class, 'teacher_id');
+        return $this->belongsTo(Teacher::class, 'teacher_id')->withTrashed();
     }
 
     public function branch(): BelongsTo
     {
-        return $this->belongsTo(Branch::class, 'branch_id');
+        return $this->belongsTo(Branch::class, 'branch_id')->withTrashed();
     }
 
     public function checkInPhoto(): BelongsTo
@@ -113,12 +113,12 @@ class TeacherAttendance extends Model
 
     public function reviewedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'reviewed_by_user_id');
+        return $this->belongsTo(User::class, 'reviewed_by_user_id')->withTrashed();
     }
 
     public function recordedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'recorded_by_user_id');
+        return $this->belongsTo(User::class, 'recorded_by_user_id')->withTrashed();
     }
 
     public function isManualException(): bool

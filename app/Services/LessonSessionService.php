@@ -61,7 +61,9 @@ class LessonSessionService
 
             app(LessonSchedulingService::class)->validate($data);
 
+            $learningId = app(ClassLearningSessionService::class)->resolve($data);
             $session = LessonSession::query()->create([
+                'class_learning_session_id' => $learningId,
                 'id' => (string) Str::uuid(),
                 'branch_id' => $branch->id,
                 'teaching_location' => $data['teaching_location'] ?? 'branch',
@@ -194,7 +196,9 @@ class LessonSessionService
 
             app(LessonSchedulingService::class)->validate($data, $lessonSession, $ignoreSessionIds);
 
+            $learningId = app(ClassLearningSessionService::class)->resolve($data, $lessonSession);
             $lessonSession->update([
+                'class_learning_session_id' => $learningId,
                 'branch_id' => $branch->id,
                 'teaching_location' => $data['teaching_location'] ?? $lessonSession->teaching_location,
                 'teacher_id' => $teacher->id,

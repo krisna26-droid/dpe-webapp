@@ -82,6 +82,7 @@ class ClassGroupMembershipController extends Controller
     ): View {
         return view('superadmin.class-group-memberships.edit', [
             'classGroupMembership' => $classGroupMembership,
+            'recordVersion' => app(\App\Services\BranchOperationsService::class)->version($classGroupMembership),
 
             'classGroups' => ClassGroup::query()
                 ->where('is_active', true)
@@ -103,10 +104,11 @@ class ClassGroupMembershipController extends Controller
         ClassGroupMembership $classGroupMembership,
         ClassGroupMembershipService $service
     ): RedirectResponse {
-        $service->update(
-            $classGroupMembership,
-            $request->validated()
-        );
+        \Illuminate\Support\Facades\DB::transaction(function () use ($service, $classGroupMembership, $request) {
+            $current = ClassGroupMembership::whereKey($classGroupMembership->id)->lockForUpdate()->firstOrFail();
+            app(\App\Services\BranchOperationsService::class)->checkVersion($current, $request->validated());
+            $service->update($current, $request->validated());
+        });
 
         return redirect()
             ->route(

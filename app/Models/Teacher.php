@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Teacher extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     use HasFactory;
 
     protected $table = 'teachers';
@@ -40,7 +42,7 @@ class Teacher extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_id')->withTrashed();
     }
 
     public function photoFile(): BelongsTo

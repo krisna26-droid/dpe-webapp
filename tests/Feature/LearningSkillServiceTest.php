@@ -66,7 +66,7 @@ class LearningSkillServiceTest extends TestCase
         ]);
     }
 
-    public function test_can_create_an_inactive_learning_skill(): void
+    public function test_new_learning_skill_stays_active_when_status_flag_is_supplied(): void
     {
         $skill = $this->service->create([
             'code' => 'WRITING',
@@ -75,11 +75,11 @@ class LearningSkillServiceTest extends TestCase
             'is_active' => false,
         ]);
 
-        $this->assertFalse($skill->is_active);
+        $this->assertTrue($skill->is_active);
 
         $this->assertDatabaseHas('learning_skills', [
             'id' => $skill->id,
-            'is_active' => 0,
+            'is_active' => 1,
         ]);
     }
 
@@ -120,7 +120,7 @@ class LearningSkillServiceTest extends TestCase
             $updated->display_order
         );
 
-        $this->assertFalse(
+        $this->assertTrue(
             $updated->is_active
         );
 
@@ -129,7 +129,7 @@ class LearningSkillServiceTest extends TestCase
             'code' => 'NEW-CODE',
             'name' => 'New Name',
             'display_order' => 5,
-            'is_active' => 0,
+            'is_active' => 1,
         ]);
     }
 

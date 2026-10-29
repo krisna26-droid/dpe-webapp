@@ -85,13 +85,13 @@
                         </div>
                     </div>
                 </div>
-                <p class="dpe-dashboard-field__hint">Menonaktifkan program mempertahankan riwayat yang sudah ada, tetapi program tidak lagi disarankan untuk data baru.</p>
-                <form method="POST" action="{{ route('superadmin.programs.status', $program) }}" class="dpe-dashboard-form-actions">
+                <p class="dpe-dashboard-field__hint">Penghapusan mengakhiri periode operasional. Riwayat sebelumnya tetap tersimpan.</p>
+                <form method="POST" action="{{ route('superadmin.programs.destroy', $program) }}" data-confirm-form data-confirm-title="Hapus data ini?" data-confirm-message="Periode operasional diakhiri dan jadwal mendatang dibatalkan. Riwayat tersimpan tetap tersedia." data-confirm-action="Hapus" class="dpe-dashboard-form-actions">
                     @csrf
-                    @method('PATCH')
-                    <button class="dpe-dashboard-button {{ $program->is_active ? 'dpe-dashboard-button--soft' : 'dpe-dashboard-button--primary' }}" type="submit">
-                        <x-dashboard.icon name="refresh" />
-                        <span>{{ $program->is_active ? 'Nonaktifkan program' : 'Aktifkan program' }}</span>
+                    @method('DELETE')
+                    <button class="dpe-dashboard-button dpe-dashboard-button--danger" type="submit">
+                        <x-dashboard.icon name="trash" />
+                        <span>Hapus</span>
                     </button>
                 </form>
             </div>

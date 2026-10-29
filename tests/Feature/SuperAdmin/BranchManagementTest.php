@@ -14,73 +14,11 @@ use Tests\TestCase;
 
 class BranchManagementTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
+    use \Illuminate\Foundation\Testing\RefreshDatabase;
 
-        config([
-            'database.default' => 'sqlite',
-            'database.connections.sqlite.database' => ':memory:',
-            'database.connections.sqlite.url' => null,
-            'session.driver' => 'array',
-            'cache.default' => 'array',
-        ]);
 
-        DB::purge('sqlite');
-        DB::setDefaultConnection('sqlite');
 
-        if (
-            config('database.default') !== 'sqlite'
-            || config('database.connections.sqlite.database') !== ':memory:'
-        ) {
-            throw new RuntimeException(
-                'BranchManagementTest must use SQLite in-memory.'
-            );
-        }
 
-        Schema::connection('sqlite')->create(
-            'users',
-            function (Blueprint $table) {
-                $table->char('id', 36)->primary();
-                $table->string('username')->unique();
-                $table->string('email')->nullable()->unique();
-                $table->string('password_hash');
-                $table->string('full_name');
-                $table->string('role_code');
-                $table->boolean('is_active')->default(true);
-                $table->dateTime('created_at')->nullable();
-            }
-        );
-
-        Schema::connection('sqlite')->create(
-            'branches',
-            function (Blueprint $table) {
-                $table->char('id', 36)->primary();
-                $table->string('code')->unique();
-                $table->string('name');
-                $table->text('address')->nullable();
-                $table->string('timezone_name');
-                $table->smallInteger('payment_recap_day');
-                $table->boolean('is_active')->default(true);
-                $table->dateTime('created_at')->nullable();
-            }
-        );
-    }
-
-    protected function tearDown(): void
-    {
-        try {
-            if (
-                config('database.default') === 'sqlite'
-                && config('database.connections.sqlite.database') === ':memory:'
-            ) {
-                Schema::connection('sqlite')->dropIfExists('branches');
-                Schema::connection('sqlite')->dropIfExists('users');
-            }
-        } finally {
-            parent::tearDown();
-        }
-    }
 
     private function createUser(
         string $role = 'superadmin',
@@ -391,47 +329,17 @@ class BranchManagementTest extends TestCase
         ]);
     }
 
-    public function test_superadmin_can_deactivate_branch(): void
+    public function test_superadmin_can_delete_active_branch(): void
     {
-        $superadmin = $this->createUser();
-        $branch = $this->createBranch();
-
-        $this->actingAs($superadmin)
-            ->patch(
-                route('superadmin.branches.status', $branch)
-            )
-            ->assertRedirect(
-                route('superadmin.branches.show', $branch)
-            )
-            ->assertSessionHas('success');
-
-        $this->assertDatabaseHas('branches', [
-            'id' => $branch->id,
-            'is_active' => 0,
-        ]);
+        $actor=$this->createUser();$branch=$this->createBranch(active: true);
+        $this->actingAs($actor)->delete(route('superadmin.branches.destroy',$branch))->assertSessionHasNoErrors()->assertRedirect(route('superadmin.branches.index'));
+        $this->assertSoftDeleted('branches',['id'=>$branch->id]);
     }
 
-    public function test_superadmin_can_reactivate_branch(): void
+    public function test_superadmin_can_delete_inactive_branch(): void
     {
-        $superadmin = $this->createUser();
-
-        $branch = $this->createBranch(
-            code: 'DPS',
-            active: false
-        );
-
-        $this->actingAs($superadmin)
-            ->patch(
-                route('superadmin.branches.status', $branch)
-            )
-            ->assertRedirect(
-                route('superadmin.branches.show', $branch)
-            )
-            ->assertSessionHas('success');
-
-        $this->assertDatabaseHas('branches', [
-            'id' => $branch->id,
-            'is_active' => 1,
-        ]);
+        $actor=$this->createUser();$branch=$this->createBranch(active: false);
+        $this->actingAs($actor)->delete(route('superadmin.branches.destroy',$branch))->assertSessionHasNoErrors()->assertRedirect(route('superadmin.branches.index'));
+        $this->assertSoftDeleted('branches',['id'=>$branch->id]);
     }
 }

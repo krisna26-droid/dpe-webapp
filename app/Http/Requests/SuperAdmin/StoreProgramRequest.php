@@ -20,7 +20,7 @@ class StoreProgramRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('programs', 'code'),
+                Rule::unique('programs', 'code')->whereNull('deleted_at'),
             ],
 
             'name' => [
@@ -41,10 +41,7 @@ class StoreProgramRequest extends FormRequest
                 'min:0',
             ],
 
-            'is_active' => [
-                'sometimes',
-                'boolean',
-            ],
+            'is_active' => ['exclude'],
         ];
     }
 }

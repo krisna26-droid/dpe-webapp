@@ -26,6 +26,8 @@ use Tests\TestCase;
 class StudentUserManagementTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\StudentAccountSessionFixture;
+    private array $sessionFields;
 
     private User $admin;
     private Branch $branch;
@@ -42,6 +44,7 @@ class StudentUserManagementTest extends TestCase
             'id' => (string) Str::uuid(), 'code' => 'ENGLISH', 'name' => 'English Private',
             'class_type' => 'private', 'is_active' => true,
         ]);
+        $this->sessionFields=$this->accountSessionFields($this->branch,$this->program);
     }
 
     protected function tearDown(): void
@@ -77,7 +80,7 @@ class StudentUserManagementTest extends TestCase
 
     private function data(array $overrides = []): array
     {
-        return array_replace([
+        return array_replace($this->sessionFields, [
             'full_name' => 'Anak Baru', 'username' => 'anak_baru', 'email' => '',
             'password' => 'Student123!', 'password_confirmation' => 'Student123!',
             'program_id' => $this->program->id, 'began_on' => '2026-10-01',
@@ -125,12 +128,12 @@ class StudentUserManagementTest extends TestCase
         $this->assertSame('SD Contoh', $student->school_name);
         $this->assertSame('Kelas 4', $student->grade_name);
         $this->assertSame('active', $student->status);
-        $this->assertSame('2026-10-01', $student->began_on->toDateString());
+        $this->assertSame('2026-10-22', $student->began_on->toDateString());
         $this->assertDatabaseHas('student_enrollments', [
             'student_id' => $student->id, 'branch_id' => $this->branch->id,
             'program_id' => $this->program->id, 'ends_on' => null,
         ]);
-        $this->assertSame('2026-10-01', $student->enrollments()->firstOrFail()->starts_on->toDateString());
+        $this->assertSame('2026-10-22', $student->enrollments()->firstOrFail()->starts_on->toDateString());
         $this->get(route('admin.users.show', $user))->assertOk()->assertSee('Cabang Admin')->assertSee('English Private')
             ->assertSee(route('admin.students.show', $student), false)->assertDontSee('Student123!')->assertDontSee($user->password_hash);
         $this->get(route('admin.students.index'))->assertOk()->assertSee('Anak Baru');
@@ -148,18 +151,13 @@ class StudentUserManagementTest extends TestCase
         $this->get(route('student.profile'))->assertOk()->assertSee('Cabang Admin')->assertSee('English Private');
     }
 
-    public function test_form_has_automatic_branch_fixed_role_optional_email_and_password_eyes(): void
+    public function test_student_form_has_nine_fields_and_one_password_eye(): void
     {
-        $this->actingAs($this->admin);
-        $this->get(route('admin.users.index'))->assertOk()->assertSee(route('admin.users.create'), false);
-        $response = $this->get(route('admin.users.create'))->assertOk();
-        $html = $this->html($response->getContent());
-        $this->assertSame(1, $html->query('//a[@href="' . route('admin.users.index') . '" and contains(@class,"is-active")]')->length);
-        $this->assertSame(0, $html->query('//select[@name="role_code"]|//select[@name="branch_id"]')->length);
-        $this->assertSame($this->branch->id, $html->query('//input[@name="branch_id"]')->item(0)->getAttribute('value'));
-        $this->assertSame(0, $html->query('//input[@name="email"]/@required')->length);
-        $this->assertSame(2, $html->query('//button[@data-account-toggle="password" or @data-account-toggle="password_confirmation"]/*[local-name()="svg"]')->length);
-        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+        $this->actingAs($this->admin);$response=$this->get(route('admin.users.create'))->assertOk();$html=$this->html($response->getContent());
+        $this->assertSame(1,$html->query('//select[@name="branch_id"]')->length);
+        $this->assertSame(0,$html->query('//input[@name="email"]|//input[@name="password_confirmation"]')->length);
+        $this->assertSame(1,$html->query('//button[@data-account-toggle="student_password"]')->length);
+        $this->assertStringContainsString('no-store',$response->headers->get('Cache-Control'));
     }
 
     #[DataProvider('forbiddenRoles')]
@@ -211,12 +209,12 @@ class StudentUserManagementTest extends TestCase
             'existing account' => [['portal_user_id' => 'forged'], 'portal_user_id'],
             'inactive account' => [['is_active' => '0'], 'is_active'],
             'short password' => [['password' => 'abc', 'password_confirmation' => 'abc'], 'password'],
-            'password mismatch' => [['password_confirmation' => 'Different123!'], 'password'],
-            'empty program' => [['program_id' => ''], 'program_id'],
-            'missing program' => [['program_id' => (string) 'missing-program'], 'program_id'],
-            'invalid date' => [['began_on' => '2026-02-31'], 'began_on'],
+            'missing guardian' => [['guardian_phone' => ''], 'guardian_phone'],
+            'empty sessions' => [['learning_session_ids' => []], 'learning_session_ids'],
+            'missing session' => [['learning_session_ids' => ['missing-session']], 'learning_session_ids'],
+            'missing school' => [['school_name' => ''], 'school_name'],
             'array name' => [['full_name' => ['invalid']], 'full_name'],
-            'array email' => [['email' => ['invalid']], 'email'],
+            'array phone' => [['guardian_phone' => ['invalid']], 'guardian_phone'],
             'forged branch' => [['branch_id' => 'not-assigned'], 'branch_id'],
         ];
     }
@@ -237,8 +235,8 @@ class StudentUserManagementTest extends TestCase
         $this->post(route('admin.users.store'), $this->data())->assertSessionHasErrors('branch_id');
         $this->branch->update(['is_active' => true]);
         $this->program->update(['is_active' => false]);
-        $this->post(route('admin.users.store'), $this->data())->assertSessionHasErrors('program_id');
-        $form = $this->get(route('admin.users.create'))->assertOk()->assertSee('Belum ada program belajar aktif');
+        $this->post(route('admin.users.store'), $this->data())->assertSessionHasErrors('learning_session_ids');
+        $form = $this->get(route('admin.users.create'))->assertOk()->assertSee('Belum ada sesi belajar aktif');
         $this->assertSame(1, $this->html($form->getContent())->query('//button[@type="submit" and @disabled]')->length);
         $this->assertDatabaseMissing('users', ['username' => 'anak_baru']);
     }
@@ -292,7 +290,7 @@ class StudentUserManagementTest extends TestCase
             $service->create($this->admin, $this->data());
             $this->fail('A program deactivated after validation must be rejected.');
         } catch (\Illuminate\Validation\ValidationException $error) {
-            $this->assertArrayHasKey('program_id', $error->errors());
+            $this->assertArrayHasKey('learning_session_ids', $error->errors());
         }
         $this->assertDatabaseMissing('users', ['username' => 'anak_baru']);
     }
@@ -305,8 +303,9 @@ class StudentUserManagementTest extends TestCase
         $this->actingAs($this->admin);
         $form = $this->get(route('admin.users.create'))->assertOk();
         $this->assertSame(3, $this->html($form->getContent())->query('//select[@name="branch_id"]/option')->length);
-        $this->post(route('admin.users.store'), $this->data())->assertSessionHasErrors('branch_id');
-        $this->post(route('admin.users.store'), $this->data(['branch_id' => $other->id]))->assertSessionHasNoErrors();
+        $this->post(route('admin.users.store'), $this->data(['branch_id'=>'']))->assertSessionHasErrors('branch_id');
+        $otherFields=$this->accountSessionFields($other,$this->program);
+        $this->post(route('admin.users.store'), $this->data($otherFields))->assertSessionHasNoErrors();
         $student = User::where('username', 'anak_baru')->firstOrFail()->studentProfile;
         $this->assertDatabaseHas('student_enrollments', ['student_id' => $student->id, 'branch_id' => $other->id]);
     }
@@ -347,41 +346,32 @@ class StudentUserManagementTest extends TestCase
         $this->get(route('admin.users.show', $own))->assertNotFound();
     }
 
-    public function test_future_enrollment_remains_visible_without_an_inaccessible_profile_link(): void
+    public function test_student_start_date_is_set_automatically(): void
     {
-        $this->actingAs($this->admin)->post(route('admin.users.store'), $this->data(['began_on' => '2026-11-01']))
-            ->assertSessionHasNoErrors();
-        $user = User::where('username', 'anak_baru')->firstOrFail();
-        $this->get(route('admin.users.index'))->assertOk()->assertSee('Anak Baru');
-        $this->get(route('admin.users.show', $user))->assertOk()->assertSee('Akan dimulai')
-            ->assertDontSee(route('admin.students.show', $user->studentProfile), false);
-        $this->get(route('admin.students.index'))->assertOk()->assertDontSee('Anak Baru');
+        $this->actingAs($this->admin)->post(route('admin.users.store'),$this->data(['began_on'=>'2026-11-01']))->assertSessionHasNoErrors();
+        $user=User::where('username','anak_baru')->firstOrFail();
+        $this->assertSame(today()->toDateString(),$user->studentProfile->began_on->toDateString());
+        $this->get(route('admin.users.show',$user))->assertOk()->assertSee(route('admin.students.show',$user->studentProfile),false);
     }
 
-    public function test_optional_values_are_trimmed_and_duplicate_submissions_create_only_one_complete_student(): void
+    public function test_nine_field_input_is_trimmed_and_duplicate_submission_is_rejected(): void
     {
-        $data = $this->data(['full_name' => '  Anak Baru  ', 'username' => '  anak_baru  ', 'email' => '  SISWA@EXAMPLE.TEST  ']);
-        $this->actingAs($this->admin)->post(route('admin.users.store'), $data)->assertSessionHasNoErrors();
-        $user = User::where('username', 'anak_baru')->firstOrFail();
-        $this->assertSame('Anak Baru', $user->full_name);
-        $this->assertSame('siswa@example.test', $user->email);
-        $this->post(route('admin.users.store'), $data)->assertSessionHasErrors(['username', 'email']);
-        $this->assertDatabaseCount('students', 1);
-        $this->assertDatabaseCount('student_enrollments', 1);
-        $this->post(route('admin.users.store'), $this->data(['username' => 'another_student', 'email' => $user->email]))
-            ->assertSessionHasErrors('email');
-        $this->assertDatabaseMissing('users', ['username' => 'another_student']);
+        $data=$this->data(['full_name'=>'  Anak Baru  ','username'=>'  anak_baru  ','email'=>'ignored@example.test']);
+        $this->actingAs($this->admin)->post(route('admin.users.store'),$data)->assertSessionHasNoErrors();
+        $user=User::where('username','anak_baru')->firstOrFail();$this->assertSame('Anak Baru',$user->full_name);$this->assertNull($user->email);
+        $this->post(route('admin.users.store'),$data)->assertSessionHasErrors('username');
+        $this->assertDatabaseCount('students',1);$this->assertDatabaseCount('student_enrollments',1);
     }
 
     public function test_validation_preserves_non_secret_input_but_never_redisplays_passwords(): void
     {
         $this->actingAs($this->admin)->from(route('admin.users.create'))
-            ->post(route('admin.users.store'), $this->data(['password_confirmation' => 'Different123!']))
+            ->post(route('admin.users.store'), $this->data(['password' => 'abc']))
             ->assertSessionHasErrors('password');
         $response = $this->get(route('admin.users.create'))->assertOk()->assertDontSee('Student123!')->assertDontSee('Different123!');
         $html = $this->html($response->getContent());
         $this->assertSame('anak_baru', $html->query('//input[@name="username"]')->item(0)->getAttribute('value'));
-        foreach (['password', 'password_confirmation'] as $field) {
+        foreach (['password'] as $field) {
             $this->assertSame('', $html->query('//input[@name="' . $field . '"]')->item(0)->getAttribute('value'));
         }
     }

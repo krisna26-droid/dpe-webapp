@@ -1,13 +1,15 @@
 @php
     $operationRoutePrefix = $operationRoutePrefix ?? 'superadmin';
+    $lessonList = app(\App\Services\LessonSessionListService::class);
+    $listParameters = $lessonList->parameters(request());
 @endphp
 @php
     $lessonSession = $lessonSession ?? null;
     $isEdit = $lessonSession !== null;
     $inSeries = (bool) $lessonSession?->schedule_series_id;
     $formAction = $isEdit
-        ? route($operationRoutePrefix.'.lesson-sessions.update', $lessonSession)
-        : route($operationRoutePrefix.'.lesson-sessions.store');
+        ? route($operationRoutePrefix.'.lesson-sessions.update', [$lessonSession] + $listParameters)
+        : route($operationRoutePrefix.'.lesson-sessions.store', $listParameters);
     $formMethod = $isEdit ? 'PUT' : 'POST';
     $selectedBranch = old('branch_id', $lessonSession?->branch_id ?? ($operationRoutePrefix === 'admin' && $branches->count() === 1 ? $branches->first()->id : null));
     $selectedTeacher = old('teacher_id', $lessonSession?->teacher_id);
@@ -35,7 +37,7 @@
 @endif
 
 @if($isEdit && $lessonSession->schedule_series_id)
-    <div class="dpe-dashboard-form-note"><p>Perubahan pada form ini berlaku untuk <strong>pertemuan ini saja</strong>. Cabang, program dan kelompok tetap mengikuti seri.</p><div class="dpe-dashboard-page-header__actions"><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-series.show', $lessonSession->schedule_series_id) }}">Lihat seluruh seri</a>@if($lessonSession->planned_start_at->isFuture() && $lessonSession->status === 'scheduled')<a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route($operationRoutePrefix.'.lesson-series.edit', [$lessonSession->schedule_series_id, $lessonSession]) }}">Pertemuan ini dan berikutnya</a>@endif</div></div>
+    <div class="dpe-dashboard-form-note"><p>Perubahan pada form ini berlaku untuk <strong>pertemuan ini saja</strong>. Cabang, program dan kelompok tetap mengikuti seri.</p><div class="dpe-dashboard-page-header__actions"><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-series.show', [$lessonSession->schedule_series_id] + $listParameters) }}">Lihat seluruh seri</a>@if($lessonSession->planned_start_at->isFuture() && $lessonSession->status === 'scheduled')<a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route($operationRoutePrefix.'.lesson-series.edit', [$lessonSession->schedule_series_id, $lessonSession] + $listParameters) }}">Pertemuan ini dan berikutnya</a>@endif</div></div>
 @endif
 
 <form method="POST" action="{{ $formAction }}" @if($operationRoutePrefix === 'admin') data-branch-operations-form @endif>
@@ -105,6 +107,8 @@
             <p class="dpe-dashboard-field__hint">{{ $operationRoutePrefix === 'admin' ? 'Kelas harus sesuai cabang dan program. Memilih kelas akan menyesuaikan program.' : 'Pilihan ini tidak mengubah program yang sudah dipilih.' }}</p>
             @error('class_group_id')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
         </div>
+
+        <x-dashboard.learning-session-selector :current="$lessonSession" />
 
         <div class="dpe-dashboard-field">
             <label for="teaching_location">Lokasi mengajar</label>
@@ -188,7 +192,7 @@
     </div>
 
     <div class="dpe-dashboard-form-actions">
-        <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ $isEdit ? route($operationRoutePrefix.'.lesson-sessions.show', $lessonSession) : route($operationRoutePrefix.'.lesson-sessions.index') }}">Batal</a>
+        <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ $isEdit ? route($operationRoutePrefix.'.lesson-sessions.show', [$lessonSession] + $listParameters) : route($operationRoutePrefix.'.lesson-sessions.index', $lessonList->backParameters(request())) }}">Batal</a>
         <button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit">
             <x-dashboard.icon name="check" />
             <span>{{ $isEdit ? 'Simpan perubahan' : 'Simpan sesi' }}</span>

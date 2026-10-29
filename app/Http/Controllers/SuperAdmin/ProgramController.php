@@ -92,23 +92,9 @@ class ProgramController extends Controller
             );
     }
 
-    public function toggleStatus(
-        Request $request,
-        Program $program,
-        ProgramService $service
-    ): RedirectResponse {
-        $service->toggleStatus($program);
-
-        return redirect()
-            ->route(
-                'superadmin.programs.show',
-                $program
-            )
-            ->with(
-                'success',
-                $program->is_active
-                    ? 'Program berhasil diaktifkan.'
-                    : 'Program berhasil dinonaktifkan.'
-            );
+    public function destroy(\Illuminate\Http\Request $request, Program $program): RedirectResponse
+    {
+        app(\App\Services\OperationalDeletionService::class)->delete($request->user(),$program);
+        return redirect()->route('superadmin.programs.index')->with('success','Data berhasil dihapus. Riwayat sebelumnya tetap tersimpan.');
     }
 }

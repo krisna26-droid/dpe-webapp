@@ -669,3 +669,18 @@
     .dpe-dashboard-attendance-filter-actions .dpe-dashboard-button,
     .dpe-dashboard-review-actions .dpe-dashboard-button { flex: 1 1 auto; }
 }
+
+/* Session selection uses the existing dashboard form spacing and colour tokens. */
+.dpe-session-choices{min-width:0;border:0;padding:0;margin:16px 0;display:grid;gap:10px}
+.dpe-session-choices legend{font-weight:650;margin-bottom:12px}
+.dpe-session-days{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:16px 24px;align-items:start;min-width:0}
+.dpe-session-choice,.dpe-dashboard-field .dpe-session-choice{display:flex;gap:12px;align-items:flex-start;min-width:0;padding:8px 0;margin:0;overflow-wrap:anywhere;cursor:pointer}
+.dpe-session-choice>span{flex:1 1 auto;min-width:0}
+.dpe-session-choice strong{display:block;color:var(--dpe-dashboard-text);font-size:15px;font-weight:600;line-height:1.5}
+.dpe-session-choice input[type=checkbox],.dpe-dashboard-field .dpe-session-choice input[type=checkbox]{appearance:auto;display:block;box-sizing:border-box;width:18px;height:18px;min-width:18px;min-height:18px;max-width:18px;max-height:18px;flex:0 0 18px;margin:3px 0 0;padding:0;border-radius:3px;box-shadow:none;accent-color:var(--dpe-dashboard-primary)}
+.dpe-session-choice input[type=checkbox]:focus-visible{outline:2px solid #86aef0;outline-offset:3px;box-shadow:none}
+.dpe-session-choice small{display:block;color:var(--dpe-dashboard-muted);margin-top:3px;font-size:14px;line-height:1.5}
+.dpe-session-day{min-width:0;padding:12px 0;border-top:1px solid var(--dpe-dashboard-border)}
+.dpe-session-day__title{margin:0 0 6px;color:var(--dpe-dashboard-text);font-size:15px;font-weight:700;line-height:1.5}
+.dpe-account-panel{min-width:0;border:0;padding:0;margin:24px 0}
+.dpe-account-panel[hidden],.dpe-session-choice[hidden],.dpe-session-choices[hidden],[data-session-new][hidden],[data-session-new-label][hidden]{display:none!important}

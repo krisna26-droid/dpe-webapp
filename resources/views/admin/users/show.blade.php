@@ -43,4 +43,6 @@
             </table>
         </div>
     </article>
+<form method="POST" action="{{ route('admin.users.destroy',$managedUser) }}" data-confirm-form data-confirm-title="Hapus akun siswa ini?" data-confirm-message="Akun dihapus dari operasional. Riwayat sebelumnya tetap tersimpan." data-confirm-action="Hapus">@csrf @method('DELETE')<button class="dpe-dashboard-button dpe-dashboard-button--danger" type="submit">Hapus akun siswa</button></form>
+<x-dashboard.student-session-summary :student="$managedUser->studentProfile" />
 @endsection

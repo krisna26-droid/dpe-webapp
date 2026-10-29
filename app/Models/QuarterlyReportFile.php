@@ -73,7 +73,7 @@ class QuarterlyReportFile extends Model
             User::class,
             'generated_by_user_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function shareAttempts(): HasMany

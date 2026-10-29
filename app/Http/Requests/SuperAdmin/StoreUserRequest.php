@@ -14,20 +14,23 @@ class StoreUserRequest extends FormRequest
 
     public function rules(): array
     {
+        if ($this->input('role_code') === 'student') {
+            return \App\Support\StudentAccountInput::rules() + ['role_code' => ['required', Rule::in(['student'])], 'is_active' => ['exclude']];
+        }
         return [
             'username' => [
                 'required',
                 'string',
                 'max:255',
                 'alpha_dash',
-                'unique:users,username',
+                Rule::unique('users','username')->whereNull('deleted_at'),
             ],
 
             'email' => [
                 'nullable',
                 'email',
                 'max:255',
-                'unique:users,email',
+                Rule::unique('users','email')->whereNull('deleted_at'),
             ],
 
             'full_name' => [
@@ -52,10 +55,7 @@ class StoreUserRequest extends FormRequest
                 'confirmed',
             ],
 
-            'is_active' => [
-                'sometimes',
-                'boolean',
-            ],
+            'is_active' => ['exclude'],
         ];
     }
 
@@ -75,4 +75,5 @@ class StoreUserRequest extends FormRequest
                 : null,
         ]);
     }
+    public function messages(): array { return \App\Support\StudentAccountInput::messages(); }
 }

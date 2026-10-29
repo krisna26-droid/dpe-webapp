@@ -85,15 +85,7 @@
             @error('password_confirmation')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
         </div>
 
-        <div class="dpe-dashboard-field dpe-dashboard-field--full">
-            <div class="dpe-dashboard-checkbox">
-                <input name="is_active" type="hidden" value="0">
-                <input id="is_active" name="is_active" type="checkbox" value="1" @checked($activeValue)>
-                <label for="is_active">Aktifkan akun pengguna</label>
-            </div>
-            <p class="dpe-dashboard-field__hint">Akun aktif dapat masuk ke portal. Akun siswa harus aktif agar bisa dihubungkan dengan profil anak.</p>
-            @error('is_active')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
-        </div>
+
     </div>
 
     <div class="dpe-dashboard-form-actions">

@@ -5,13 +5,15 @@
 @push('head') @include('lesson-series._head') @endpush
 @section('content')
     @php
+        $lessonList = app(\App\Services\LessonSessionListService::class);
+        $listParameters = $lessonList->parameters(request());
         $isCreate = $operation === 'create';
         $selected = collect($rows)->filter(fn($row) => !$row['excluded'] && !$row['preserved']);
         $problems = $selected->filter(fn($row) => count($row['issues']) > 0)->count();
         $preserved = collect($rows)->filter(fn($row) => $row['preserved'])->count();
-        $refreshUrl = $isCreate ? route($operationRoutePrefix.'.lesson-series.preview') : route($operationRoutePrefix.'.lesson-series.preview-future', [$series, $anchor]);
-        $saveUrl = $isCreate ? route($operationRoutePrefix.'.lesson-series.store') : route($operationRoutePrefix.'.lesson-series.update-future', [$series, $anchor]);
-        $backUrl = $isCreate ? route($operationRoutePrefix.'.lesson-series.create', ['draft' => $formDraftId]) : route($operationRoutePrefix.'.lesson-series.edit', [$series, $anchor, 'draft' => $formDraftId]);
+        $refreshUrl = $isCreate ? route($operationRoutePrefix.'.lesson-series.preview', $listParameters) : route($operationRoutePrefix.'.lesson-series.preview-future', [$series, $anchor] + $listParameters);
+        $saveUrl = $isCreate ? route($operationRoutePrefix.'.lesson-series.store', $listParameters) : route($operationRoutePrefix.'.lesson-series.update-future', [$series, $anchor] + $listParameters);
+        $backUrl = $isCreate ? route($operationRoutePrefix.'.lesson-series.create', ['draft' => $formDraftId] + $listParameters) : route($operationRoutePrefix.'.lesson-series.edit', [$series, $anchor, 'draft' => $formDraftId] + $listParameters);
     @endphp
     <section class="dpe-dashboard-page-header"><div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">{{ $isCreate ? 'Seri baru' : 'Perubahan pertemuan ini dan berikutnya' }}</p><h2>Periksa jadwal sebelum disimpan</h2><p>{{ $refs['group']->name }} · {{ $refs['branch']->name }} · {{ $refs['teacher']?->user?->full_name }}</p></div><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ $backUrl }}">Kembali ke form</a></section>
     @if($errors->any())<div class="dpe-dashboard-alert dpe-dashboard-alert--error" role="alert"><div><strong>Belum dapat disimpan.</strong><ul>@foreach($errors->all() as $message)<li>{{ $message }}</li>@endforeach</ul></div></div>@endif
@@ -30,6 +32,6 @@
                 </tr>
             @endforeach
         </tbody></table></div></article>
-        <div class="dpe-dashboard-form-actions"><button class="dpe-dashboard-button dpe-dashboard-button--outline" type="submit" formnovalidate formaction="{{ route($operationRoutePrefix.'.lesson-series.cancel') }}">Batal</button><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ $backUrl }}">Kembali</a><button class="dpe-dashboard-button dpe-dashboard-button--outline" type="submit" formaction="{{ $refreshUrl }}">Perbarui pratinjau</button><button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit">{{ $isCreate ? 'Simpan jadwal terpilih' : 'Simpan perubahan seri' }}</button></div>
+        <div class="dpe-dashboard-form-actions"><button class="dpe-dashboard-button dpe-dashboard-button--outline" type="submit" formnovalidate formaction="{{ route($operationRoutePrefix.'.lesson-series.cancel', $listParameters) }}">Batal</button><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ $backUrl }}">Kembali</a><button class="dpe-dashboard-button dpe-dashboard-button--outline" type="submit" formaction="{{ $refreshUrl }}">Perbarui pratinjau</button><button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit">{{ $isCreate ? 'Simpan jadwal terpilih' : 'Simpan perubahan seri' }}</button></div>
     </form>
 @endsection

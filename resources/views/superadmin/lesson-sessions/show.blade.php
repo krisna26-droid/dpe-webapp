@@ -1,5 +1,7 @@
 @php
     $operationRoutePrefix = $operationRoutePrefix ?? 'superadmin';
+    $lessonList = app(\App\Services\LessonSessionListService::class);
+    $listParameters = $lessonList->parameters(request());
 @endphp
 @php
     $teacherName = $lessonSession->teacher?->user?->full_name ?: ($lessonSession->teacher?->user?->username ?: 'Guru');
@@ -23,12 +25,12 @@
             <p>{{ $lessonSession->planned_start_at?->format('d M Y H:i') ?: 'Waktu belum tersedia' }} · {{ $lessonSession->branch?->name ?: 'Cabang belum tersedia' }}</p>
         </div>
         <div class="dpe-dashboard-page-header__actions">
-            @if($lessonSession->schedule_series_id)<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-series.show', $lessonSession->schedule_series_id) }}">Lihat seri jadwal</a>@endif
-            <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($operationRoutePrefix.'.lesson-sessions.edit', $lessonSession) }}">
+            @if($lessonSession->schedule_series_id)<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-series.show', [$lessonSession->schedule_series_id] + $listParameters) }}">Lihat seri jadwal</a>@endif
+            <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($operationRoutePrefix.'.lesson-sessions.edit', [$lessonSession] + $listParameters) }}">
                 <x-dashboard.icon name="settings" />
                 <span>Edit sesi</span>
             </a>
-            <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-sessions.index') }}">
+            <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-sessions.index', $lessonList->backParameters(request())) }}">
                 <x-dashboard.icon name="back" />
                 <span>Kembali</span>
             </a>
@@ -64,7 +66,7 @@
                     </div>
                     <div class="dpe-dashboard-detail">
                         <p class="dpe-dashboard-detail__label">Kelompok kelas</p>
-                        <p class="dpe-dashboard-detail__value">{{ $lessonSession->classGroup?->name ?: 'Tanpa kelompok' }}</p>
+                        <p class="dpe-dashboard-detail__value">{{ $lessonSession->classGroup?->name ?: 'Tanpa kelompok' }}{{ $lessonSession->learningSession ? ' · '.$lessonSession->learningSession->name : '' }}</p>
                     </div>
                     <div class="dpe-dashboard-detail">
                         <p class="dpe-dashboard-detail__label">Mulai rencana</p>

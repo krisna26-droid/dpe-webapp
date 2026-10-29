@@ -65,7 +65,7 @@ class PaymentProof extends Model
             User::class,
             'uploaded_by_user_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function reviewedBy(): BelongsTo
@@ -74,6 +74,6 @@ class PaymentProof extends Model
             User::class,
             'reviewed_by_user_id',
             'id'
-        );
+        )->withTrashed();
     }
 }

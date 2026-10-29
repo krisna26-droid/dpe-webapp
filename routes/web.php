@@ -125,8 +125,8 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
         Route::get('/payments/export/{format}', [\App\Http\Controllers\Admin\PaymentController::class, 'download'])->whereIn('format', ['xlsx', 'pdf'])->name('payments.download');
         Route::get('/payments/proofs/{paymentProof}/image', [\App\Http\Controllers\Admin\PaymentController::class, 'image'])->name('payments.image');
         Route::get('/payments/{monthlyCharge}', [\App\Http\Controllers\Admin\PaymentController::class, 'show'])->name('payments.show');
-        Route::resource('class-groups', \App\Http\Controllers\Admin\ClassGroupController::class)->except(['destroy']);
-        Route::patch('/class-groups/{class_group}/status', [\App\Http\Controllers\Admin\ClassGroupController::class, 'toggleStatus'])->name('class-groups.status');
+        Route::delete('/users/{user}', [\App\Http\Controllers\Admin\StudentUserController::class, 'destroy'])->name('users.destroy');
+        Route::resource('class-groups', \App\Http\Controllers\Admin\ClassGroupController::class);
         Route::resource('class-group-memberships', \App\Http\Controllers\Admin\ClassGroupMembershipController::class)->except(['destroy']);
         Route::resource('lesson-sessions', \App\Http\Controllers\Admin\LessonSessionController::class)->except(['destroy']);
     });
@@ -139,6 +139,8 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
                 Route::post('/cancel', [\App\Http\Controllers\LessonSeriesController::class, 'cancel'])->name('cancel');
                 Route::post('/', [\App\Http\Controllers\LessonSeriesController::class, 'store'])->name('store');
                 Route::get('/{series}', [\App\Http\Controllers\LessonSeriesController::class, 'show'])->name('show');
+                Route::delete('/{series}', [\App\Http\Controllers\LessonSeriesController::class, 'destroy'])->name('destroy');
+                Route::delete('/{series}/meetings/{lessonSession}', [\App\Http\Controllers\LessonSeriesController::class, 'destroyMeeting'])->name('destroy-meeting');
                 Route::get('/{series}/from/{lessonSession}/edit', [\App\Http\Controllers\LessonSeriesController::class, 'edit'])->name('edit');
                 Route::post('/{series}/from/{lessonSession}/preview', [\App\Http\Controllers\LessonSeriesController::class, 'previewFuture'])->name('preview-future');
                 Route::post('/{series}/from/{lessonSession}', [\App\Http\Controllers\LessonSeriesController::class, 'updateFuture'])->name('update-future');
@@ -216,21 +218,9 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
             Route::post('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'save'])->name('student-attendance.save');
             Route::put('/student-attendance/sessions/{lessonSession}/participants', [StudentAttendanceController::class, 'roster'])->name('student-attendance.roster');
 
-            Route::resource('users', UserController::class)
-                ->except(['destroy']);
+            Route::resource('users', UserController::class);
 
-            Route::patch('/users/{user}/status', [
-                UserController::class,
-                'toggleStatus',
-            ])->name('users.status');
-
-            Route::resource('branches', BranchController::class)
-                ->except(['destroy']);
-
-            Route::patch('/branches/{branch}/status', [
-                BranchController::class,
-                'toggleStatus',
-            ])->name('branches.status');
+            Route::resource('branches', BranchController::class);
 
             Route::resource(
                 'branch-admin-assignments',
@@ -242,13 +232,7 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
                 TeacherBranchAssignmentController::class
             );
 
-            Route::resource('programs', ProgramController::class)
-                ->except(['destroy']);
-
-            Route::patch('/programs/{program}/status', [
-                ProgramController::class,
-                'toggleStatus',
-            ])->name('programs.status');
+            Route::resource('programs', ProgramController::class);
 
             Route::resource(
                 'student-enrollments',
@@ -263,12 +247,7 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
             Route::resource(
                 'class-groups',
                 ClassGroupController::class
-            )->except(['destroy']);
-
-            Route::patch(
-                '/class-groups/{class_group}/status',
-                [ClassGroupController::class, 'toggleStatus']
-            )->name('class-groups.status');
+            );
 
             Route::resource(
                 'class-group-memberships',

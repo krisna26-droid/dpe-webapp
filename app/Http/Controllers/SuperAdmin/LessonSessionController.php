@@ -11,8 +11,10 @@ use App\Models\LessonSession;
 use App\Models\Program;
 use App\Models\Teacher;
 use App\Services\LessonSessionService;
+use App\Services\LessonSessionListService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class LessonSessionController extends Controller
 {
@@ -21,21 +23,10 @@ class LessonSessionController extends Controller
     ) {
     }
 
-    public function index(): View
+    public function index(Request $request): View
     {
-        $lessonSessions = LessonSession::query()
-            ->with([
-                'branch',
-                'teacher.user',
-                'program',
-                'classGroup',
-            ])
-            ->orderByDesc('planned_start_at')
-            ->paginate(15);
-
-        return view('superadmin.lesson-sessions.index', [
-            'lessonSessions' => $lessonSessions,
-        ]);
+        return view('superadmin.lesson-sessions.index', app(LessonSessionListService::class)
+            ->listing($request, LessonSession::query(), 'superadmin'));
     }
 
     public function create(): View
@@ -56,7 +47,7 @@ class LessonSessionController extends Controller
         return redirect()
             ->route(
                 'superadmin.lesson-sessions.show',
-                $lessonSession
+                app(LessonSessionListService::class)->parameters($request, [$lessonSession])
             )
             ->with(
                 'success',
@@ -110,7 +101,7 @@ class LessonSessionController extends Controller
         return redirect()
             ->route(
                 'superadmin.lesson-sessions.show',
-                $lessonSession
+                app(LessonSessionListService::class)->parameters($request, [$lessonSession])
             )
             ->with(
                 'success',

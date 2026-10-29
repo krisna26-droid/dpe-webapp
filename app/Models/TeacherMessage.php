@@ -43,7 +43,7 @@ class TeacherMessage extends Model
             Student::class,
             'student_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function teacher(): BelongsTo
@@ -52,7 +52,7 @@ class TeacherMessage extends Model
             Teacher::class,
             'teacher_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function session(): BelongsTo

@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     use HasFactory, Notifiable;
 
     protected $table = 'users';

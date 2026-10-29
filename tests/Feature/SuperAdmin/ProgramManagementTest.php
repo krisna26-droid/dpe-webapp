@@ -291,73 +291,29 @@ class ProgramManagementTest extends TestCase
             ->assertSessionHasErrors('code');
     }
 
-    public function test_program_can_be_deactivated(): void
+    public function test_program_can_be_deleted_while_active(): void
     {
-        $superadmin = $this->createSuperadmin();
-        $program = $this->createProgram(true);
-
-        $this->actingAs($superadmin)
-            ->patch(
-                route(
-                    'superadmin.programs.status',
-                    $program
-                )
-            )
-            ->assertRedirect(
-                route(
-                    'superadmin.programs.show',
-                    $program
-                )
-            )
-            ->assertSessionHas(
-                'success',
-                'Program berhasil dinonaktifkan.'
-            );
-
-        $this->assertDatabaseHas('programs', [
-            'id' => $program->id,
-            'is_active' => 0,
-        ]);
+        $actor=$this->createSuperadmin();$program=$this->createProgram(true);
+        $this->actingAs($actor)->delete(route('superadmin.programs.destroy',$program))->assertSessionHasNoErrors()->assertRedirect(route('superadmin.programs.index'));
+        $this->assertSoftDeleted('programs',['id'=>$program->id]);
     }
 
-    public function test_program_can_be_reactivated(): void
+    public function test_program_can_be_deleted_while_inactive(): void
     {
-        $superadmin = $this->createSuperadmin();
-        $program = $this->createProgram(false);
-
-        $this->actingAs($superadmin)
-            ->patch(
-                route(
-                    'superadmin.programs.status',
-                    $program
-                )
-            )
-            ->assertRedirect(
-                route(
-                    'superadmin.programs.show',
-                    $program
-                )
-            )
-            ->assertSessionHas(
-                'success',
-                'Program berhasil diaktifkan.'
-            );
-
-        $this->assertDatabaseHas('programs', [
-            'id' => $program->id,
-            'is_active' => 1,
-        ]);
+        $actor=$this->createSuperadmin();$program=$this->createProgram(false);
+        $this->actingAs($actor)->delete(route('superadmin.programs.destroy',$program))->assertSessionHasNoErrors()->assertRedirect(route('superadmin.programs.index'));
+        $this->assertSoftDeleted('programs',['id'=>$program->id]);
     }
 
-    public function test_non_superadmin_cannot_toggle_program_status(): void
+    public function test_non_superadmin_cannot_delete_program(): void
     {
         $admin = $this->createAdmin();
         $program = $this->createProgram(true);
 
         $this->actingAs($admin)
-            ->patch(
+            ->delete(
                 route(
-                    'superadmin.programs.status',
+                    'superadmin.programs.destroy',
                     $program
                 )
             )

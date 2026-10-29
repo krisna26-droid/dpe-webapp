@@ -193,7 +193,7 @@ class LearningSkillHttpTest extends TestCase
             $learningSkill->display_order
         );
 
-        $this->assertFalse(
+        $this->assertTrue(
             $learningSkill->is_active
         );
 

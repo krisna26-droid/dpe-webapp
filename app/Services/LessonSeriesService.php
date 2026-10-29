@@ -62,6 +62,8 @@ class LessonSeriesService
             'starts_at' => ['required', 'date_format:H:i'], 'ends_at' => ['required', 'date_format:H:i', 'after:starts_at'],
             'topic' => ['nullable', 'string', 'max:255'], 'material' => ['nullable', 'string', 'max:255'],
             'activity' => ['nullable', 'string', 'max:255'],
+            'class_learning_session_id' => ['nullable', 'string', 'max:36'],
+            'learning_session_name' => ['nullable', 'string', 'max:100'],
         ])->validate();
         if ($data['ends_on'] > CarbonImmutable::parse($data['starts_on'])->addMonthsNoOverflow(3)->subDay()->toDateString()) {
             throw ValidationException::withMessages(['ends_on' => 'Satu seri maksimal tiga bulan. Pilih tanggal akhir dalam rentang tersebut.']);
@@ -196,6 +198,10 @@ class LessonSeriesService
             $data = $context['data'];
             $excluded = $this->exclusions($input, $this->dates($data));
             $this->operations->authorizeBranch($actor, $data['branch_id']);
+            if (DB::table('operational_deletion_events')->where('record_table', 'lesson_schedule_series')
+                ->where('before_snapshot->series->request_key', $context['nonce'])->exists()) {
+                throw ValidationException::withMessages(['preview_token' => 'Seri dari pratinjau ini sudah dihapus. Buat pratinjau baru untuk membuat jadwal lagi.']);
+            }
             $hash = hash('sha256', json_encode([$data, $excluded], JSON_THROW_ON_ERROR));
             if ($existing = LessonScheduleSeries::where('request_key', $context['nonce'])->first()) {
                 if (! hash_equals($existing->creation_hash, $hash)) {
@@ -207,12 +213,13 @@ class LessonSeriesService
             $this->references($actor, $data, true);
             $preview = $this->createRows($actor, $data, $excluded);
             $this->assertRows($preview['rows']);
+            $learningId = app(ClassLearningSessionService::class)->resolve($data);
             $series = LessonScheduleSeries::create(['id' => (string) Str::uuid(), 'request_key' => $context['nonce'],
                 'creation_hash' => $hash, 'created_by_user_id' => $actor->id, 'branch_id' => $data['branch_id'],
-                'class_group_id' => $data['class_group_id'], 'definition' => $data + ['excluded_dates' => $excluded]]);
+                'class_group_id' => $data['class_group_id'], 'class_learning_session_id' => $learningId, 'definition' => $data + ['excluded_dates' => $excluded]]);
             foreach ($preview['rows'] as $row) {
                 if (! $row['excluded']) {
-                    $session = $this->sessions->create($row['data']);
+                    $session = $this->sessions->create($row['data'] + ['class_learning_session_id' => $learningId]);
                     $session->update(['schedule_series_id' => $series->id, 'series_occurrence_on' => $row['date']]);
                 }
             }

@@ -85,4 +85,5 @@
             </div>
         </div>
     </article>
+<x-dashboard.student-session-summary :student="$classGroupMembership->student" />
 @endsection

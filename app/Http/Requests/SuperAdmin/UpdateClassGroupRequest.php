@@ -40,7 +40,7 @@ class UpdateClassGroupRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('class_groups', 'code')
+                Rule::unique('class_groups', 'code')->whereNull('deleted_at')
                     ->where(
                         fn ($query) =>
                             $query->where(
@@ -57,10 +57,7 @@ class UpdateClassGroupRequest extends FormRequest
                 'max:255',
             ],
 
-            'is_active' => [
-                'sometimes',
-                'boolean',
-            ],
+            'is_active' => ['exclude'],
         ];
     }
 }

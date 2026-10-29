@@ -71,6 +71,7 @@
             <p class="dpe-dashboard-field__hint">Kosongkan jika keanggotaan masih berjalan.</p>
             @error('ends_on')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
         </div>
+        <x-dashboard.membership-sessions :membership="$membership" />
     </div>
 
     <div class="dpe-dashboard-form-actions">

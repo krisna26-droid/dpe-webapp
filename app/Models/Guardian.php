@@ -46,7 +46,7 @@ class Guardian extends Model
             Student::class,
             'student_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function reportShareAttempts(): HasMany

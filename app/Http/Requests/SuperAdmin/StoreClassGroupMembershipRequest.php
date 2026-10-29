@@ -16,6 +16,10 @@ class StoreClassGroupMembershipRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'select_learning_sessions' => ['sometimes', 'boolean'],
+            'learning_session_ids' => ['required_if:select_learning_sessions,1', 'array', 'min:1'],
+            'learning_session_ids.*' => ['required', 'string', 'distinct', 'max:40'],
+            'session_effective_on' => ['nullable', 'date_format:Y-m-d'],
             'class_group_id' => [
                 'required',
                 'string',

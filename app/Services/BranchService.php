@@ -48,19 +48,7 @@ class BranchService
         });
     }
 
-    public function toggleStatus(Branch $branch): Branch
-    {
-        return DB::transaction(function () use ($branch) {
-            $branch = Branch::whereKey($branch->id)->lockForUpdate()->firstOrFail();
-            $before = $branch->getAttributes();
-            $branch->update([
-                'is_active' => ! $branch->is_active,
-            ]);
-            $this->event($branch, $before);
 
-            return $branch->refresh();
-        });
-    }
 
     private function event(Branch $branch, array $before): void
     {

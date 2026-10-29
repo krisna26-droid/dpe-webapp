@@ -20,7 +20,7 @@ class StoreBranchRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
-                'unique:branches,code',
+                Rule::unique('branches','code')->whereNull('deleted_at'),
             ],
 
             'name' => [
@@ -47,10 +47,7 @@ class StoreBranchRequest extends FormRequest
                 'between:1,31',
             ],
 
-            'is_active' => [
-                'sometimes',
-                'boolean',
-            ],
+            'is_active' => ['exclude'],
         ];
     }
 

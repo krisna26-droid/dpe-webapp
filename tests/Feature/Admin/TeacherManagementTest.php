@@ -49,6 +49,7 @@ class TeacherManagementTest extends TestCase
         Schema::connection('sqlite')->create(
             'users',
             function (Blueprint $table) {
+            $table->softDeletes();
                 $table->char('id', 36)->primary();
                 $table->string('username')->unique();
                 $table->string('email')->nullable()->unique();
@@ -62,6 +63,7 @@ class TeacherManagementTest extends TestCase
         Schema::connection('sqlite')->create(
             'branches',
             function (Blueprint $table) {
+            $table->softDeletes();
                 $table->char('id', 36)->primary();
                 $table->string('name');
             }
@@ -105,6 +107,7 @@ class TeacherManagementTest extends TestCase
         Schema::connection('sqlite')->create(
             'teachers',
             function (Blueprint $table) {
+            $table->softDeletes();
                 $table->char('id', 36)->primary();
                 $table->char('user_id', 36)->unique();
                 $table->string('whatsapp_number');
