@@ -71,20 +71,9 @@ class BranchController extends Controller
             ->with('success', 'Branch berhasil diperbarui.');
     }
 
-    public function toggleStatus(
-        Request $request,
-        Branch $branch,
-        BranchService $branchService
-    ): RedirectResponse {
-        $branchService->toggleStatus($branch);
-
-        return redirect()
-            ->route('superadmin.branches.show', $branch)
-            ->with(
-                'success',
-                $branch->fresh()->is_active
-                    ? 'Branch berhasil diaktifkan.'
-                    : 'Branch berhasil dinonaktifkan.'
-            );
+    public function destroy(\Illuminate\Http\Request $request, Branch $branch): RedirectResponse
+    {
+        app(\App\Services\OperationalDeletionService::class)->delete($request->user(),$branch);
+        return redirect()->route('superadmin.branches.index')->with('success','Data berhasil dihapus. Riwayat sebelumnya tetap tersimpan.');
     }
 }

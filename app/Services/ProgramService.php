@@ -45,14 +45,5 @@ class ProgramService
         });
     }
 
-    public function toggleStatus(Program $program): Program
-    {
-        return DB::transaction(function () use ($program) {
-            $program->update([
-                'is_active' => ! $program->is_active,
-            ]);
 
-            return $program->refresh();
-        });
-    }
 }

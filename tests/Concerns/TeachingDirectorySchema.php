@@ -15,6 +15,7 @@ trait TeachingDirectorySchema
             if (Schema::hasTable($table)) continue;
             Schema::create($table, function (Blueprint $schema) use ($table) {
                 $schema->char('id', 36)->primary();
+                if(in_array($table,['programs','students','teachers','class_groups'],true)) $schema->softDeletes();
                 if ($table === 'programs') {
                     $schema->string('code'); $schema->string('name'); $schema->string('class_type');
                     $schema->boolean('is_active')->default(true);

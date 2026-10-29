@@ -10,6 +10,6 @@
         description="Lengkapi identitas akun, role, dan password untuk masuk ke portal."
         :close-url="route('superadmin.users.index')"
     >
-        @include('superadmin.users._form')
+        @include('superadmin.users._create-form')
     </x-dashboard.form-panel>
 @endsection

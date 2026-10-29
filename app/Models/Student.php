@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Student extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     use HasFactory;
 
     protected $table = 'students';
@@ -49,7 +51,7 @@ class Student extends Model
      */
     public function portalUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'portal_user_id');
+        return $this->belongsTo(User::class, 'portal_user_id')->withTrashed();
     }
 
     public function enrollments(): HasMany

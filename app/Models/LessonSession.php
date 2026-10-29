@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class LessonSession extends Model
 {
+    public function learningSession(): BelongsTo { return $this->belongsTo(ClassLearningSession::class,'class_learning_session_id'); }
+
     use HasFactory;
 
     protected $table = 'lesson_sessions';
@@ -32,7 +34,7 @@ class LessonSession extends Model
         'teaching_location',
         'teacher_id',
         'program_id',
-        'class_group_id',
+        'class_group_id', 'class_learning_session_id',
         'planned_start_at',
         'planned_end_at',
         'actual_start_at',
@@ -59,7 +61,7 @@ class LessonSession extends Model
 
     public function branch(): BelongsTo
     {
-        return $this->belongsTo(Branch::class);
+        return $this->belongsTo(Branch::class)->withTrashed();
     }
 
     public function scheduleSeries(): BelongsTo
@@ -74,17 +76,17 @@ class LessonSession extends Model
 
     public function teacher(): BelongsTo
     {
-        return $this->belongsTo(Teacher::class);
+        return $this->belongsTo(Teacher::class)->withTrashed();
     }
 
     public function program(): BelongsTo
     {
-        return $this->belongsTo(Program::class);
+        return $this->belongsTo(Program::class)->withTrashed();
     }
 
     public function classGroup(): BelongsTo
     {
-        return $this->belongsTo(ClassGroup::class);
+        return $this->belongsTo(ClassGroup::class)->withTrashed();
     }
 
     public function rescheduledFrom(): BelongsTo

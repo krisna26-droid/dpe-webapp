@@ -55,7 +55,7 @@ class ReportShareAttempt extends Model
             Teacher::class,
             'teacher_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function guardian(): BelongsTo

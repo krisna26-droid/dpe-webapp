@@ -16,5 +16,5 @@ class LessonScheduleSeriesChange extends Model
     {
         return ['before_snapshot' => 'array', 'after_snapshot' => 'array', 'created_at' => 'datetime'];
     }
-    public function actor(): BelongsTo { return $this->belongsTo(User::class, 'actor_user_id'); }
+    public function actor(): BelongsTo { return $this->belongsTo(User::class, 'actor_user_id')->withTrashed(); }
 }

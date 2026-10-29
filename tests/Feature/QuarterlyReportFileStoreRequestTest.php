@@ -24,6 +24,7 @@ class QuarterlyReportFileStoreRequestTest extends TestCase
         });
 
         Schema::create('users', function (Blueprint $table) {
+            $table->softDeletes();
             $table->string('id', 36)->primary();
         });
 

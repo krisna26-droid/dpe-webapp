@@ -14,77 +14,11 @@ use App\Http\Middleware\RoleMiddleware;
 
 class UserManagementTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
+    use \Illuminate\Foundation\Testing\RefreshDatabase;
 
-        // Semua test wajib menggunakan SQLite in-memory.
-        config([
-            'database.default' => 'sqlite',
-            'database.connections.sqlite.database' => ':memory:',
-            'database.connections.sqlite.url' => null,
-            'session.driver' => 'array',
-            'cache.default' => 'array',
-        ]);
 
-        DB::purge('sqlite');
-        DB::setDefaultConnection('sqlite');
 
-        if (
-            config('database.default') !== 'sqlite'
-            || config('database.connections.sqlite.database') !== ':memory:'
-        ) {
-            throw new RuntimeException(
-                'UserManagementTest must use SQLite in-memory.'
-            );
-        }
 
-        Schema::connection('sqlite')->create(
-            'users',
-            function (Blueprint $table) {
-                $table->char('id', 36)->primary();
-                $table->string('username')->unique();
-                $table->string('email')->nullable()->unique();
-                $table->string('password_hash');
-                $table->string('full_name');
-                $table->string('role_code');
-                $table->boolean('is_active')->default(true);
-                $table->dateTime('created_at')->nullable();
-            }
-        );
-
-        Schema::connection('sqlite')->create(
-            'students',
-            function (Blueprint $table) {
-                $table->char('id', 36)->primary();
-                $table->char('portal_user_id', 36)->unique();
-            }
-        );
-
-        Schema::connection('sqlite')->create(
-            'teachers',
-            function (Blueprint $table) {
-                $table->char('id', 36)->primary();
-                $table->char('user_id', 36)->unique();
-            }
-        );
-    }
-
-    protected function tearDown(): void
-    {
-        try {
-            if (
-                config('database.default') === 'sqlite'
-                && config('database.connections.sqlite.database') === ':memory:'
-            ) {
-                Schema::connection('sqlite')->dropIfExists('users');
-                Schema::connection('sqlite')->dropIfExists('students');
-                Schema::connection('sqlite')->dropIfExists('teachers');
-            }
-        } finally {
-            parent::tearDown();
-        }
-    }
 
     private function createUser(
         string $role = 'superadmin',
@@ -246,7 +180,7 @@ class UserManagementTest extends TestCase
 
         DB::table('students')->insert([
             'id' => (string) Str::uuid(),
-            'portal_user_id' => $targetUser->id,
+            'portal_user_id' => $targetUser->id, 'full_name'=>'Siswa uji', 'began_on'=>today(), 'status'=>'active',
         ]);
 
         $data = [
@@ -274,7 +208,7 @@ class UserManagementTest extends TestCase
 
         DB::table('teachers')->insert([
             'id' => (string) Str::uuid(),
-            'user_id' => $targetUser->id,
+            'user_id' => $targetUser->id, 'whatsapp_number'=>'081234567890',
         ]);
 
         $data = [
@@ -367,64 +301,25 @@ class UserManagementTest extends TestCase
         )->assertForbidden();
     }
 
-    public function test_superadmin_cannot_deactivate_own_account(): void
+    public function test_superadmin_cannot_delete_own_account(): void
     {
-        $superadmin = $this->createUser();
-
-        $this->actingAs($superadmin)
-            ->patch(route('superadmin.users.status', $superadmin))
-            ->assertSessionHasErrors('user');
-
-        $this->assertDatabaseHas('users', [
-            'id' => $superadmin->id,
-            'is_active' => 1,
-        ]);
+        $actor=$this->createUser();
+        $this->actingAs($actor)->delete(route('superadmin.users.destroy',$actor))->assertSessionHasErrors('delete');
+        $this->assertNotNull(User::find($actor->id));
     }
 
-    public function test_superadmin_can_toggle_another_users_status(): void
+    public function test_superadmin_can_delete_another_user(): void
     {
-        $superadmin = $this->createUser();
-        $targetUser = $this->createUser('teacher');
-
-        $this->actingAs($superadmin)
-            ->patch(route('superadmin.users.status', $targetUser))
-            ->assertRedirect(
-                route('superadmin.users.show', $targetUser)
-            )
-            ->assertSessionHas('success');
-
-        $this->assertDatabaseHas('users', [
-            'id' => $targetUser->id,
-            'is_active' => 0,
-        ]);
+        $actor=$this->createUser();$target=$this->createUser('teacher');
+        $this->actingAs($actor)->delete(route('superadmin.users.destroy',$target))->assertRedirect(route('superadmin.users.index'))->assertSessionHas('success');
+        $this->assertNull(User::find($target->id));$this->assertSoftDeleted('users',['id'=>$target->id]);
     }
 
-    public function test_last_active_superadmin_cannot_be_deactivated_by_toggle_status(): void
+    public function test_inactive_actor_cannot_delete_last_superadmin(): void
     {
-        $superadmin = $this->createUser();
-        $targetUser = $this->createUser();
-
-        // Buat kondisi database:
-        // hanya targetUser yang menjadi SuperAdmin aktif.
-        DB::table('users')
-            ->where('id', $superadmin->id)
-            ->update([
-                'is_active' => 0,
-            ]);
-
-        // Hanya bypass RoleMiddleware agar controller dapat
-        // menguji business rule "SuperAdmin aktif terakhir".
-        // Middleware session tetap aktif.
+        $actor=$this->createUser(active:false);$target=$this->createUser();
         $this->withoutMiddleware(RoleMiddleware::class);
-
-        $this->actingAs($superadmin)
-            ->patch(route('superadmin.users.status', $targetUser))
-            ->assertSessionHasErrors('user');
-
-        $this->assertDatabaseHas('users', [
-            'id' => $targetUser->id,
-            'role_code' => 'superadmin',
-            'is_active' => 1,
-        ]);
+        $this->actingAs($actor)->delete(route('superadmin.users.destroy',$target))->assertForbidden();
+        $this->assertNotNull(User::find($target->id));
     }
 }

@@ -47,7 +47,7 @@ class PaymentRecapRun extends Model
             Branch::class,
             'branch_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function generatedBy(): BelongsTo
@@ -56,7 +56,7 @@ class PaymentRecapRun extends Model
             User::class,
             'generated_by_user_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function exportFile(): BelongsTo

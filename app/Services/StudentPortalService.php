@@ -117,7 +117,7 @@ class StudentPortalService
         $sessions = LessonSession::whereRaw('DATE(COALESCE(actual_start_at, planned_start_at)) BETWEEN ? AND ?', [$start->toDateString(), $start->copy()->endOfMonth()->toDateString()])
             ->where(fn ($query) => $query->whereHas('sessionStudents', fn ($q) => $q->where('student_id', $student->id))
                 ->orWhereHas('classGroup.memberships', fn ($q) => $q->where('student_id', $student->id)))
-            ->with(['branch', 'teacher.user', 'program', 'classGroup', 'replacementSessions',
+            ->with(['branch', 'teacher.user', 'program', 'classGroup', 'learningSession', 'replacementSessions',
                 'sessionStudents' => fn ($q) => $q->where('student_id', $student->id),
                 'classGroup.memberships' => fn ($q) => $q->where('student_id', $student->id),
                 'sessionStudents.student.enrollments', 'classGroup.memberships.student.enrollments'])->get();
@@ -130,7 +130,7 @@ class StudentPortalService
                 $future = $date->isFuture();
                 $row = ['id' => $session->id, 'date' => $date, 'end' => $session->actual_end_at ?: $session->planned_end_at,
                     'branch_name' => $session->branch?->name, 'teacher_name' => $session->teacher?->user?->full_name,
-                    'program_name' => $session->program?->name, 'class_name' => $session->classGroup?->name,
+                    'program_name' => $session->program?->name, 'class_name' => $session->classGroup?->name, 'learning_session_name' => $session->learningSession?->name,
                     'location' => $session->isAtStudentHome() ? 'Rumah siswa' : 'Cabang', 'topic' => $session->topic,
                     'material' => $session->material, 'activity' => $session->activity,
                     'future' => $future, 'cancelled' => $session->isCancelled(), 'superseded' => $superseded,

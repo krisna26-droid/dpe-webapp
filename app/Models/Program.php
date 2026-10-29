@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Program extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
     use HasFactory;
 
     protected $table = 'programs';

@@ -26,6 +26,7 @@ class ReportCycleManagementTest extends TestCase
         DB::setDefaultConnection('sqlite');
 
         Schema::create('users', function (Blueprint $table) {
+            $table->softDeletes();
             $table->string('id', 36)->primary();
             $table->string('full_name');
             $table->string('username')->unique();
@@ -37,10 +38,12 @@ class ReportCycleManagementTest extends TestCase
         });
 
         Schema::create('students', function (Blueprint $table) {
+            $table->softDeletes();
             $table->string('id', 36)->primary();
         });
 
         Schema::create('branches', function (Blueprint $table) {
+            $table->softDeletes();
             $table->string('id', 36)->primary();
             $table->string('name');
         });

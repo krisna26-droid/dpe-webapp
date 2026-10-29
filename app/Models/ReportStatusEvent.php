@@ -52,6 +52,6 @@ class ReportStatusEvent extends Model
             User::class,
             'actor_user_id',
             'id'
-        );
+        )->withTrashed();
     }
 }

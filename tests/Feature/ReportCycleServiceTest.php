@@ -28,6 +28,7 @@ class ReportCycleServiceTest extends TestCase
         DB::setDefaultConnection('sqlite');
 
         Schema::create('students', function (Blueprint $table) {
+            $table->softDeletes();
             $table->string('id', 36)->primary();
         });
 

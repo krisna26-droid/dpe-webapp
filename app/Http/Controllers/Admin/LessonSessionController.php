@@ -8,6 +8,7 @@ use App\Models\ClassGroup;
 use App\Models\LessonSession;
 use App\Services\BranchOperationsService;
 use App\Services\LessonSessionService;
+use App\Services\LessonSessionListService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,22 +20,8 @@ class LessonSessionController extends Controller
 
     public function index(Request $request): View
     {
-        $context = $this->operations->filters($request, 'sessions');
-        $f = $context['filters'];
-        $search = $f['q'] ?? '';
-        $lessonSessions = $this->operations->sessions($request->user())->with(['branch', 'teacher.user', 'program', 'classGroup'])
-            ->when($search !== '', fn ($q) => $q->where(fn ($q) => $q->where('topic', 'like', '%'.$search.'%')
-                ->orWhereHas('classGroup', fn ($g) => $g->where('name', 'like', '%'.$search.'%')->orWhere('code', 'like', '%'.$search.'%'))
-                ->orWhereHas('teacher.user', fn ($u) => $u->where('full_name', 'like', '%'.$search.'%')->orWhere('username', 'like', '%'.$search.'%'))))
-            ->when($f['branch_id'] ?? null, fn ($q, $id) => $q->where('branch_id', $id))
-            ->when($f['program_id'] ?? null, fn ($q, $id) => $q->where('program_id', $id))
-            ->when($f['teacher_id'] ?? null, fn ($q, $id) => $q->where('teacher_id', $id))
-            ->when($f['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
-            ->when($f['from'] ?? null, fn ($q, $day) => $q->whereDate('planned_start_at', '>=', $day))
-            ->when($f['to'] ?? null, fn ($q, $day) => $q->whereDate('planned_start_at', '<=', $day))
-            ->orderByDesc('planned_start_at')->orderBy('id')->paginate(15)->withQueryString();
-
-        return view('superadmin.lesson-sessions.index', $context + compact('lessonSessions'));
+        return view('superadmin.lesson-sessions.index', app(LessonSessionListService::class)
+            ->listing($request, $this->operations->sessions($request->user()), 'admin'));
     }
 
     public function create(Request $request): View
@@ -55,7 +42,7 @@ class LessonSessionController extends Controller
             return $this->sessions->create($data);
         });
 
-        return redirect()->route('admin.lesson-sessions.show', $session)->with('success', 'Sesi belajar berhasil ditambahkan. Buka Peserta / absensi untuk memeriksa peserta.');
+        return redirect()->route('admin.lesson-sessions.show', app(LessonSessionListService::class)->parameters($request, [$session]))->with('success', 'Sesi belajar berhasil ditambahkan. Buka Peserta / absensi untuk memeriksa peserta.');
     }
 
     public function show(Request $request, LessonSession $lessonSession): View
@@ -85,7 +72,7 @@ class LessonSessionController extends Controller
             $this->sessions->update($current, $data);
         });
 
-        return redirect()->route('admin.lesson-sessions.show', $lessonSession)->with('success', 'Sesi belajar berhasil diperbarui.');
+        return redirect()->route('admin.lesson-sessions.show', app(LessonSessionListService::class)->parameters($request, [$lessonSession]))->with('success', 'Sesi belajar berhasil diperbarui.');
     }
 
     private function validateReferences(Request $request, array $data, ?LessonSession $current = null): void

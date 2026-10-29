@@ -118,23 +118,10 @@ class ClassGroupController extends Controller
             );
     }
 
-    public function toggleStatus(
-        ClassGroup $classGroup,
-        ClassGroupService $service
-    ): RedirectResponse {
-        $service->toggleStatus($classGroup);
-
-        return redirect()
-            ->route(
-                'superadmin.class-groups.show',
-                $classGroup
-            )
-            ->with(
-                'success',
-                $classGroup->is_active
-                    ? 'Class group berhasil diaktifkan.'
-                    : 'Class group berhasil dinonaktifkan.'
-            );
+    public function destroy(\Illuminate\Http\Request $request, ClassGroup $classGroup): RedirectResponse
+    {
+        app(\App\Services\OperationalDeletionService::class)->delete($request->user(),$classGroup);
+        return redirect()->route('superadmin.class-groups.index')->with('success','Data berhasil dihapus. Riwayat sebelumnya tetap tersimpan.');
     }
 
     /**

@@ -47,7 +47,7 @@ class MonthlyCharge extends Model
             Student::class,
             'student_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function branch(): BelongsTo
@@ -56,7 +56,7 @@ class MonthlyCharge extends Model
             Branch::class,
             'branch_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function paymentProofs(): HasMany

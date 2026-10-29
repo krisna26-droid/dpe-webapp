@@ -45,7 +45,7 @@ class StudentChallenge extends Model
             Student::class,
             'student_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function teacher(): BelongsTo
@@ -54,7 +54,7 @@ class StudentChallenge extends Model
             Teacher::class,
             'teacher_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function session(): BelongsTo

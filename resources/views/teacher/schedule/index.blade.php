@@ -37,7 +37,7 @@
                     @foreach($dayRows as $row)
                         <a class="dpe-teacher-session" href="{{ route('teacher.schedule.show', $row['session']) }}">
                             <div class="dpe-teacher-session__head"><strong>{{ $row['meetingAt']->locale('id')->translatedFormat('l, d M Y') }}</strong><span class="dpe-dashboard-badge {{ in_array($row['statusKey'], ['cancelled','rescheduled']) ? 'dpe-dashboard-badge--warning' : 'dpe-dashboard-badge--success' }}">{{ $row['status'] }}</span></div>
-                            <div><h3>{{ $row['session']->classGroup?->name ?: 'Private / tanpa kelompok' }}</h3><p>{{ $row['session']->program?->name ?: 'Program belum tersedia' }}</p></div>
+                            <div><h3>{{ $row['session']->classGroup?->name ?: 'Private / tanpa kelompok' }}{{ $row['session']->learningSession ? ' · '.$row['session']->learningSession->name : '' }}</h3><p>{{ $row['session']->program?->name ?: 'Program belum tersedia' }}</p></div>
                             <div class="dpe-teacher-session__meta">
                                 <span><x-dashboard.icon name="clock" />{{ $row['meetingAt']->format('H:i') }}–{{ $row['endsAt']->format('H:i') }} · {{ $row['meetingAt']->timezoneName }}</span>
                                 <span><x-dashboard.icon name="building" />{{ $row['session']->branch?->name }} · {{ $row['session']->isAtStudentHome() ? 'Rumah siswa' : 'Di cabang' }}</span>

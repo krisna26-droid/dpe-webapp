@@ -44,11 +44,23 @@ class StudentAttendanceService
     public function roster(LessonSession $session): Collection
     {
         $session->loadMissing(['sessionStudents.student.enrollments', 'classGroup.memberships.student.enrollments']);
-        $students = $session->sessionStudents->pluck('student')->filter();
+        $date = $this->meetingAt($session)->toDateString();
+        $students = $session->sessionStudents->filter(function ($row) use ($session, $date) {
+            if (!$row->student) return false;
+            $recorded = $row->attendance_status !== null || $row->recorded_at !== null || $row->individual_learning_note !== null;
+            if ($recorded) return true;
+            if ($row->student->deleted_at && $date >= $row->student->deleted_at->toDateString()) return false;
+            if (!$session->class_group_id) return true;
+            $row->student->loadMissing('classGroupMemberships');
+            $mapped=$row->student->classGroupMemberships->filter(fn($m)=>$m->class_group_id===$session->class_group_id && $m->session_selection_from && $date >= $m->session_selection_from->toDateString());
+            return $mapped->isEmpty() || $mapped->contains(fn($m)=>$this->covers($m,$date) && app(ClassLearningSessionService::class)->includes($m,$session,$date));
+        })->pluck('student');
         if ($session->classGroup) {
             $date = $this->meetingAt($session)->toDateString();
             foreach ($session->classGroup->memberships as $membership) {
                 if ($membership->student && $this->covers($membership, $date)
+                    && (!$membership->student->deleted_at || $date < $membership->student->deleted_at->toDateString())
+                    && app(ClassLearningSessionService::class)->includes($membership, $session, $date)
                     && $this->enrolled($membership->student, $session)
                     && $membership->student->began_on->toDateString() <= $date) {
                     $students->push($membership->student);
@@ -77,13 +89,13 @@ class StudentAttendanceService
     public function eligibleToAttach(Student $student, LessonSession $session): bool
     {
         $date = $this->meetingAt($session)->toDateString();
-        if ($student->began_on->toDateString() > $date || ! $this->enrolled($student, $session)) {
+        if (($student->deleted_at && $date >= $student->deleted_at->toDateString()) || $student->began_on->toDateString() > $date || ! $this->enrolled($student, $session)) {
             return false;
         }
         if ($session->class_group_id) {
             $student->loadMissing('classGroupMemberships');
 
-            return $student->classGroupMemberships->contains(fn ($m) => $m->class_group_id === $session->class_group_id && $this->covers($m, $date));
+            return $student->classGroupMemberships->contains(fn ($m) => $m->class_group_id === $session->class_group_id && $this->covers($m, $date) && app(ClassLearningSessionService::class)->includes($m, $session, $date));
         }
 
         return true;

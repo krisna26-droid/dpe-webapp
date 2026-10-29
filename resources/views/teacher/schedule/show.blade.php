@@ -8,7 +8,7 @@
 
 @section('content')
     <section class="dpe-dashboard-page-header">
-        <div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">Teacher / Jadwal Mengajar</p><h2>{{ $session->classGroup?->name ?: 'Private / tanpa kelompok' }}</h2><p>{{ $row['meetingAt']->locale('id')->translatedFormat('l, d F Y') }} · {{ $row['meetingAt']->format('H:i') }}–{{ $row['endsAt']->format('H:i') }}</p></div>
+        <div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">Teacher / Jadwal Mengajar</p><h2>{{ $session->classGroup?->name ?: 'Private / tanpa kelompok' }}{{ $session->learningSession ? ' · '.$session->learningSession->name : '' }}</h2><p>{{ $row['meetingAt']->locale('id')->translatedFormat('l, d F Y') }} · {{ $row['meetingAt']->format('H:i') }}–{{ $row['endsAt']->format('H:i') }}</p></div>
         <div class="dpe-dashboard-page-header__actions"><a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route('teacher.student-attendance.show', $session) }}"><x-dashboard.icon name="student" />Buka Absensi Siswa</a><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route('teacher.schedule.index', ['from'=>$month->toDateString(),'to'=>$month->endOfMonth()->toDateString()]) }}"><x-dashboard.icon name="back" />Kembali ke jadwal</a></div>
     </section>
     <div class="dpe-teacher-stack">

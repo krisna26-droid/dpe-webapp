@@ -104,17 +104,7 @@ class ClassGroupService
         });
     }
 
-    public function toggleStatus(ClassGroup $classGroup): ClassGroup
-    {
-        return DB::transaction(function () use ($classGroup) {
-            $classGroup = ClassGroup::whereKey($classGroup->id)->lockForUpdate()->firstOrFail();
-            $classGroup->update([
-                'is_active' => ! $classGroup->is_active,
-            ]);
 
-            return $classGroup->refresh();
-        });
-    }
 
     private function validateReferences(
         Branch $branch,

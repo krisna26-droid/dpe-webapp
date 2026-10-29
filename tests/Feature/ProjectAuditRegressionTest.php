@@ -496,10 +496,10 @@ class ProjectAuditRegressionTest extends TestCase
         $this->assertDatabaseCount('student_teacher_assignments', 1);
     }
 
-    public function test_superadmin_update_cannot_disable_own_account_even_with_another_superadmin(): void
+    public function test_status_flag_is_ignored_when_editing_own_account(): void
     {
         $this->user('superadmin', 'Super Admin kedua');
-        $this->actingAs($this->superadmin)->put(route('superadmin.users.update', $this->superadmin), ['username' => $this->superadmin->username, 'full_name' => $this->superadmin->full_name, 'role_code' => 'superadmin', 'is_active' => 0])->assertSessionHasErrors('user');
+        $this->actingAs($this->superadmin)->put(route('superadmin.users.update', $this->superadmin), ['username' => $this->superadmin->username, 'full_name' => $this->superadmin->full_name, 'role_code' => 'superadmin', 'is_active' => 0])->assertSessionHasNoErrors();
         $this->assertTrue($this->superadmin->fresh()->is_active);
     }
 

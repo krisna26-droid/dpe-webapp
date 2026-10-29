@@ -202,15 +202,16 @@ class BranchOperationsWorkflowTest extends TestCase
         $this->assertDatabaseHas('lesson_sessions', ['branch_id' => $this->branch->id, 'teacher_id' => $this->teacher->id, 'class_group_id' => null]);
     }
 
-    public function test_class_can_be_created_edited_and_deactivated_with_a_scoped_teacher(): void
+    public function test_class_can_be_created_edited_and_deleted_with_a_scoped_teacher(): void
     {
         $this->actingAs($this->admin)->post(route('admin.class-groups.store'), $this->groupData())->assertSessionHasNoErrors()->assertRedirect();
         $group = ClassGroup::where('code', 'BARU-01')->firstOrFail();
         $this->get(route('admin.class-groups.edit', $group))->assertOk()->assertSee('record_version')->assertDontSee('Teacher Luar Rahasia');
         $this->put(route('admin.class-groups.update', $group), $this->groupData(['name' => 'Kelas Diperbarui', 'record_version' => $this->version($group)]))->assertSessionHasNoErrors()->assertRedirect();
         $this->assertSame('Kelas Diperbarui', $group->fresh()->name);
-        $this->patch(route('admin.class-groups.status', $group), ['record_version' => $this->version($group)])->assertRedirect();
-        $this->assertFalse($group->fresh()->is_active);
+        $this->delete(route('admin.class-groups.destroy', $group), ['record_version' => $this->version($group)])->assertRedirect();
+        $this->assertNull(ClassGroup::find($group->id));
+        $this->assertSoftDeleted('class_groups',['id'=>$group->id]);
         $this->assertTrue($this->otherGroup->fresh()->is_active);
     }
 
@@ -227,12 +228,12 @@ class BranchOperationsWorkflowTest extends TestCase
         $this->assertSame(2, ClassGroup::count());
     }
 
-    public function test_stale_class_form_and_status_toggle_cannot_overwrite_a_newer_change(): void
+    public function test_stale_class_form_and_delete_cannot_overwrite_a_newer_change(): void
     {
         $version = $this->version($this->group);
         $this->group->update(['name' => 'Perubahan Petugas Lain']);
         $this->actingAs($this->admin)->put(route('admin.class-groups.update', $this->group), $this->groupData(['record_version' => $version]))->assertSessionHasErrors('record_version');
-        $this->patch(route('admin.class-groups.status', $this->group), ['record_version' => $version])->assertSessionHasErrors('record_version');
+        $this->delete(route('admin.class-groups.destroy', $this->group), ['record_version' => $version])->assertSessionHasErrors('record_version');
         $this->assertSame('Perubahan Petugas Lain', $this->group->fresh()->name);
         $this->assertTrue($this->group->fresh()->is_active);
     }
@@ -415,7 +416,7 @@ class BranchOperationsWorkflowTest extends TestCase
         $beforeMember = $this->otherMembership->fresh()->getAttributes();
         $beforeSession = $this->otherLesson->fresh()->getAttributes();
         $this->actingAs($this->admin)->put(route('admin.class-groups.update', $this->otherGroup), $this->groupData())->assertForbidden();
-        $this->patch(route('admin.class-groups.status', $this->otherGroup), ['record_version' => $this->version($this->otherGroup)])->assertForbidden();
+        $this->delete(route('admin.class-groups.destroy', $this->otherGroup), ['record_version' => $this->version($this->otherGroup)])->assertForbidden();
         $this->put(route('admin.class-group-memberships.update', $this->otherMembership), $this->membershipData())->assertForbidden();
         $this->put(route('admin.lesson-sessions.update', $this->otherLesson), $this->sessionData())->assertForbidden();
         $this->assertSame($beforeGroup, $this->otherGroup->fresh()->getAttributes());

@@ -14,6 +14,7 @@ use Tests\TestCase;
 class UserStudentOnboardingTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\StudentAccountSessionFixture;
 
     private function createUser(string $role = 'superadmin'): User
     {
@@ -28,17 +29,10 @@ class UserStudentOnboardingTest extends TestCase
         ]);
     }
 
-    private function studentAccountData(array $overrides = []): array
-    {
-        return array_replace([
-            'full_name' => 'Akun Siswa Baru',
-            'username' => 'siswa_baru',
-            'email' => 'siswa_baru@example.test',
-            'role_code' => 'student',
-            'password' => 'Password123!',
-            'password_confirmation' => 'Password123!',
-            'is_active' => '1',
-        ], $overrides);
+    private function studentAccountData(array $overrides=[]): array {
+        $branch=\App\Models\Branch::create(['id'=>(string)Str::uuid(),'code'=>Str::random(10),'name'=>'Cabang Uji','timezone_name'=>'Asia/Makassar','payment_recap_day'=>20,'is_active'=>true]);
+        $program=\App\Models\Program::create(['id'=>(string)Str::uuid(),'code'=>Str::random(10),'name'=>'English Uji','class_type'=>'regular','is_active'=>true]);
+        return array_replace($this->accountSessionFields($branch,$program),['username'=>'siswa_baru','full_name'=>'Akun Siswa Baru','password'=>'Password123!','role_code'=>'student','grade_name'=>'4 SD','school_name'=>'SD Contoh'],$overrides);
     }
 
     private function html(string $content): DOMXPath
@@ -52,67 +46,14 @@ class UserStudentOnboardingTest extends TestCase
         return new DOMXPath($document);
     }
 
-    public function test_created_student_account_can_be_completed_and_selected_for_billing(): void
+    public function test_created_student_has_profile_and_is_ready_for_billing(): void
     {
         $this->actingAs($this->createUser());
-
-        $this->get(route('superadmin.users.index'))
-            ->assertOk()
-            ->assertSee(route('superadmin.users.create'), false)
-            ->assertSee('Tambah pengguna');
-
-        $this->get(route('superadmin.users.create'))
-            ->assertOk()
-            ->assertViewIs('superadmin.users.create');
-
-        $response = $this->post(
-            route('superadmin.users.store'),
-            $this->studentAccountData()
-        );
-        $user = User::query()->where('username', 'siswa_baru')->firstOrFail();
-
-        $response->assertRedirect(route('superadmin.users.index'))
-            ->assertSessionHas('created_student_user_id', $user->id);
-
-        $profileUrl = route('superadmin.students.create', [
-            'portal_user_id' => $user->id,
-        ]);
-        $this->get(route('superadmin.users.index'))
-            ->assertOk()
-            ->assertSee('Tambah profil siswa')
-            ->assertSee($profileUrl, false);
-
-        $profileForm = $this->get($profileUrl)->assertOk();
-        $profileHtml = $this->html($profileForm->getContent());
-        $this->assertSame(1, $profileHtml->query(
-            '//select[@name="portal_user_id"]/option[@value="' . $user->id . '" and @selected]'
-        )->length);
-
-        $profileResponse = $this->post(route('superadmin.students.store'), [
-            'portal_user_id' => $user->id,
-            'full_name' => 'Siswa Baru',
-            'school_name' => 'SD Contoh',
-            'grade_name' => 'Kelas 4',
-            'began_on' => '2026-10-09',
-        ]);
-        $student = Student::query()->where('portal_user_id', $user->id)->firstOrFail();
-        $profileResponse->assertRedirect(route('superadmin.students.show', $student));
-
-        $this->get(route('superadmin.students.show', $student))
-            ->assertOk()->assertSee('Siswa Baru');
-        $this->get(route('superadmin.students.index'))
-            ->assertOk()->assertSee('Siswa Baru');
-
-        $billingForm = $this->get(route('superadmin.monthly-charges.create'))
-            ->assertOk()
-            ->assertViewHas('students', fn ($students) => $students->contains('id', $student->id));
-        $this->assertSame(1, $this->html($billingForm->getContent())->query(
-            '//select[@name="student_id"]/option[@value="' . $student->id . '"]'
-        )->length);
-
-        $this->get(route('superadmin.students.create'))
-            ->assertOk()
-            ->assertViewHas('studentUsers', fn ($users) => ! $users->contains('id', $user->id));
+        $response=$this->post(route('superadmin.users.store'),$this->studentAccountData())->assertSessionHasNoErrors();
+        $user=User::where('username','siswa_baru')->firstOrFail();$student=$user->studentProfile;$this->assertNotNull($student);
+        $response->assertRedirect(route('superadmin.users.show',$user));
+        $this->get(route('superadmin.monthly-charges.create'))->assertOk()->assertViewHas('students',fn($students)=>$students->contains('id',$student->id));
+        $this->get(route('superadmin.students.create'))->assertOk()->assertViewHas('studentUsers',fn($users)=>!$users->contains('id',$user->id));
     }
 
     public function test_empty_student_form_links_to_account_form_with_student_role_selected(): void
@@ -128,7 +69,7 @@ class UserStudentOnboardingTest extends TestCase
         $response = $this->get($accountUrl)->assertOk();
         $html = $this->html($response->getContent());
         $this->assertSame(1, $html->query('//select[@name="role_code"]/option[@value="student" and @selected]')->length);
-        $this->assertSame(1, $html->query('//input[@name="is_active" and @type="checkbox" and @checked]')->length);
+        $this->assertSame(0, $html->query('//input[@name="is_active"]')->length);
     }
 
     public function test_invalid_account_form_keeps_identity_but_does_not_redisplay_passwords(): void
@@ -138,7 +79,7 @@ class UserStudentOnboardingTest extends TestCase
 
         $this->from($createUrl)->post(
             route('superadmin.users.store'),
-            $this->studentAccountData(['password_confirmation' => 'Different123!'])
+            $this->studentAccountData(['password' => 'abc'])
         )->assertRedirect($createUrl)->assertSessionHasErrors('password');
 
         $this->assertDatabaseMissing('users', ['username' => 'siswa_baru']);
@@ -151,18 +92,10 @@ class UserStudentOnboardingTest extends TestCase
         $response->assertDontSee('Password123!')->assertDontSee('Different123!');
     }
 
-    public function test_inactive_student_account_is_not_offered_for_a_new_profile(): void
+    public function test_student_creation_does_not_offer_deactivation(): void
     {
         $this->actingAs($this->createUser());
-
-        $this->post(route('superadmin.users.store'), $this->studentAccountData(['is_active' => '0']))
-            ->assertRedirect(route('superadmin.users.index'))
-            ->assertSessionMissing('created_student_user_id');
-
-        $user = User::query()->where('username', 'siswa_baru')->firstOrFail();
-        $this->assertFalse($user->is_active);
-        $this->get(route('superadmin.students.create', ['portal_user_id' => $user->id]))
-            ->assertOk()
-            ->assertViewHas('studentUsers', fn ($users) => ! $users->contains('id', $user->id));
+        $this->post(route('superadmin.users.store'),$this->studentAccountData(['is_active'=>'0']))->assertSessionHasNoErrors();
+        $user=User::where('username','siswa_baru')->firstOrFail();$this->assertTrue($user->is_active);$this->assertNotNull($user->studentProfile);
     }
 }

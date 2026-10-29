@@ -42,6 +42,6 @@ class Notification extends Model
             User::class,
             'user_id',
             'id'
-        );
+        )->withTrashed();
     }
 }

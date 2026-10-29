@@ -33,10 +33,7 @@ class StoreLearningSkillRequest extends FormRequest
                 'integer',
                 'min:0',
             ],
-            'is_active' => [
-                'sometimes',
-                'boolean',
-            ],
+            'is_active' => ['exclude'],
         ];
     }
 }

@@ -28,10 +28,7 @@ class StudentUserController extends Controller
 
     public function create(Request $request): View
     {
-        return view('admin.users.create', [
-            'branches' => $this->accounts->branches($request->user())->orderBy('name')->get(),
-            'programs' => Program::query()->where('is_active', true)->orderBy('name')->get(),
-        ]);
+        return view('admin.users.create', $this->accounts->options($request->user()));
     }
 
     public function store(StoreStudentUserRequest $request): RedirectResponse
@@ -50,5 +47,10 @@ class StudentUserController extends Controller
             ->findOrFail($user);
 
         return view('admin.users.show', compact('managedUser'));
+    }
+    public function destroy(Request $request,string $user): RedirectResponse {
+        $target=$this->accounts->users($request->user())->findOrFail($user);
+        app(\App\Services\OperationalDeletionService::class)->delete($request->user(),$target);
+        return redirect()->route('admin.users.index')->with('success','Akun siswa berhasil dihapus. Riwayat tetap tersimpan.');
     }
 }

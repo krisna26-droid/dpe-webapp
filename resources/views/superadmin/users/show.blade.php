@@ -24,12 +24,13 @@
                 <div class="dpe-dashboard-detail"><p class="dpe-dashboard-detail__label">Dibuat</p><p class="dpe-dashboard-detail__value">{{ $managedUser->created_at?->format('d M Y') ?: '—' }}</p></div>
             </div>
             @if ($managedUser->id !== auth()->id())
-                <form method="POST" action="{{ route('superadmin.users.status', $managedUser) }}" class="dpe-dashboard-form-actions" data-confirm-form data-confirm-title="Ubah status akun ini?" data-confirm-message="Status menentukan apakah akun ini dapat masuk ke portal." data-confirm-action="Ubah status">
+                <form method="POST" action="{{ route('superadmin.users.destroy', $managedUser) }}" class="dpe-dashboard-form-actions" data-confirm-form data-confirm-title="Hapus akun ini?" data-confirm-message="Akun dihapus dari operasional. Riwayat absensi, rapor dan pembayaran tetap tersimpan." data-confirm-action="Hapus">
                     @csrf
-                    @method('PATCH')
-                    <button class="dpe-dashboard-button {{ $managedUser->is_active ? 'dpe-dashboard-button--danger' : 'dpe-dashboard-button--primary' }}" type="submit">{{ $managedUser->is_active ? 'Nonaktifkan akun' : 'Aktifkan akun' }}</button>
+                    @method('DELETE')
+                    <button class="dpe-dashboard-button dpe-dashboard-button--danger" type="submit">Hapus</button>
                 </form>
             @endif
         </div>
     </article>
+<x-dashboard.student-session-summary :student="$managedUser->studentProfile" />
 @endsection

@@ -142,7 +142,7 @@ class NotificationModelTest extends TestCase
         );
     }
 
-    public function test_deleting_user_cascades_notifications(): void
+    public function test_deleted_user_retains_notification_history(): void
     {
         $user = $this->makeUser();
 
@@ -163,7 +163,7 @@ class NotificationModelTest extends TestCase
 
         $user->delete();
 
-        $this->assertDatabaseMissing('notifications', [
+        $this->assertDatabaseHas('notifications', [
             'id' => $notificationId,
         ]);
     }

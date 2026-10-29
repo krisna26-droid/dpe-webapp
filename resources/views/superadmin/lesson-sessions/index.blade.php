@@ -1,11 +1,19 @@
 @php
     $operationRoutePrefix = $operationRoutePrefix ?? 'superadmin';
+    $lessonList = app(\App\Services\LessonSessionListService::class);
+    $listParameters = $lessonList->fromIndex($filters ?? [], $lessonSessions->currentPage());
 @endphp
 @extends('layouts.dashboard')
 
 @section('title', 'Sesi Belajar')
 @section('heading', $operationRoutePrefix === 'admin' ? 'Jadwal & Sesi' : 'Sesi Belajar')
 @section('description', $operationRoutePrefix === 'admin' ? 'Kelola jadwal dan sesi belajar pada cabang Anda.' : 'Pantau jadwal sesi belajar yang tercatat di seluruh cabang.')
+
+@push('head')
+    @if($operationRoutePrefix === 'superadmin')
+        <link rel="stylesheet" href="{{ asset('assets/dpe/branch-operations.css') }}?v={{ filemtime(public_path('assets/dpe/branch-operations.css')) }}">
+    @endif
+@endpush
 
 @section('content')
     <section class="dpe-dashboard-page-header">
@@ -15,7 +23,7 @@
             <p>Daftar agenda belajar, guru, program, dan status sesi yang terjadwal.</p>
         </div>
         <div class="dpe-dashboard-page-header__actions">
-            <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($operationRoutePrefix.'.lesson-sessions.create') }}">
+            <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($operationRoutePrefix.'.lesson-sessions.create', $listParameters) }}">
                 <x-dashboard.icon name="calendar" />
                 <span>Tambah sesi</span>
             </a>
@@ -66,7 +74,7 @@
                             @endphp
                             <tr>
                                 <td>
-                                    <a href="{{ route($operationRoutePrefix.'.lesson-sessions.show', $lessonSession) }}">
+                                    <a href="{{ route($operationRoutePrefix.'.lesson-sessions.show', [$lessonSession] + $listParameters) }}">
                                         <strong>{{ $lessonSession->planned_start_at?->format('d M Y') ?? '—' }}</strong>
                                     </a><br>
                                     <span>{{ $lessonSession->planned_start_at?->format('H:i') ?? '—' }}–{{ $lessonSession->planned_end_at?->format('H:i') ?? '—' }}</span>
@@ -81,8 +89,8 @@
                                 <td>
                                     <div class="dpe-dashboard-table-actions">
                                     <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.student-attendance.show', $lessonSession) }}">Absensi</a>
-                                    <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route($operationRoutePrefix.'.lesson-sessions.edit', $lessonSession) }}">Edit</a>
-                                    @if($lessonSession->schedule_series_id)<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-series.show', $lessonSession->schedule_series_id) }}">Seri jadwal</a>@endif
+                                    <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route($operationRoutePrefix.'.lesson-sessions.edit', [$lessonSession] + $listParameters) }}">Edit</a>
+                                    @if($lessonSession->schedule_series_id)<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-series.show', [$lessonSession->schedule_series_id] + $listParameters) }}">Seri jadwal</a>@endif
                                     </div>
                                 </td>
                             </tr>

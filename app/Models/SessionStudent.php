@@ -49,7 +49,7 @@ class SessionStudent extends Pivot
             Student::class,
             'student_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function students(): BelongsToMany

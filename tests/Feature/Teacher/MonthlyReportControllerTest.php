@@ -60,6 +60,7 @@ class MonthlyReportControllerTest extends TestCase
         Schema::connection('sqlite')->create(
             'users',
             function (Blueprint $table) {
+            $table->softDeletes();
                 $table->char('id', 36)->primary();
                 $table->string('username')->nullable();
                 $table->string('email')->nullable();
@@ -74,6 +75,7 @@ class MonthlyReportControllerTest extends TestCase
         Schema::connection('sqlite')->create(
             'teachers',
             function (Blueprint $table) {
+            $table->softDeletes();
                 $table->char('id', 36)->primary();
                 $table->char('user_id', 36);
                 $table->string('whatsapp_number')->nullable();

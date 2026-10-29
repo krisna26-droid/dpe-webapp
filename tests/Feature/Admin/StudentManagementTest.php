@@ -42,6 +42,7 @@ class StudentManagementTest extends TestCase
         }
 
         Schema::connection('sqlite')->create('users', function (Blueprint $table) {
+            $table->softDeletes();
             $table->char('id', 36)->primary();
             $table->string('username')->unique();
             $table->string('email')->nullable()->unique();
@@ -53,6 +54,7 @@ class StudentManagementTest extends TestCase
         });
 
         Schema::connection('sqlite')->create('branches', function (Blueprint $table) {
+            $table->softDeletes();
             $table->char('id', 36)->primary();
             $table->string('name');
         });
@@ -76,6 +78,7 @@ class StudentManagementTest extends TestCase
         });
 
         Schema::connection('sqlite')->create('programs', function (Blueprint $table) {
+            $table->softDeletes();
             $table->char('id', 36)->primary();
             $table->string('code')->unique();
             $table->string('name');
@@ -85,6 +88,7 @@ class StudentManagementTest extends TestCase
         });
 
         Schema::connection('sqlite')->create('students', function (Blueprint $table) {
+            $table->softDeletes();
             $table->char('id', 36)->primary();
             $table->char('portal_user_id', 36)->unique();
             $table->string('full_name');

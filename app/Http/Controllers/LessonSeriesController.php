@@ -6,6 +6,8 @@ use App\Models\LessonScheduleSeries;
 use App\Models\LessonSession;
 use App\Services\BranchOperationsService;
 use App\Services\LessonSeriesService;
+use App\Services\LessonSeriesDeletionService;
+use App\Services\LessonSessionListService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -74,7 +76,7 @@ class LessonSeriesController extends Controller
         } else { $this->operations->authorizeBranch($request->user(), $draft['data']['branch_id']); }
         $request->session()->forget($key);
 
-        return redirect()->route($this->prefix($request).'.lesson-series.'.$action, $parameters);
+        return redirect()->route($this->prefix($request).'.lesson-series.'.$action, app(LessonSessionListService::class)->parameters($request, $parameters));
     }
 
     public function create(Request $request): View
@@ -98,7 +100,7 @@ class LessonSeriesController extends Controller
     private function invalid(Request $request, ValidationException $error, string $route, array $parameters = []): RedirectResponse
     {
         if ($id = $request->input('draft_id')) { $parameters['draft'] = $id; }
-        return redirect()->route($this->prefix($request).'.lesson-series.'.$route, $parameters)
+        return redirect()->route($this->prefix($request).'.lesson-series.'.$route, app(LessonSessionListService::class)->parameters($request, $parameters))
             ->withErrors($error->validator)->withInput($request->except('_token'));
     }
 
@@ -113,7 +115,7 @@ class LessonSeriesController extends Controller
         try {
             $series = $this->seriesService->create($request->user(), $request->all());
 
-            return redirect()->route($this->prefix($request).'.lesson-series.show', $series)
+            return redirect()->route($this->prefix($request).'.lesson-series.show', app(LessonSessionListService::class)->parameters($request, [$series]))
                 ->with('success', 'Seri jadwal tersimpan. '.$series->sessions()->count().' pertemuan tersedia untuk Teacher.');
         } catch (ValidationException $error) {
             try { return $this->previewResponse($request, $this->seriesService->previewCreate($request->user(), $request->all()), $error); }
@@ -124,12 +126,36 @@ class LessonSeriesController extends Controller
     public function show(Request $request, LessonScheduleSeries $series): View
     {
         $this->seriesService->authorize($request->user(), $series);
-        $series->load(['branch', 'classGroup', 'createdBy']);
+        $series->load(['branch', 'classGroup', 'createdBy', 'learningSession']);
         $sessions = $series->sessions()->with('teacher.user')->orderBy('planned_start_at')->orderBy('id')->paginate(30)->withQueryString();
         $changes = $series->changes()->with('actor')->orderByDesc('created_at')->orderByDesc('id')->paginate(10, ['*'], 'history_page')->fragment('series-history');
+        $deletion = app(LessonSeriesDeletionService::class)->preview($request->user(), $series);
 
-        return view('lesson-series.show', compact('series', 'sessions', 'changes')
+        return view('lesson-series.show', compact('series', 'sessions', 'changes', 'deletion')
             + ['operationRoutePrefix' => $this->prefix($request), 'dayLabels' => LessonSeriesService::DAYS]);
+    }
+
+    public function destroy(Request $request, LessonScheduleSeries $series): RedirectResponse
+    {
+        $this->seriesService->authorize($request->user(), $series);
+        $data = $request->validate(['deletion_version' => ['required', 'string', 'size:64']]);
+        $count = app(LessonSeriesDeletionService::class)->delete($request->user(), $series, $data['deletion_version']);
+
+        return redirect()->route($this->prefix($request).'.lesson-sessions.index', app(LessonSessionListService::class)->backParameters($request))
+            ->with('success', 'Seri jadwal berhasil dihapus. '.$count.' pertemuan dihapus dari jadwal.');
+    }
+
+    public function destroyMeeting(Request $request, LessonScheduleSeries $series, LessonSession $lessonSession): RedirectResponse
+    {
+        $session = $this->seriesService->anchor($request->user(), $series, $lessonSession->id);
+        $data = $request->validate(['deletion_version' => ['required', 'string', 'size:64']]);
+        app(LessonSeriesDeletionService::class)->deleteMeeting($request->user(), $series, $session, $data['deletion_version']);
+        $lastPage = max(1, (int) ceil($series->sessions()->count() / 30));
+        $page = max(1, min($request->integer('page', 1), $lastPage));
+
+        return redirect()->to(route($this->prefix($request).'.lesson-series.show', app(LessonSessionListService::class)->parameters($request, [$series, 'page' => $page])).'#series-meetings')
+            ->with('success', 'Pertemuan tanggal '.$session->planned_start_at->format('d/m/Y').' pukul '
+                .$session->planned_start_at->format('H:i').'–'.$session->planned_end_at->format('H:i').' berhasil dihapus.');
     }
 
     public function edit(Request $request, LessonScheduleSeries $series, LessonSession $lessonSession): View
@@ -155,7 +181,7 @@ class LessonSeriesController extends Controller
         try {
             $updated = $this->seriesService->updateFuture($request->user(), $series, $anchor, $request->all());
 
-            return redirect()->route($this->prefix($request).'.lesson-series.show', $updated)
+            return redirect()->route($this->prefix($request).'.lesson-series.show', app(LessonSessionListService::class)->parameters($request, [$updated]))
                 ->with('success', 'Perubahan seri tersimpan. Pertemuan yang sudah memiliki pelaksanaan atau catatan tetap dipertahankan.');
         } catch (ValidationException $error) {
             try { return $this->previewResponse($request, $this->seriesService->previewFuture($request->user(), $series, $anchor, $request->all()), $error); }

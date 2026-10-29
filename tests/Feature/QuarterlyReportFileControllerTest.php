@@ -31,6 +31,7 @@ class QuarterlyReportFileControllerTest extends TestCase
         DB::setDefaultConnection('sqlite');
 
         Schema::create('students', function (Blueprint $table) {
+            $table->softDeletes();
             $table->string('id', 36)->primary();
         });
 
@@ -66,6 +67,7 @@ class QuarterlyReportFileControllerTest extends TestCase
         });
 
         Schema::create('users', function (Blueprint $table) {
+            $table->softDeletes();
             $table->string('id', 36)->primary();
             $table->string('username');
             $table->string('email');

@@ -324,49 +324,18 @@ class ClassGroupManagementTest extends TestCase
         );
     }
 
-    public function test_class_group_can_be_deactivated(): void
+    public function test_class_group_can_be_deleted_while_active(): void
     {
-        $branch = $this->createBranch();
-        $program = $this->createProgram();
-
-        $classGroup = $this->createClassGroup(
-            $branch,
-            $program
-        );
-
-        $service = app(ClassGroupService::class);
-
-        $updated = $service->toggleStatus(
-            $classGroup
-        );
-
-        $this->assertFalse(
-            $updated->is_active
-        );
+        $group=$this->createClassGroup($this->createBranch(),$this->createProgram());
+        app(\App\Services\OperationalDeletionService::class)->delete($this->createSuperadmin(),$group);
+        $this->assertNull(ClassGroup::find($group->id));$this->assertSoftDeleted('class_groups',['id'=>$group->id]);
     }
 
-    public function test_class_group_can_be_reactivated(): void
+    public function test_class_group_can_be_deleted_while_inactive(): void
     {
-        $branch = $this->createBranch();
-        $program = $this->createProgram();
-
-        $classGroup = $this->createClassGroup(
-            $branch,
-            $program
-        );
-
-        $classGroup->update([
-            'is_active' => false,
-        ]);
-
-        $service = app(ClassGroupService::class);
-
-        $updated = $service->toggleStatus(
-            $classGroup
-        );
-
-        $this->assertTrue(
-            $updated->is_active
-        );
+        $group=$this->createClassGroup($this->createBranch(),$this->createProgram());
+        $group->update(['is_active'=>false]);
+        app(\App\Services\OperationalDeletionService::class)->delete($this->createSuperadmin(),$group);
+        $this->assertNull(ClassGroup::find($group->id));$this->assertSoftDeleted('class_groups',['id'=>$group->id]);
     }
 }

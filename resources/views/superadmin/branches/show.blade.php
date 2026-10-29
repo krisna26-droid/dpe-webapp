@@ -63,7 +63,7 @@
         <article class="dpe-dashboard-card">
             <header class="dpe-dashboard-card__head">
                 <div>
-                    <h2>Status operasional</h2>
+                    <h2>Penghapusan data</h2>
                     <p>Atur apakah cabang dapat digunakan untuk data baru.</p>
                 </div>
             </header>
@@ -82,12 +82,12 @@
                     />
                 @endif
 
-                <form method="POST" action="{{ route('superadmin.branches.status', $branch) }}" class="dpe-dashboard-form-actions">
+                <form method="POST" action="{{ route('superadmin.branches.destroy', $branch) }}" data-confirm-form data-confirm-title="Hapus data ini?" data-confirm-message="Periode operasional diakhiri dan jadwal mendatang dibatalkan. Riwayat tersimpan tetap tersedia." data-confirm-action="Hapus" class="dpe-dashboard-form-actions">
                     @csrf
-                    @method('PATCH')
-                    <button class="dpe-dashboard-button {{ $branch->is_active ? 'dpe-dashboard-button--soft' : 'dpe-dashboard-button--primary' }}" type="submit">
-                        <x-dashboard.icon name="refresh" />
-                        <span>{{ $branch->is_active ? 'Nonaktifkan cabang' : 'Aktifkan cabang' }}</span>
+                    @method('DELETE')
+                    <button class="dpe-dashboard-button dpe-dashboard-button--danger" type="submit">
+                        <x-dashboard.icon name="trash" />
+                        <span>Hapus</span>
                     </button>
                 </form>
             </div>

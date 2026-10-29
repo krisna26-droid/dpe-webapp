@@ -29,14 +29,18 @@ class UserController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('superadmin.users.create');
+        return view('superadmin.users.create', app(\App\Services\StudentAccountProvisioningService::class)->options($request->user()));
     }
 
     public function store(StoreUserRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        if ($validated['role_code'] === 'student') {
+            $user=app(\App\Services\StudentAccountProvisioningService::class)->create($request->user(),$validated);
+            return redirect()->route('superadmin.users.show',$user)->with('success','Akun, profil siswa, wali, guru dan sesi belajar berhasil disimpan.');
+        }
 
         $user = User::create([
             'id' => (string) Str::uuid(),
@@ -45,7 +49,7 @@ class UserController extends Controller
             'password_hash' => Hash::make($validated['password']),
             'full_name' => $validated['full_name'],
             'role_code' => $validated['role_code'],
-            'is_active' => $validated['is_active'] ?? true,
+            'is_active' => true,
         ]);
 
         $response = redirect()
@@ -103,10 +107,7 @@ class UserController extends Controller
                 ->firstOrFail();
 
             $newRole = $validated['role_code'];
-            $newStatus = filter_var(
-                $validated['is_active'],
-                FILTER_VALIDATE_BOOLEAN
-            );
+            $newStatus = $target->is_active;
 
             if ($target->id === $request->user()->id && ($newRole !== 'superadmin' || ! $newStatus)) {
                 return back()->withErrors(['user' => 'Super Admin tidak dapat menonaktifkan atau mengubah role akunnya sendiri.'])->withInput();
@@ -182,60 +183,9 @@ class UserController extends Controller
         });
     }
 
-    public function toggleStatus(
-        Request $request,
-        User $user
-    ): RedirectResponse {
-        return DB::transaction(function () use ($request, $user) {
-            // Kunci seluruh SuperAdmin aktif terlebih dahulu
-            // agar pengecekan jumlah SuperAdmin konsisten.
-            $activeSuperadmins = User::query()
-                ->where('role_code', 'superadmin')
-                ->where('is_active', true)
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get(['id']);
-
-            // Ambil ulang target user di dalam transaction.
-            $target = User::query()
-                ->whereKey($user->id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            // User tidak boleh mengubah status akunnya sendiri.
-            if ($target->id === $request->user()->id) {
-                return back()
-                    ->withErrors([
-                        'user' => 'SuperAdmin tidak dapat mengubah status akunnya sendiri melalui fitur ini.',
-                    ])
-                    ->withInput();
-            }
-
-            // Jangan sampai sistem kehilangan seluruh SuperAdmin aktif.
-            if (
-                $target->role_code === 'superadmin'
-                && $target->is_active
-                && $activeSuperadmins->count() <= 1
-            ) {
-                return back()
-                    ->withErrors([
-                        'user' => 'SuperAdmin aktif terakhir tidak dapat dinonaktifkan.',
-                    ])
-                    ->withInput();
-            }
-
-            $target->update([
-                'is_active' => ! $target->is_active,
-            ]);
-
-            return redirect()
-                ->route('superadmin.users.show', $target)
-                ->with(
-                    'success',
-                    $target->is_active
-                        ? 'User berhasil diaktifkan.'
-                        : 'User berhasil dinonaktifkan.'
-                );
-        });
+    public function destroy(\Illuminate\Http\Request $request, User $user): RedirectResponse
+    {
+        app(\App\Services\OperationalDeletionService::class)->delete($request->user(),$user);
+        return redirect()->route('superadmin.users.index')->with('success','Data berhasil dihapus. Riwayat sebelumnya tetap tersimpan.');
     }
 }

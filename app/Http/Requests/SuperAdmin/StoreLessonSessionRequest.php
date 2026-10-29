@@ -16,6 +16,8 @@ class StoreLessonSessionRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'class_learning_session_id' => ['nullable','string','max:36'],
+            'learning_session_name' => ['nullable','string','max:100'],
             'teaching_location' => ['sometimes', 'required', Rule::in(['branch', 'student_home'])],
             'branch_id' => [
                 'required',

@@ -72,17 +72,15 @@ class ClassGroupController extends Controller
         return redirect()->route('admin.class-groups.show', $classGroup)->with('success', 'Kelompok kelas berhasil diperbarui.');
     }
 
-    public function toggleStatus(Request $request, ClassGroup $classGroup): RedirectResponse
+    public function destroy(\Illuminate\Http\Request $request, ClassGroup $classGroup): RedirectResponse
     {
-        $this->operations->authorize($request->user(), $classGroup);
-        $data = $request->validate(['record_version' => ['required', 'string', 'size:64']]);
-        DB::transaction(function () use ($request, $classGroup, $data) {
-            $current = ClassGroup::whereKey($classGroup->id)->lockForUpdate()->firstOrFail();
-            $this->operations->authorize($request->user(), $current);
-            $this->operations->checkVersion($current, $data);
-            $this->groups->toggleStatus($current);
+        $data=$request->validate(['record_version'=>['required','string','size:64']]);
+        \Illuminate\Support\Facades\DB::transaction(function() use($request,$classGroup,$data) {
+            $current=ClassGroup::whereKey($classGroup->id)->lockForUpdate()->firstOrFail();
+            $this->operations->authorize($request->user(),$current);
+            $this->operations->checkVersion($current,$data);
+            app(\App\Services\OperationalDeletionService::class)->delete($request->user(),$current);
         });
-
-        return redirect()->route('admin.class-groups.show', $classGroup)->with('success', 'Status kelompok kelas berhasil diperbarui.');
+        return redirect()->route('admin.class-groups.index')->with('success','Data berhasil dihapus. Riwayat sebelumnya tetap tersimpan.');
     }
 }

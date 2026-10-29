@@ -46,7 +46,7 @@ class LearningVideo extends Model
             Student::class,
             'student_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function teacher(): BelongsTo
@@ -55,7 +55,7 @@ class LearningVideo extends Model
             Teacher::class,
             'teacher_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function session(): BelongsTo

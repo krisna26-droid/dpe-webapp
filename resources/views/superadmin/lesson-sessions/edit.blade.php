@@ -1,5 +1,7 @@
 @php
     $operationRoutePrefix = $operationRoutePrefix ?? 'superadmin';
+    $lessonList = app(\App\Services\LessonSessionListService::class);
+    $listParameters = $lessonList->parameters(request());
 @endphp
 @extends('layouts.dashboard')
 
@@ -11,7 +13,7 @@
     <x-dashboard.form-panel
         title="Edit sesi belajar"
         description="Perbarui jadwal dan catatan sesi belajar."
-        :close-url="route($operationRoutePrefix.'.lesson-sessions.show', $lessonSession)"
+        :close-url="route($operationRoutePrefix.'.lesson-sessions.show', [$lessonSession] + $listParameters)"
     >
         @include('superadmin.lesson-sessions._form')
     </x-dashboard.form-panel>

@@ -17,7 +17,7 @@ class LearningSkillService
                 'code' => $data['code'],
                 'name' => $data['name'],
                 'display_order' => $data['display_order'],
-                'is_active' => $data['is_active'] ?? true,
+                'is_active' => true,
             ]);
         });
     }
@@ -38,7 +38,7 @@ class LearningSkillService
                 'code' => $data['code'],
                 'name' => $data['name'],
                 'display_order' => $data['display_order'],
-                'is_active' => $data['is_active'] ?? true,
+                'is_active' => $learningSkill->is_active,
             ]);
 
             return $learningSkill->refresh();

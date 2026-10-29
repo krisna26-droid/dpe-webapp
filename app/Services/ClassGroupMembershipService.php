@@ -29,13 +29,15 @@ class ClassGroupMembershipService
             $this->validateDates($data);
             $this->validateEnrollmentAndOverlap($classGroup, $student, $data);
 
-            return ClassGroupMembership::query()->create([
+            $membership = ClassGroupMembership::query()->create([
                 'id' => (string) Str::uuid(),
                 'class_group_id' => $classGroup->id,
                 'student_id' => $student->id,
                 'starts_on' => $data['starts_on'],
                 'ends_on' => $data['ends_on'] ?? null,
             ]);
+            if (array_key_exists('learning_session_ids', $data)) { app(ClassLearningSessionService::class)->select($membership, $data['learning_session_ids'], $data['starts_on'], true); }
+            return $membership;
         });
     }
 
@@ -66,6 +68,9 @@ class ClassGroupMembershipService
                 'ends_on' => $data['ends_on'] ?? null,
             ]);
 
+            if (!empty($data['select_learning_sessions']) && (!$membership->ends_on || $membership->ends_on->gte(today()))) {
+                app(ClassLearningSessionService::class)->select($membership, $data['learning_session_ids'] ?? [], $data['session_effective_on'] ?? today()->toDateString());
+            }
             return $membership->refresh();
         });
     }

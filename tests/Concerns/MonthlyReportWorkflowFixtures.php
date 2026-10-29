@@ -15,11 +15,13 @@ trait MonthlyReportWorkflowFixtures
     private function createWorkflowSupportTables(): void
     {
         Schema::create('students', function (Blueprint $table) {
+            $table->softDeletes();
             $table->char('id', 36)->primary();
             $table->string('full_name');
             $table->date('began_on');
         });
         Schema::create('branches', function (Blueprint $table) {
+            $table->softDeletes();
             $table->char('id', 36)->primary();
             $table->string('name');
             $table->string('timezone_name');

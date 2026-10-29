@@ -9,6 +9,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ClassGroup extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
+    public function learningSessions(): \Illuminate\Database\Eloquent\Relations\HasMany { return $this->hasMany(ClassLearningSession::class); }
+
     use HasFactory;
 
     protected $table = 'class_groups';
@@ -41,7 +45,7 @@ class ClassGroup extends Model
         return $this->belongsTo(
             Branch::class,
             'branch_id'
-        );
+        )->withTrashed();
     }
 
     public function program(): BelongsTo
@@ -49,7 +53,7 @@ class ClassGroup extends Model
         return $this->belongsTo(
             Program::class,
             'program_id'
-        );
+        )->withTrashed();
     }
 
     public function defaultTeacher(): BelongsTo
@@ -57,7 +61,7 @@ class ClassGroup extends Model
         return $this->belongsTo(
             Teacher::class,
             'default_teacher_id'
-        );
+        )->withTrashed();
     }
 
     public function memberships(): HasMany
