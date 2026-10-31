@@ -88,6 +88,7 @@ class StudentController extends Controller
             'portalUser',
             'enrollments.branch',
             'enrollments.program',
+            'guardians',
         ]);
 
         return view('admin.students.show', compact('student'));
@@ -96,6 +97,7 @@ class StudentController extends Controller
     public function edit(Student $student): View
     {
         Gate::authorize('view', $student);
+        $student->load('guardians');
 
         return view('admin.students.edit', [
             'student' => $student,

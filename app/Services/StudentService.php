@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Student;
+use App\Models\Guardian;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -99,9 +100,24 @@ class StudentService
 
                 $student->save();
 
+                if (array_key_exists('guardian_phone', $data) && $data['guardian_phone'] !== null && $data['guardian_phone'] !== '') {
+                    $guardian = Guardian::query()
+                        ->where('student_id', $student->id)
+                        ->where('is_primary', true)
+                        ->lockForUpdate()
+                        ->first()
+                        ?: Guardian::query()
+                            ->where('student_id', $student->id)
+                            ->orderBy('created_at')
+                            ->lockForUpdate()
+                            ->first();
+                    $guardian?->update(['whatsapp_number' => $data['guardian_phone']]);
+                }
+
                 return $student->fresh([
                     'portalUser',
                     'photoFile',
+                    'guardians',
                 ]);
             });
         } catch (Throwable $exception) {

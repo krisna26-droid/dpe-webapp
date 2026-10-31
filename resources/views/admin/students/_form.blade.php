@@ -80,6 +80,16 @@
             <p class="dpe-dashboard-field__hint">Catatan ini tidak ditampilkan pada portal siswa.</p>
             @error('special_notes_internal')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
         </div>
+
+        @if ($isEdit && $student->guardians->isNotEmpty())
+            @php($primaryGuardian = $student->guardians->firstWhere('is_primary', true) ?: $student->guardians->first())
+            <div class="dpe-dashboard-field dpe-dashboard-field--full">
+                <label for="guardian_phone">Nomor telepon / WhatsApp wali</label>
+                <input id="guardian_phone" name="guardian_phone" type="tel" maxlength="30" autocomplete="tel" value="{{ old('guardian_phone', $primaryGuardian->whatsapp_number) }}" required>
+                <p class="dpe-dashboard-field__hint">Mengubah nomor kontak {{ $primaryGuardian->full_name }}. Nama, hubungan, dan penerima utama dikelola oleh Super Admin.</p>
+                @error('guardian_phone')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
+            </div>
+        @endif
     </div>
 
     <div class="dpe-dashboard-form-actions">
