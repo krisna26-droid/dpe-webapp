@@ -126,6 +126,12 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
         Route::get('/payments/proofs/{paymentProof}/image', [\App\Http\Controllers\Admin\PaymentController::class, 'image'])->name('payments.image');
         Route::get('/payments/{monthlyCharge}', [\App\Http\Controllers\Admin\PaymentController::class, 'show'])->name('payments.show');
         Route::delete('/users/{user}', [\App\Http\Controllers\Admin\StudentUserController::class, 'destroy'])->name('users.destroy');
+        Route::get('/guardians/{guardian}/edit', [\App\Http\Controllers\Admin\GuardianController::class, 'edit'])
+            ->name('guardians.edit');
+        Route::patch('/guardians/{guardian}', [\App\Http\Controllers\Admin\GuardianController::class, 'update'])
+            ->name('guardians.update');
+        Route::get('/teacher-slots', [\App\Http\Controllers\TeacherSlotController::class, 'index'])->name('teacher-slots.index');
+        Route::patch('/teacher-slots/{classLearningSession}', [\App\Http\Controllers\TeacherSlotController::class, 'update'])->name('teacher-slots.update');
         Route::resource('class-groups', \App\Http\Controllers\Admin\ClassGroupController::class);
         Route::resource('class-group-memberships', \App\Http\Controllers\Admin\ClassGroupMembershipController::class)->except(['destroy']);
         Route::resource('lesson-sessions', \App\Http\Controllers\Admin\LessonSessionController::class)->except(['destroy']);
@@ -268,6 +274,9 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
                 'teacher-availability',
                 TeacherAvailabilityController::class
             )->except(['destroy']);
+
+            Route::get('/teacher-slots', [\App\Http\Controllers\TeacherSlotController::class, 'index'])->name('teacher-slots.index');
+            Route::patch('/teacher-slots/{classLearningSession}', [\App\Http\Controllers\TeacherSlotController::class, 'update'])->name('teacher-slots.update');
 
             Route::resource(
                 'guardians',

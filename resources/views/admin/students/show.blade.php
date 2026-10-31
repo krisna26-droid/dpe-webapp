@@ -68,6 +68,39 @@
     <article class="dpe-dashboard-card dpe-dashboard-card--spaced">
         <header class="dpe-dashboard-card__head">
             <div>
+                <h2>Wali dan penerima rapor</h2>
+                <p>{{ $student->guardians->count() }} kontak terhubung. Nomor telepon dapat diperbarui oleh Admin Cabang.</p>
+            </div>
+        </header>
+        @if ($student->guardians->isEmpty())
+            <x-dashboard.empty
+                title="Belum ada data wali"
+                message="Kontak wali belum tersedia. Hubungi Super Admin untuk membuat data wali pertama."
+                icon="users"
+            />
+        @else
+            <div class="dpe-dashboard-table-wrap">
+                <table class="dpe-dashboard-table">
+                    <thead><tr><th>Nama</th><th>Hubungan</th><th>Nomor telepon / WhatsApp</th><th>Penerima</th><th>Aksi</th></tr></thead>
+                    <tbody>
+                        @foreach ($student->guardians as $guardian)
+                            <tr>
+                                <td><strong>{{ $guardian->full_name }}</strong></td>
+                                <td>{{ $guardian->relationship_name ?: '—' }}</td>
+                                <td>{{ $guardian->whatsapp_number ?: 'Belum diisi' }}</td>
+                                <td><span class="dpe-dashboard-badge {{ $guardian->is_primary ? 'dpe-dashboard-badge--success' : '' }}">{{ $guardian->is_primary ? 'Utama' : 'Alternatif' }}</span></td>
+                                <td><a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route('admin.guardians.edit', $guardian) }}">Edit nomor</a></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </article>
+
+    <article class="dpe-dashboard-card dpe-dashboard-card--spaced">
+        <header class="dpe-dashboard-card__head">
+            <div>
                 <h2>Program dan cabang</h2>
                 <p>{{ $student->enrollments->count() }} riwayat pendaftaran tercatat.</p>
             </div>

@@ -56,6 +56,7 @@
                     ['label' => 'Kehadiran Guru', 'icon' => 'clock', 'route' => 'admin.teacher-attendance.index', 'active' => ['admin.teacher-attendance.*']],
                     ['label' => 'Kehadiran Siswa', 'icon' => 'student', 'route' => 'superadmin.student-attendance.index', 'active' => ['superadmin.student-attendance.*']],
                     ['label' => 'Ketersediaan Guru', 'icon' => 'clock', 'route' => 'superadmin.teacher-availability.index', 'active' => ['superadmin.teacher-availability.*']],
+                    ['label' => 'Pengaturan Slot Guru', 'icon' => 'users', 'route' => 'superadmin.teacher-slots.index', 'active' => ['superadmin.teacher-slots.*']],
                 ],
             ],
             [
@@ -108,6 +109,7 @@
                     ['label' => 'Jadwal & Sesi', 'icon' => 'calendar', 'route' => 'admin.lesson-sessions.index', 'active' => ['admin.lesson-sessions.*', 'admin.lesson-series.*']],
                     ['label' => 'Kehadiran Guru', 'icon' => 'clock', 'route' => 'admin.teacher-attendance.index', 'active' => ['admin.teacher-attendance.*']],
                     ['label' => 'Kehadiran Siswa', 'icon' => 'student', 'route' => 'admin.student-attendance.index', 'active' => ['admin.student-attendance.*']],
+                    ['label' => 'Pengaturan Slot Guru', 'icon' => 'users', 'route' => 'admin.teacher-slots.index', 'active' => ['admin.teacher-slots.*']],
                     ['label' => 'Catatan Belajar', 'icon' => 'book', 'route' => 'admin.learning-notes.index', 'active' => ['admin.learning-notes.*']],
                     ['label' => 'Perkembangan & Pesan', 'icon' => 'report', 'route' => 'admin.student-progress.index', 'active' => ['admin.student-progress.*']],
                 ],
