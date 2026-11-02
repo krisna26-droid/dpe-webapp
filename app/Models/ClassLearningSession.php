@@ -14,6 +14,13 @@ class ClassLearningSession extends Model
 
     protected $guarded = [];
 
+    protected function casts(): array
+    {
+        return [
+            'slot_capacity' => 'integer',
+        ];
+    }
+
     public function classGroup(): BelongsTo
     {
         return $this->belongsTo(ClassGroup::class)->withTrashed();

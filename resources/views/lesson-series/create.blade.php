@@ -32,7 +32,8 @@
                 <div class="dpe-dashboard-field"><label for="material">Materi awal <span>(opsional)</span></label><input id="material" name="material" maxlength="255" value="{{ $formValue('material') }}"></div>
                 <div class="dpe-dashboard-field"><label for="activity">Aktivitas awal <span>(opsional)</span></label><input id="activity" name="activity" maxlength="255" value="{{ $formValue('activity') }}"></div>
             </div>
-            <p class="dpe-dashboard-field__hint">Semua pertemuan baru berstatus Terjadwal. Topik, materi dan aktivitas awal diterapkan pada pertemuan yang dibuat dan dapat dilengkapi per pertemuan.</p>
+            <p class="dpe-dashboard-field__hint">Peserta aktif otomatis mengikuti jadwal baru jika kelompok kelas, sesi, hari pilihan peserta, dan masa keanggotaannya masih sesuai. Untuk periode berikutnya, gunakan kelompok dan sesi yang sudah ada tanpa memasukkan ulang siswa.</p>
+            <p class="dpe-dashboard-field__hint">Semua pertemuan baru berstatus Terjadwal. Topik, materi dan aktivitas awal diterapkan pada pertemuan yang dibuat.</p>
             <div class="dpe-dashboard-form-actions"><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-sessions.index', $lessonList->backParameters(request())) }}">Batal</a><button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit">Pratinjau jadwal</button></div>
         </form>
     </x-dashboard.form-panel>

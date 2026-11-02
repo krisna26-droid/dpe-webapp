@@ -68,6 +68,24 @@ class GuardianService
         });
     }
 
+    /**
+     * Update only the contact number when an Admin Cabang maintains a
+     * guardian record for a student in their branch.
+     */
+    public function updatePhone(Guardian $guardian, string $phone): Guardian
+    {
+        return DB::transaction(function () use ($guardian, $phone) {
+            $guardian = Guardian::query()
+                ->whereKey($guardian->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $guardian->update(['whatsapp_number' => trim($phone)]);
+
+            return $guardian->refresh();
+        });
+    }
+
     public function delete(Guardian $guardian): void
     {
         DB::transaction(function () use ($guardian) {

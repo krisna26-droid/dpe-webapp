@@ -25,6 +25,11 @@ class StudentPolicy
         return $this->canAccessStudent($user, $student);
     }
 
+    public function delete(User $user, Student $student): bool
+    {
+        return $user->is_active && $this->canAccessStudent($user, $student);
+    }
+
     /**
      * Mengecek akses admin terhadap student
      * berdasarkan branch assignment yang aktif hari ini.

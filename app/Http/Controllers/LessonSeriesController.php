@@ -83,8 +83,28 @@ class LessonSeriesController extends Controller
     {
         $options = $this->operations->options($request->user());
         abort_if($options['branches']->isEmpty(), 403, 'Belum ada cabang aktif yang dapat Anda kelola.');
+        $form = $this->formValues($request, 'create');
+        if ($request->filled('continue_series')) {
+            $input = $request->validate(['continue_series' => ['required', 'uuid']]);
+            $source = LessonScheduleSeries::findOrFail($input['continue_series']);
+            $this->seriesService->authorize($request->user(), $source);
+            $source->load('branch');
+            $definition = $source->definition;
+            $last = $source->sessions()->whereNotIn('status', ['cancelled', 'canceled', 'dibatalkan'])->orderByDesc('planned_start_at')->first();
+            $zone = $source->branch->timezone_name;
+            $zone = in_array($zone, timezone_identifiers_list(), true) ? $zone : config('app.timezone');
+            $from = \Carbon\CarbonImmutable::parse($definition['ends_on'])->addDay()->max(\Carbon\CarbonImmutable::today($zone));
+            $defaults = array_replace($definition, [
+                'teacher_id' => $last?->teacher_id ?? $definition['teacher_id'],
+                'class_learning_session_id' => $source->class_learning_session_id ?? $last?->class_learning_session_id,
+                'learning_session_name' => null,
+                'starts_on' => $from->toDateString(),
+                'ends_on' => $from->addMonthsNoOverflow(3)->subDay()->toDateString(),
+            ]);
+            $form['formValues'] = array_replace($defaults, $form['formValues']);
+        }
 
-        return view('lesson-series.create', array_replace($options, $this->formValues($request, 'create'),
+        return view('lesson-series.create', array_replace($options, $form,
             ['operationRoutePrefix' => $this->prefix($request), 'dayLabels' => LessonSeriesService::DAYS]));
     }
 

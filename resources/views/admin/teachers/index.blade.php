@@ -105,6 +105,9 @@
                                         @if ($editableTeacherIds->contains($teacher->id))
                                             <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route('admin.teachers.edit', $teacher) }}">Edit</a>
                                         @endif
+                                        @can('delete', $teacher)
+                                            <x-dashboard.delete-record :action="route('admin.teachers.destroy', $teacher)" title="Hapus data guru ini?" />
+                                        @endcan
                                     </div>
                                 </td>
                             </tr>

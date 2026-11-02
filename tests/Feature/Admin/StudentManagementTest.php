@@ -104,6 +104,16 @@ class StudentManagementTest extends TestCase
             $table->dateTime('created_at')->nullable();
         });
 
+        Schema::connection('sqlite')->create('guardians', function (Blueprint $table) {
+            $table->char('id', 36)->primary();
+            $table->char('student_id', 36);
+            $table->string('full_name');
+            $table->string('relationship_name')->nullable();
+            $table->string('whatsapp_number')->nullable();
+            $table->boolean('is_primary')->default(false);
+            $table->dateTime('created_at')->nullable();
+        });
+
         Schema::connection('sqlite')->create('file_assets', function (Blueprint $table) {
             $table->char('id', 36)->primary();
             $table->string('storage_key', 500)->unique();
@@ -124,6 +134,7 @@ class StudentManagementTest extends TestCase
                 && config('database.connections.sqlite.database') === ':memory:'
             ) {
                 Schema::connection('sqlite')->dropIfExists('file_assets');
+                Schema::connection('sqlite')->dropIfExists('guardians');
                 Schema::connection('sqlite')->dropIfExists('student_enrollments');
                 Schema::connection('sqlite')->dropIfExists('programs');
                 Schema::connection('sqlite')->dropIfExists('branch_admin_assignments');

@@ -534,12 +534,13 @@ class MonthlyReportLifecycleTest extends TestCase
         $this->get(route('admin.monthly-reports.index', ['month' => '2026-13']))->assertSessionHasErrors('month');
     }
 
-    public function test_assigned_student_without_period_gets_preparation_guidance_and_no_automatic_report(): void
+    public function test_assigned_student_without_period_gets_an_automatic_current_month_draft(): void
     {
         StudentTeacherAssignment::create(['id' => (string) Str::uuid(), 'student_id' => $this->student->id, 'teacher_id' => $this->teacher->id, 'starts_on' => '2026-10-09', 'is_report_owner' => true]);
-        $this->actingAs($this->teacher->user)->get(route('teacher.monthly-reports.index'))->assertOk()->assertSee('Admin')->assertSee('periode')->assertSee('Buka Perkembangan &amp; Pesan', false);
-        $this->get(route('teacher.student-progress.index'))->assertOk()->assertSee($this->student->full_name)->assertSee('Menunggu Admin menyiapkan periode');
-        $this->assertDatabaseCount('monthly_reports', 0);
+        $this->actingAs($this->teacher->user)->get(route('teacher.monthly-reports.index'))->assertOk()->assertSee($this->student->full_name);
+        $this->get(route('teacher.student-progress.index'))->assertOk()->assertSee($this->student->full_name)->assertSee('Buka perkembangan');
+        $this->assertDatabaseHas('monthly_reports', ['student_id' => $this->student->id, 'teacher_id' => $this->teacher->id, 'status' => 'draft']);
+        $this->assertDatabaseCount('monthly_reports', 1);
     }
 
     public function test_due_date_is_inclusive_in_branch_timezone(): void

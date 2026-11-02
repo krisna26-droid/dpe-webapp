@@ -22,7 +22,7 @@
                     <div class="dpe-dashboard-detail"><p class="dpe-dashboard-detail__label">Pelaksanaan</p><p class="dpe-dashboard-detail__value">{{ $session->actual_start_at ? $row['meetingAt']->format('d M Y H:i').' · '.$row['meetingAt']->timezoneName : 'Belum dicatat' }}</p></div>
                     <div class="dpe-dashboard-detail dpe-dashboard-detail--full"><p class="dpe-dashboard-detail__label">Topik</p><p class="dpe-dashboard-detail__value dpe-dashboard-detail__value--normal">{{ $session->topic ?: 'Belum diisi' }}</p></div>
                 </div>
-                <div class="dpe-teacher-form-actions"><a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route('teacher.learning-notes.edit', $session) }}"><x-dashboard.icon name="book" />Catatan Belajar</a>@if($row['meetingAt']->isToday() && ! $session->isCancelled() && ! $row['superseded'])<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route('teacher.attendance.index') }}"><x-dashboard.icon name="clock" />Kehadiran saya hari ini</a>@endif</div>
+                <div class="dpe-teacher-form-actions">@if($row['meetingAt']->isToday() && ! $session->isCancelled() && ! $row['superseded'])<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route('teacher.attendance.index') }}"><x-dashboard.icon name="clock" />Kehadiran saya hari ini</a>@endif</div>
             </div>
         </article>
         @if($session->rescheduled_from_session_id || $row['superseded'])

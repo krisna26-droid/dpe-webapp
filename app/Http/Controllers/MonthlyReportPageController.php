@@ -23,6 +23,7 @@ class MonthlyReportPageController extends Controller
         $filters = $request->validate(['month' => ['nullable', 'date_format:Y-m'], 'status' => ['nullable', Rule::in(['all', ...array_keys(MonthlyReportContentService::STATUSES)])],
             'branch_id' => ['nullable', 'uuid'], 'q' => ['nullable', 'string', 'max:100']]);
         $teacher = $request->user()->role_code === 'teacher';
+        app(\App\Services\AutomaticMonthlyReportService::class)->ensureFor($request->user());
         $filters += ['month' => $teacher ? now()->format('Y-m') : null, 'status' => $teacher ? 'all' : 'submitted', 'branch_id' => null, 'q' => null];
         $query = $this->access->reports($request->user());
         if (filled($filters['month'])) {

@@ -137,6 +137,14 @@ class TeacherController extends Controller
     }
 
 
+    public function destroy(Request $request, Teacher $teacher): RedirectResponse
+    {
+        Gate::authorize('delete', $teacher);
+        app(\App\Services\OperationalDeletionService::class)->delete($request->user(), $teacher);
+
+        return redirect()->route('admin.teachers.index')->with('success', 'Data guru berhasil dihapus.');
+    }
+
     private function availableTeacherUsers(
         ?Teacher $teacher = null
     ) {

@@ -13,6 +13,7 @@ use App\Models\StudentEnrollment;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -54,6 +55,14 @@ class StudentProgressService
     {
         abort_unless($this->access->canManage($actor), 403);
         abort_unless($this->access->students($actor, $month)->whereKey($student->id)->exists(), 403);
+        $context = $this->contextForMonth($student, $month);
+        abort_unless($actor->role_code === 'superadmin' || $this->access->branchIds($actor)->where('branch_id', $context['enrollment']->branch_id)->exists(), 403);
+
+        return $context;
+    }
+
+    private function contextForMonth(Student $student, CarbonImmutable $month): array
+    {
         $start = max($month->toDateString(), $student->began_on->toDateString());
         $enrollments = StudentEnrollment::where('student_id', $student->id)->whereDate('starts_on', '<=', $start)
             ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', $start))->get();
@@ -69,7 +78,6 @@ class StudentProgressService
             throw ValidationException::withMessages(['month' => 'Periksa pendaftaran siswa: diperlukan satu cabang yang jelas pada awal periode belajarnya.']);
         }
         $enrollment = $enrollments->first();
-        abort_unless($actor->role_code === 'superadmin' || $this->access->branchIds($actor)->where('branch_id', $enrollment->branch_id)->exists(), 403);
         $teacherContext = app(StudentProgressTeacherService::class)->context($student, $month, $enrollment->branch_id);
 
         return $teacherContext + ['enrollment' => $enrollment->load('branch'), 'startsOn' => $start,
@@ -79,21 +87,60 @@ class StudentProgressService
 
     public function prepare(User $actor, Student $student, CarbonImmutable $month, array $data): MonthlyReport
     {
-        return DB::transaction(function () use ($actor, $student, $month, $data) {
+        return $this->prepareReport($actor, $student, $month, $data, false);
+    }
+
+    public function prepareAutomatically(User $actor, Student $student, CarbonImmutable $month): MonthlyReport
+    {
+        $this->access->staff($actor);
+        if (! $this->access->students($actor, $month)->whereKey($student->id)->exists()) {
+            throw new AuthorizationException('Siswa berada di luar penugasan akun ini.');
+        }
+
+        return $this->prepareReport($actor, $student, $month, [], true);
+    }
+
+    private function prepareReport(User $actor, Student $student, CarbonImmutable $month, array $data, bool $automatic): MonthlyReport
+    {
+        return DB::transaction(function () use ($actor, $student, $month, $data, $automatic) {
             $student = Student::whereKey($student->id)->lockForUpdate()->firstOrFail();
-            abort_unless($this->access->canManage($actor), 403);
+            $actor = User::whereKey($actor->id)->firstOrFail();
+            $this->access->staff($actor);
+            abort_unless($automatic || $this->access->canManage($actor), 403);
             $existing = MonthlyReport::where('student_id', $student->id)->whereDate('report_month', $month->toDateString())->lockForUpdate()->first();
             if ($existing) {
                 $this->access->authorize($actor, $existing);
 
                 return $existing;
             }
-            $context = $this->preparationContext($actor, $student, $month);
-            $validated = Validator::make($data, [
-                'teacher_id' => ['required', 'string', Rule::in($context['teachers']->pluck('id')->all())],
-                'video_target' => [$context['firstPartialMonth'] ? 'required' : 'nullable', 'integer', 'min:0', 'max:32767'],
-            ], ['teacher_id.in' => 'Pilih Teacher aktif yang mengajar siswa ini atau ditugaskan di cabang selama periode belajarnya pada bulan ini.',
-                'video_target.required' => 'Admin perlu menetapkan target bulan pertama sesuai pertemuan yang dijadwalkan.'])->validate();
+            if ($automatic) {
+                $context = $this->contextForMonth($student, $month);
+                $enrollment = $context['enrollment'];
+                $zone = $enrollment->branch?->timezone_name;
+                $today = CarbonImmutable::now(in_array($zone, timezone_identifiers_list(), true) ? $zone : config('app.timezone'));
+                if ($student->status !== 'active' || $student->began_on->toDateString() > $today->toDateString()
+                    || $month->format('Y-m') !== $today->format('Y-m') || ! $enrollment->branch?->is_active
+                    || ! $context['suggestedTeacher']) {
+                    throw ValidationException::withMessages(['month' => 'Periode otomatis memerlukan siswa aktif, bulan berjalan, cabang aktif, dan satu Teacher penanggung jawab yang jelas.']);
+                }
+                if ($actor->role_code === 'admin') {
+                    if (! $this->access->branchIds($actor)->where('branch_id', $enrollment->branch_id)->exists()) {
+                        throw new AuthorizationException('Cabang berada di luar penugasan Admin.');
+                    }
+                } elseif ($actor->role_code === 'teacher') {
+                    if ($this->access->teacherId($actor) !== $context['suggestedTeacher']) {
+                        throw new AuthorizationException('Teacher lain menjadi penanggung jawab laporan ini.');
+                    }
+                }
+                $validated = ['teacher_id' => $context['suggestedTeacher']];
+            } else {
+                $context = $this->preparationContext($actor, $student, $month);
+                $validated = Validator::make($data, [
+                    'teacher_id' => ['required', 'string', Rule::in($context['teachers']->pluck('id')->all())],
+                    'video_target' => [$context['firstPartialMonth'] ? 'required' : 'nullable', 'integer', 'min:0', 'max:32767'],
+                ], ['teacher_id.in' => 'Pilih Teacher aktif yang mengajar siswa ini atau ditugaskan di cabang selama periode belajarnya pada bulan ini.',
+                    'video_target.required' => 'Admin perlu menetapkan target bulan pertama sesuai pertemuan yang dijadwalkan.'])->validate();
+            }
             $cycle = ReportCycle::where('student_id', $student->id)->whereDate('start_month', '<=', $month->toDateString())
                 ->whereDate('end_month', '>=', $month->toDateString())->lockForUpdate()->get();
             if ($cycle->count() > 1) {
@@ -123,10 +170,10 @@ class StudentProgressService
                 'report_month' => $month->toDateString(), 'due_on' => $month->setDay(min(max($settings?->default_report_due_day ?? 31, 1), $month->daysInMonth))->toDateString(),
                 'video_target' => $target, 'video_target_confirmed_at' => isset($validated['video_target']) ? now() : null,
                 'video_target_confirmed_by_user_id' => isset($validated['video_target']) ? $actor->id : null, 'status' => 'draft']);
-            $this->audit($actor, $report, 'prepared', null);
+            $this->audit($actor, $report, $automatic ? 'prepared_automatically' : 'prepared', null);
 
             return $report;
-        });
+        }, 3);
     }
 
     public function videoRows(MonthlyReport $report): Collection

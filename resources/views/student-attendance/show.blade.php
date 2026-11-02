@@ -14,7 +14,6 @@
     <section class="dpe-dashboard-page-header">
         <div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">Pembelajaran / Pertemuan</p><h2>{{ $lessonSession->classGroup?->name ?: 'Private / tanpa kelompok' }}</h2><p>{{ $lessonSession->program?->name }} · {{ $lessonSession->branch?->name }} · {{ $meetingAt->locale('id')->translatedFormat('d F Y, H:i') }}</p></div>
         <div class="dpe-dashboard-page-header__actions">
-            <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route(str_replace('student-attendance', 'learning-notes', $routeBase).'.edit', $lessonSession) }}"><x-dashboard.icon name="book" />Catatan belajar</a>
             @if ($routeBase === 'superadmin.student-attendance' && $lessonSession->class_group_id)
                 <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route('superadmin.class-group-memberships.create', ['class_group_id' => $lessonSession->class_group_id]) }}"><x-dashboard.icon name="plus" />Tambah anggota kelas</a>
             @elseif ($canManageRoster)

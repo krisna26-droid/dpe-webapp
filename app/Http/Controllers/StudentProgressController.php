@@ -24,6 +24,7 @@ class StudentProgressController extends Controller
     public function index(Request $request): View
     {
         $filters = $request->validate(['month' => ['nullable', 'date_format:Y-m'], 'q' => ['nullable', 'string', 'max:100'], 'branch_id' => ['nullable', 'uuid']]);
+        app(\App\Services\AutomaticMonthlyReportService::class)->ensureFor($request->user());
         $filters['month'] = $filters['month'] ?? now()->format('Y-m');
         $month = CarbonImmutable::createFromFormat('!Y-m', $filters['month']);
         $query = $this->access->students($request->user(), $month);

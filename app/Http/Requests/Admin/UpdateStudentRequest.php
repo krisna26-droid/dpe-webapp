@@ -32,13 +32,14 @@ class UpdateStudentRequest extends FormRequest
             'grade_name' => ['nullable', 'string', 'max:255'],
             'began_on' => ['required', 'date'],
             'special_notes_internal' => ['nullable', 'string', 'max:10000'],
+            'guardian_phone' => ['sometimes', 'required', 'string', 'max:30', 'regex:/^\+?[0-9][0-9\s().-]{6,28}[0-9}$/'],
             'photo' => ['nullable', 'image', 'max:2048'],
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
+        $values = [
             'full_name' => $this->full_name !== null
                 ? trim($this->full_name)
                 : null,
@@ -48,6 +49,20 @@ class UpdateStudentRequest extends FormRequest
             'grade_name' => $this->grade_name !== null
                 ? trim($this->grade_name)
                 : null,
-        ]);
+        ];
+        if ($this->has('guardian_phone')) {
+            $values['guardian_phone'] = $this->guardian_phone !== null
+                ? trim((string) $this->guardian_phone)
+                : null;
+        }
+        $this->merge($values);
+    }
+
+    public function messages(): array
+    {
+        return [
+            'guardian_phone.required' => 'Isi nomor telepon atau WhatsApp wali.',
+            'guardian_phone.regex' => 'Masukkan nomor telepon wali yang valid.',
+        ];
     }
 }

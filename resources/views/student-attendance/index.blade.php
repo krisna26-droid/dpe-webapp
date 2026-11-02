@@ -109,7 +109,7 @@
                         <tr>
                             <th class="dpe-student-attendance-student">Siswa / mulai les</th>
                             @for ($i = 0; $i < max(8, $sessions->count()); $i++)
-                                <th>P{{ $i + 1 }}@if ($sessions->has($i))<small>{{ $sessions[$i]->actual_start_at?->format('d M') ?: $sessions[$i]->planned_start_at->format('d M') }}</small>@else<small>Belum ada jadwal</small>@endif</th>
+                                <th>Sesi {{ $i + 1 }}@if ($sessions->has($i))<small>{{ $sessions[$i]->actual_start_at?->format('d M') ?: $sessions[$i]->planned_start_at->format('d M') }}</small>@else<small>Belum ada jadwal</small>@endif</th>
                             @endfor
                             <th>Rekap siswa</th>
                         </tr>

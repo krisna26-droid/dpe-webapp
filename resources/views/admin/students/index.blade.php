@@ -105,6 +105,9 @@
                                     <div class="dpe-dashboard-table-actions">
                                         <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route('admin.students.show', $student) }}">Detail</a>
                                         <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route('admin.students.edit', $student) }}">Edit</a>
+                                        @can('delete', $student)
+                                            <x-dashboard.delete-record :action="route('admin.students.destroy', $student)" title="Hapus data siswa ini?" />
+                                        @endcan
                                     </div>
                                 </td>
                             </tr>

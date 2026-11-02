@@ -7,9 +7,8 @@
 @endpush
 @section('content')
     <section class="dpe-dashboard-page-header">
-        <div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">Pembelajaran / Progres bulanan</p><h2>Ikuti perkembangan setiap siswa.</h2><p>{{ $canManage ? 'Siapkan periode, tetapkan Teacher pemilik laporan, lalu pantau isian pembelajaran.' : 'Daftar mengikuti penugasan mengajar Anda. Admin menyiapkan periode dan menetapkan Teacher pemilik laporan.' }}</p></div>
+        <div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">Pembelajaran / Progres bulanan</p><h2>Ikuti perkembangan setiap siswa.</h2><p>{{ $canManage ? 'Periode bulan berjalan disiapkan otomatis. Pantau isian dan lengkapi penugasan Teacher yang belum jelas.' : 'Periode bulan berjalan disiapkan otomatis sesuai penugasan mengajar Anda. Buka draf untuk mengisi perkembangan siswa.' }}</p></div>
         <div class="dpe-dashboard-page-header__actions"><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($monthlyReportBase.'.index', ['month' => $filters['month'], 'status' => 'all']) }}"><x-dashboard.icon name="report" />Laporan Bulanan</a>
-        <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route(str_replace('student-progress', 'learning-notes', $routeBase).'.index') }}"><x-dashboard.icon name="book" />Catatan Belajar</a>
         </div>
     </section>
     <article class="dpe-dashboard-card dpe-progress-spaced">
@@ -39,7 +38,7 @@
                         <td>@if ($row['otherReportOwner'])<span>—</span>@else<span class="dpe-dashboard-badge {{ $row['completed'] === 8 ? 'dpe-dashboard-badge--success' : 'dpe-dashboard-badge--warning' }}">{{ $row['completed'] }} / 8 kategori</span>@endif</td>
                         <td>@if ($row['report'])<strong>{{ $row['videoCount'] }}{{ $row['targetReady'] ? ' / '.$row['report']->video_target : ' video' }}</strong><small>{{ $row['targetReady'] ? 'Target tersimpan untuk periode ini' : 'Menunggu target bulan pertama dari Admin' }}</small>@elseif ($row['otherReportOwner'])<span>—</span>@else<span>Belum disiapkan</span>@endif</td>
                         <td><x-dashboard.status :status="$row['otherReportOwner'] ? 'other_owner' : ($row['report']?->status ?? 'unprepared')" :label="$row['otherReportOwner'] ? 'Dikelola Teacher lain' : (['draft' => 'Draf', 'revision' => 'Perlu revisi', 'submitted' => 'Diajukan', 'approved' => 'Disetujui'][$row['report']?->status] ?? ($row['report']?->status ?: 'Belum ada periode'))" /></td>
-                        <td>@if ($row['report'])<a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route($routeBase.'.edit', $row['report']) }}"><x-dashboard.icon name="report" />Buka perkembangan</a>@elseif ($canManage)<a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($routeBase.'.preparation', ['student' => $row['student'], 'month' => $filters['month']]) }}">Siapkan periode</a>@elseif ($row['otherReportOwner'])<small>Hubungi Admin untuk penetapan pemilik laporan</small>@else<small>Menunggu Admin menyiapkan periode</small>@endif</td>
+                        <td>@if ($row['report'])<a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route($routeBase.'.edit', $row['report']) }}"><x-dashboard.icon name="report" />Buka perkembangan</a>@elseif ($canManage)<a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($routeBase.'.preparation', ['student' => $row['student'], 'month' => $filters['month']]) }}">Siapkan periode</a>@elseif ($row['otherReportOwner'])<small>Hubungi Admin untuk penetapan pemilik laporan</small>@else<small>Hubungi Admin untuk melengkapi penugasan atau periode sebelumnya</small>@endif</td>
                     </tr>
                 @endforeach</tbody>
             </table></div><x-dashboard.pagination :paginator="$students" />

@@ -100,14 +100,15 @@ class CrossRoleAcceptanceWorkflowTest extends TestCase
     }
 
     #[DataProvider('searchRoles')]
-    public function test_zero_search_filters_assigned_pupils_before_report_is_prepared(string $role): void
+    public function test_zero_search_filters_assigned_pupils_with_automatic_current_month_drafts(string $role): void
     {
         $other = $this->pupil('Peserta 1 Alur Uji');
         $actor = ['superadmin' => $this->sa, 'admin' => $this->admin, 'teacher' => $this->teacherUser][$role];
         $this->actingAs($actor)->get(route($role.'.student-progress.index', ['month' => '2026-10', 'q' => '0']))->assertOk()
-            ->assertViewHas('students', fn ($rows) => $rows->modelKeys() === [$this->student->id])
-            ->assertDontSee($other->full_name);
-        $this->assertDatabaseCount('monthly_reports', 0);
+            ->assertViewHas('students', fn ($rows) => $rows->modelKeys() === [$this->student->id]);
+        $this->assertDatabaseHas('monthly_reports', ['student_id' => $this->student->id, 'status' => 'draft']);
+        $this->assertDatabaseHas('monthly_reports', ['student_id' => $other->id, 'status' => 'draft']);
+        $this->assertDatabaseCount('monthly_reports', 2);
     }
 
     #[DataProvider('searchRoles')]
@@ -189,7 +190,7 @@ class CrossRoleAcceptanceWorkflowTest extends TestCase
 
     public function test_four_role_journey_from_assigned_pupil_to_three_month_pdf_and_revocation(): void
     {
-        $this->actingAs($this->teacherUser)->get(route('teacher.student-progress.index', ['month' => '2026-10']))->assertOk()->assertSee($this->student->full_name)->assertSee('Menunggu Admin menyiapkan periode');
+        $this->actingAs($this->teacherUser)->get(route('teacher.student-progress.index', ['month' => '2026-10']))->assertOk()->assertSee($this->student->full_name)->assertSee('Buka perkembangan');
         $lesson = $this->lesson();
         $lesson->update(['planned_start_at' => '2026-10-15 09:00:00', 'planned_end_at' => '2026-10-15 10:00:00', 'status' => 'ongoing']);
         foreach (['teacher' => $this->teacherUser, 'admin' => $this->admin] as $role => $actor) {
@@ -212,6 +213,11 @@ class CrossRoleAcceptanceWorkflowTest extends TestCase
             }
             $this->actingAs($this->admin)->post(route('admin.student-progress.prepare', $this->student), $prepare)->assertRedirect()->assertSessionHasNoErrors();
             $report = $this->student->monthlyReports()->whereDate('report_month', $month.'-01')->firstOrFail();
+            if ($index === 0) {
+                $progress = app(StudentProgressService::class);
+                $this->put(route('admin.student-progress.target', $report), ['video_target' => 1, 'expected_snapshot' => $progress->signature($report)])->assertRedirect()->assertSessionHasNoErrors();
+                $report->refresh();
+            }
             $this->assertSame($index === 0 ? 1 : 3, $report->video_target);
             $this->assertSame($index === 0 ? $month.'-31' : $month.'-20', $report->due_on->toDateString());
             if ($reports !== []) {

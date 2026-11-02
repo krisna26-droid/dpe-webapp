@@ -83,6 +83,9 @@ class ClassLearningSessionService
                         .$lesson->planned_start_at->format('H:i').'–'.$lesson->planned_end_at->format('H:i').' · '
                         .($lesson->teacher?->user?->full_name ?: 'Guru').($moved ? ' (pengganti jadwal '.LessonSeriesService::DAYS[$weekday].')' : '');
                 })->unique()->implode('; ');
+                if ($session->slot_capacity !== null) {
+                    $details .= ($details ? ' · ' : '').'Kapasitas '.$session->slot_capacity.' siswa';
+                }
                 $choices->push(['key' => $this->selectionKey($session->id, $weekday), 'id' => $session->id,
                     'weekday' => $weekday, 'day_name' => $weekday ? LessonSeriesService::DAYS[$weekday] : 'Belum ada jadwal',
                     'session' => $session, 'meetings' => $meetings, 'details' => $details ?: 'Belum ada jadwal aktif']);
@@ -166,6 +169,10 @@ class ClassLearningSessionService
         if ($from < $m->starts_on->toDateString() || ($m->ends_on && $from > $m->ends_on->toDateString()) || (! $creating && $from < CarbonImmutable::now($zone)->toDateString())) {
             throw ValidationException::withMessages(['session_effective_on' => 'Perubahan sesi berlaku mulai hari ini atau setelahnya, dalam periode keanggotaan.']);
         }
+        foreach ($choices as $choice) {
+            $session = $sessions->firstWhere('id', $choice['id']);
+            $this->assertCapacity($m, $session, $choice['weekday'], $from);
+        }
         $links = $m->learningSessionEnrollments()->lockForUpdate()->get();
         foreach ($links as $e) {
             if ($e->starts_on->toDateString() >= $from) {
@@ -180,6 +187,52 @@ class ClassLearningSessionService
         }
         $m->update(['session_selection_from' => min($from, $m->session_selection_from?->toDateString() ?? $from), 'session_selection_revision' => $m->session_selection_revision + 1]);
         $m->unsetRelation('learningSessionEnrollments');
+    }
+
+    /**
+     * A configured capacity is enforced when a student is assigned to a
+     * learning session. Existing sessions with a null capacity remain
+     * unlimited until an Admin or Super Admin configures them.
+     */
+    private function assertCapacity(
+        ClassGroupMembership $membership,
+        ClassLearningSession $session,
+        ?int $weekday,
+        string $from
+    ): void {
+        if ($session->slot_capacity === null) {
+            return;
+        }
+
+        $meetings = $session->lessonSessions
+            ->filter(fn ($lesson) => ! $lesson->isCancelled()
+                && ($weekday === null || $this->weekday($lesson) === $weekday));
+        if ($meetings->isEmpty()) {
+            return;
+        }
+
+        $others = ClassGroupMembership::query()
+            ->where('class_group_id', $membership->class_group_id)
+            ->where('id', '!=', $membership->id)
+            ->whereDate('starts_on', '<=', $from)
+            ->where(fn ($query) => $query->whereNull('ends_on')->orWhereDate('ends_on', '>=', $from))
+            ->with('learningSessionEnrollments')
+            ->get();
+        $filled = [];
+        foreach ($others as $other) {
+            foreach ($meetings as $meeting) {
+                if ($this->includes($other, $meeting, $from)) {
+                    $filled[$other->student_id] = true;
+                    break;
+                }
+            }
+        }
+
+        if (count($filled) >= $session->slot_capacity) {
+            throw ValidationException::withMessages([
+                'learning_session_ids' => "Sesi {$session->name} sudah penuh ({$session->slot_capacity} slot). Pilih sesi lain atau tambah kapasitasnya terlebih dahulu.",
+            ]);
+        }
     }
 
     public function label(ClassLearningSession $s): string
