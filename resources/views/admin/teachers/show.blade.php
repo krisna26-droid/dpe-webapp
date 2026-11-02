@@ -20,6 +20,9 @@
             <p>{{ $teacher->user?->email ?: 'Email belum diisi' }} · {{ $teacher->whatsapp_number ?: 'WhatsApp belum diisi' }}</p>
         </div>
         <div class="dpe-dashboard-page-header__actions">
+            @can('delete', $teacher)
+                <x-dashboard.delete-record :action="route('admin.teachers.destroy', $teacher)" title="Hapus data guru ini?" />
+            @endcan
             @if ($canEditTeacher)<a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route('admin.teachers.edit', $teacher) }}">
                 <x-dashboard.icon name="settings" />
                 <span>Edit profil</span>

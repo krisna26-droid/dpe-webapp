@@ -12,6 +12,9 @@
             <p>{{ $student->school_name ?: 'Sekolah belum diisi' }} · {{ $student->grade_name ?: 'Kelas belum diisi' }}</p>
         </div>
         <div class="dpe-dashboard-page-header__actions">
+            @can('delete', $student)
+                <x-dashboard.delete-record :action="route('admin.students.destroy', $student)" title="Hapus data siswa ini?" />
+            @endcan
             <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route('admin.students.edit', $student) }}">
                 <x-dashboard.icon name="settings" />
                 <span>Edit profil</span>

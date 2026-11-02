@@ -11,6 +11,7 @@ use App\Services\StudentService;
 use App\Services\TeachingDirectoryService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 
@@ -121,6 +122,14 @@ class StudentController extends Controller
         return redirect()
             ->route('admin.students.show', $student)
             ->with('success', 'Profil siswa berhasil diperbarui.');
+    }
+
+    public function destroy(Request $request, Student $student): RedirectResponse
+    {
+        Gate::authorize('delete', $student);
+        app(\App\Services\OperationalDeletionService::class)->delete($request->user(), $student);
+
+        return redirect()->route('admin.students.index')->with('success', 'Data siswa berhasil dihapus.');
     }
 
     private function availableStudentUsers(?Student $currentStudent = null)

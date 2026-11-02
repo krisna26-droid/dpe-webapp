@@ -62,7 +62,6 @@
             [
                 'label' => 'Pembelajaran',
                 'items' => [
-                    ['label' => 'Catatan Belajar', 'icon' => 'book', 'route' => 'superadmin.learning-notes.index', 'active' => ['superadmin.learning-notes.*']],
                     ['label' => 'Perkembangan & Pesan', 'icon' => 'report', 'route' => 'superadmin.student-progress.index', 'active' => ['superadmin.student-progress.*']],
                     ['label' => 'Program Belajar', 'icon' => 'book', 'route' => 'superadmin.programs.index', 'active' => ['superadmin.programs.*']],
                     ['label' => 'Video Belajar', 'icon' => 'video', 'route' => 'superadmin.learning-videos.index', 'active' => ['superadmin.learning-videos.*']],
@@ -110,7 +109,6 @@
                     ['label' => 'Kehadiran Guru', 'icon' => 'clock', 'route' => 'admin.teacher-attendance.index', 'active' => ['admin.teacher-attendance.*']],
                     ['label' => 'Kehadiran Siswa', 'icon' => 'student', 'route' => 'admin.student-attendance.index', 'active' => ['admin.student-attendance.*']],
                     ['label' => 'Pengaturan Slot Guru', 'icon' => 'users', 'route' => 'admin.teacher-slots.index', 'active' => ['admin.teacher-slots.*']],
-                    ['label' => 'Catatan Belajar', 'icon' => 'book', 'route' => 'admin.learning-notes.index', 'active' => ['admin.learning-notes.*']],
                     ['label' => 'Perkembangan & Pesan', 'icon' => 'report', 'route' => 'admin.student-progress.index', 'active' => ['admin.student-progress.*']],
                 ],
             ],
@@ -145,7 +143,6 @@
                     ['label' => 'Siswa Binaan', 'icon' => 'student', 'route' => 'teacher.students.index', 'active' => ['teacher.students.*']],
                     ['label' => 'Absensi Siswa', 'icon' => 'student', 'route' => 'teacher.student-attendance.index', 'active' => ['teacher.student-attendance.*']],
                     ['label' => 'Kehadiran', 'icon' => 'clock', 'route' => 'teacher.attendance.index', 'active' => ['teacher.attendance.*']],
-                    ['label' => 'Catatan Belajar', 'icon' => 'book', 'route' => 'teacher.learning-notes.index', 'active' => ['teacher.learning-notes.*']],
                 ],
             ],
             [

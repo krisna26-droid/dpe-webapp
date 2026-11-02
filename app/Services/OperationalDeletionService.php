@@ -12,6 +12,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -23,8 +24,17 @@ class OperationalDeletionService
             $actor = User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
             abort_unless($actor->is_active && in_array($actor->role_code, ['admin', 'superadmin'], true), 403);
             $record = $record->newQuery()->whereKey($record->getKey())->lockForUpdate()->firstOrFail();
-            $student = null;
-            $teacher = null;
+            if ($record instanceof Student || $record instanceof Teacher) {
+                Gate::forUser($actor)->authorize('delete', $record);
+                $accountId = $record instanceof Student ? $record->portal_user_id : $record->user_id;
+                $account = $accountId ? User::whereKey($accountId)->lockForUpdate()->first() : null;
+                // Use the same account/profile deletion as the Super Admin action.
+                if ($account) {
+                    $record = $account;
+                }
+            }
+            $student = $record instanceof Student ? $record : null;
+            $teacher = $record instanceof Teacher ? $record : null;
             if ($record instanceof User) {
                 $student = Student::where('portal_user_id', $record->id)->lockForUpdate()->first();
                 $teacher = Teacher::where('user_id', $record->id)->lockForUpdate()->first();
@@ -38,7 +48,24 @@ class OperationalDeletionService
                     }
                 }
                 if ($actor->role_code === 'admin') {
-                    abort_unless($record->role_code === 'student' && $student && app(StudentAccountProvisioningService::class)->users($actor)->whereKey($record->id)->exists(), 403);
+                    if ($record->role_code === 'student' && $student) {
+                        Gate::forUser($actor)->authorize('delete', $student);
+                    } elseif ($record->role_code === 'teacher' && $teacher) {
+                        Gate::forUser($actor)->authorize('delete', $teacher);
+                    } else {
+                        abort(403);
+                    }
+                    $ids = app(StudentAccountProvisioningService::class)->branches($actor)->pluck('id');
+                    if ($student) {
+                        abort_if($student->enrollments()->whereNotIn('branch_id', $ids)->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', today()))->exists(), 403);
+                    }
+                    if ($teacher) {
+                        abort_if($teacher->branchAssignments()->whereNotIn('branch_id', $ids)->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', today()))->exists(), 403);
+                    }
+                }
+            } elseif ($record instanceof Student || $record instanceof Teacher) {
+                Gate::forUser($actor)->authorize('delete', $record);
+                if ($actor->role_code === 'admin' && $student) {
                     $ids = app(StudentAccountProvisioningService::class)->branches($actor)->pluck('id');
                     abort_if($student->enrollments()->whereNotIn('branch_id', $ids)->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', today()))->exists(), 403);
                 }
@@ -83,7 +110,9 @@ class OperationalDeletionService
                 $closeMembers(DB::table('class_group_memberships')->where('student_id', $student->id));
                 $close('student_enrollments', DB::table('student_enrollments')->where('student_id', $student->id));
                 $close('student_teacher_assignments', DB::table('student_teacher_assignments')->where('student_id', $student->id));
-                $student->delete();
+                if (! $record->is($student)) {
+                    $student->delete();
+                }
             }
             if ($teacher) {
                 $snapshot['linked_profiles'][] = $teacher->getRawOriginal();
@@ -91,7 +120,9 @@ class OperationalDeletionService
                 $close('student_teacher_assignments', DB::table('student_teacher_assignments')->where('teacher_id', $teacher->id));
                 $close('teacher_branch_assignments', DB::table('teacher_branch_assignments')->where('teacher_id', $teacher->id));
                 ClassGroup::where('default_teacher_id', $teacher->id)->update(['default_teacher_id' => null]);
-                $teacher->delete();
+                if (! $record->is($teacher)) {
+                    $teacher->delete();
+                }
             }
             if ($record instanceof ClassGroup || $record instanceof Branch || $record instanceof Program) {
                 $groups = $record instanceof ClassGroup ? collect([$record]) : ClassGroup::where($record instanceof Branch ? 'branch_id' : 'program_id', $record->id)->orderBy('id')->lockForUpdate()->get();

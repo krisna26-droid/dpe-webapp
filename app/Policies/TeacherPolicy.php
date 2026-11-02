@@ -26,6 +26,11 @@ class TeacherPolicy
         return $this->canAccessTeacher($user, $teacher);
     }
 
+    public function delete(User $user, Teacher $teacher): bool
+    {
+        return $user->is_active && $this->canAccessTeacher($user, $teacher);
+    }
+
     /**
      * Mengecek akses berdasarkan teacher branch assignment
      * dan branch assignment admin yang masih aktif hari ini.

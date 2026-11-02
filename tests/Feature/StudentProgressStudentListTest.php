@@ -98,18 +98,19 @@ class StudentProgressStudentListTest extends TestCase
         return $this->actingAs($this->actor)->get(route('teacher.student-progress.index', $filters + ['month' => '2026-10']))->assertOk();
     }
 
-    public function test_teaching_assignment_without_report_owner_flag_lists_student_before_report_is_prepared(): void
+    public function test_single_assigned_teacher_gets_a_draft_without_changing_report_owner_assignment(): void
     {
         $student = $this->student();
         $assignment = $this->assignment($student);
         $this->student('Siswa Tidak Ditugaskan');
         $this->index()->assertSee($student->full_name)->assertDontSee('Siswa Tidak Ditugaskan')->assertDontSee('RAHASIA PROFIL')
-            ->assertSee('Anda ditugaskan mengajar')->assertSee('Menunggu Admin menyiapkan periode')
+            ->assertSee('Buka perkembangan')
             ->assertViewHas('students', fn ($students) => $students->total() === 1);
         $this->assertFalse($assignment->fresh()->is_report_owner);
-        $this->assertDatabaseCount('monthly_reports', 0);
-        $this->assertDatabaseCount('report_cycles', 0);
-        $this->assertDatabaseCount('monthly_progress_audits', 0);
+        $this->assertDatabaseHas('monthly_reports', ['student_id' => $student->id, 'teacher_id' => $this->teacher->id, 'status' => 'draft']);
+        $this->assertDatabaseCount('monthly_reports', 1);
+        $this->assertDatabaseCount('report_cycles', 1);
+        $this->assertDatabaseCount('monthly_progress_audits', 1);
         $this->assertDatabaseCount('session_students', 0);
     }
 
@@ -121,7 +122,7 @@ class StudentProgressStudentListTest extends TestCase
         $this->assertDatabaseCount('lesson_sessions', 0);
         $this->assertDatabaseCount('session_students', 0);
         $this->assertDatabaseCount('student_teacher_assignments', 0);
-        $this->assertDatabaseCount('monthly_reports', 0);
+        $this->assertDatabaseHas('monthly_reports', ['student_id' => $student->id, 'teacher_id' => $this->teacher->id]);
     }
 
     public function test_teacher_sees_explicit_private_participants_without_marking_attendance(): void
@@ -136,7 +137,7 @@ class StudentProgressStudentListTest extends TestCase
         $this->assertNull($record->recorded_at);
         $this->assertNull($record->individual_learning_note);
         $this->assertDatabaseCount('session_students', 1);
-        $this->assertDatabaseCount('monthly_reports', 0);
+        $this->assertDatabaseHas('monthly_reports', ['student_id' => $student->id, 'teacher_id' => $this->teacher->id]);
     }
 
     public function test_session_teacher_sees_class_members_even_when_default_teacher_is_someone_else(): void
@@ -156,8 +157,8 @@ class StudentProgressStudentListTest extends TestCase
         $otherBranch = Branch::create(['id' => (string) Str::uuid(), 'code' => Str::random(12), 'name' => 'Cabang Tidak Ditugaskan', 'timezone_name' => 'Asia/Makassar', 'payment_recap_day' => 25, 'is_active' => true]);
         $response = $this->index(['branch_id' => $this->branch->id, 'q' => 'Ditugaskan'])->assertSee($student->full_name);
         $response->assertViewHas('branches', fn ($branches) => $branches->pluck('id')->all() === [$this->branch->id]);
-        $this->index(['branch_id' => $otherBranch->id])->assertDontSee($student->full_name);
-        $this->index(['q' => 'Nama Tidak Ada'])->assertDontSee($student->full_name);
+        $this->index(['branch_id' => $otherBranch->id])->assertViewHas('students', fn ($students) => $students->total() === 0);
+        $this->index(['q' => 'Nama Tidak Ada'])->assertViewHas('students', fn ($students) => $students->total() === 0);
     }
 
     public static function invalidAssignments(): array

@@ -370,7 +370,7 @@ class StudentAttendanceWorkflowTest extends TestCase
         for ($i = 1; $i <= 9; $i++) {
             $ninth = $this->makeLesson(['planned_start_at' => sprintf('2026-10-%02d 09:00:00', $i), 'planned_end_at' => sprintf('2026-10-%02d 10:00:00', $i)]);
         }
-        $response = $this->actingAs($this->teacherUser)->get($this->indexUrl())->assertOk()->assertSee('P9')->assertViewHas('summary', fn ($s) => $s['unrecorded'] === 9 && $s['meeting_count'] === 9);
+        $response = $this->actingAs($this->teacherUser)->get($this->indexUrl())->assertOk()->assertSee('Sesi 9')->assertViewHas('summary', fn ($s) => $s['unrecorded'] === 9 && $s['meeting_count'] === 9);
         $dom = new \DOMDocument;
         libxml_use_internal_errors(true);
         $dom->loadHTML($response->getContent());
@@ -392,7 +392,7 @@ class StudentAttendanceWorkflowTest extends TestCase
         libxml_clear_errors();
         $headers = (new \DOMXPath($dom))->query('//table[contains(@class,"dpe-student-attendance-grid")]/thead/tr/th');
         $this->assertSame(10, $headers->length);
-        $this->assertSame('P8', trim($headers->item(8)->firstChild->textContent));
+        $this->assertSame('Sesi 8', trim($headers->item(8)->firstChild->textContent));
     }
 
     public function test_notes_and_reasons_are_escaped_on_detail_and_history_pages(): void

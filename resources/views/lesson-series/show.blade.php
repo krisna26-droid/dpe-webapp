@@ -15,6 +15,7 @@
             <p>{{ $series->branch->name }} · Dibuat oleh {{ $series->createdBy?->full_name ?: 'Petugas' }}</p>
         </div>
         <div class="dpe-dashboard-page-header__actions">
+            <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route($operationRoutePrefix.'.lesson-series.create', ['continue_series' => $series->id] + $listParameters) }}">Lanjutkan jadwal tiga bulan</a>
             <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($operationRoutePrefix.'.lesson-sessions.index', $lessonList->backParameters(request())) }}">Kembali ke Jadwal & Sesi</a>
             <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($operationRoutePrefix.'.lesson-series.create', $listParameters) }}">Buat seri lain</a>
             <form method="POST" action="{{ route($operationRoutePrefix.'.lesson-series.destroy', [$series] + $listParameters) }}"
