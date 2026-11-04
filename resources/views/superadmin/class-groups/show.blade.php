@@ -4,7 +4,9 @@
 @php
     $teacherName = $classGroup->defaultTeacher?->user?->full_name
         ?: ($classGroup->defaultTeacher?->user?->username ?: 'Belum ditentukan');
-    $activeMemberships = $classGroup->memberships->filter(fn ($membership) => $membership->isActiveOn());
+    $membershipDate = \Illuminate\Support\Carbon::today();
+    $activeMemberships = $classGroup->memberships->filter(fn ($membership) => $membership->isActiveParticipant($membershipDate));
+    $otherMemberships = $classGroup->memberships->reject(fn ($membership) => $membership->isActiveParticipant($membershipDate));
 @endphp
 
 @extends('layouts.dashboard')
@@ -83,12 +85,12 @@
             <div class="dpe-dashboard-card__body">
                 <div class="dpe-dashboard-detail-grid">
                     <div class="dpe-dashboard-detail">
-                        <p class="dpe-dashboard-detail__label">Total peserta</p>
-                        <p class="dpe-dashboard-detail__value">{{ $classGroup->memberships->count() }}</p>
-                    </div>
-                    <div class="dpe-dashboard-detail">
                         <p class="dpe-dashboard-detail__label">Peserta aktif hari ini</p>
                         <p class="dpe-dashboard-detail__value">{{ $activeMemberships->count() }}</p>
+                    </div>
+                    <div class="dpe-dashboard-detail">
+                        <p class="dpe-dashboard-detail__label">Riwayat dan keanggotaan lain</p>
+                        <p class="dpe-dashboard-detail__value">{{ $otherMemberships->count() }}</p>
                     </div>
                 </div>
 
@@ -106,63 +108,43 @@
         </article>
     </section>
 
-    <article class="dpe-dashboard-card dpe-dashboard-card--spaced">
+    <article id="class-group-active-participants" class="dpe-dashboard-card dpe-dashboard-card--spaced">
         <header class="dpe-dashboard-card__head">
             <div>
-                <h2>Peserta kelompok</h2>
-                <p>{{ $classGroup->memberships->count() }} riwayat peserta · {{ $activeMemberships->count() }} aktif hari ini</p>
+                <h2>Peserta aktif</h2>
+                <p>{{ $activeMemberships->count() }} peserta aktif hari ini</p>
             </div>
             <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route($operationRoutePrefix.'.class-group-memberships.create', ['class_group_id' => $classGroup->id]) }}">
                 Tambah anggota
             </a>
         </header>
 
-        @if ($classGroup->memberships->isEmpty())
+        @if ($activeMemberships->isEmpty())
             <x-dashboard.empty
-                title="Belum ada peserta"
+                title="Belum ada peserta aktif"
                 message="Tambahkan siswa untuk menghubungkan mereka dengan kelompok ini."
                 action-url="{{ route($operationRoutePrefix.'.class-group-memberships.create', ['class_group_id' => $classGroup->id]) }}"
                 action-label="Tambah anggota"
                 icon="student"
             />
         @else
-            <div class="dpe-dashboard-table-wrap">
-                <table class="dpe-dashboard-table">
-                    <thead>
-                        <tr>
-                            <th>Siswa</th>
-                            <th>Mulai</th>
-                            <th>Berakhir</th>
-                            <th>Status</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($classGroup->memberships as $membership)
-                            @php($membershipActive = $membership->isActiveOn())
-                            <tr>
-                                <td>
-                                    <a href="{{ route($operationRoutePrefix.'.class-group-memberships.show', $membership) }}">
-                                        <strong>{{ $membership->student?->full_name ?: 'Siswa tidak ditemukan' }}</strong>
-                                    </a>
-                                    @if ($membership->student?->portalUser?->username)<br><span>{{ $membership->student->portalUser->username }}</span>@endif
-                                </td>
-                                <td>{{ $membership->starts_on?->format('d M Y') ?: '—' }}</td>
-                                <td>{{ $membership->ends_on?->format('d M Y') ?: 'Berjalan' }}</td>
-                                <td>
-                                    <span class="dpe-dashboard-badge {{ $membershipActive ? 'dpe-dashboard-badge--success' : 'dpe-dashboard-badge--warning' }}">
-                                        {{ $membershipActive ? 'Aktif' : 'Selesai' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route($operationRoutePrefix.'.class-group-memberships.show', $membership) }}">Detail</a>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+            @include('superadmin.class-groups._participants', ['memberships' => $activeMemberships])
         @endif
     </article>
+
+    @if ($otherMemberships->isNotEmpty())
+        <article id="class-group-membership-history" class="dpe-dashboard-card dpe-dashboard-card--spaced">
+            <header class="dpe-dashboard-card__head">
+                <div>
+                    <h2>Riwayat dan keanggotaan lain</h2>
+                    <p>Siswa yang dihapus, keanggotaan selesai, dan keanggotaan yang belum dimulai tidak dihitung sebagai peserta aktif.</p>
+                </div>
+            </header>
+            <details class="dpe-dashboard-card__body">
+                <summary>Lihat {{ $otherMemberships->count() }} catatan keanggotaan</summary>
+                @include('superadmin.class-groups._participants', ['memberships' => $otherMemberships])
+            </details>
+        </article>
+    @endif
     <x-dashboard.class-session-summary :group="$classGroup" />
 @endsection

@@ -71,7 +71,7 @@
                             <th>Program</th>
                             <th>Cabang</th>
                             <th>Teacher</th>
-                            <th>Peserta</th>
+                            <th>Peserta aktif</th>
                             <th>Status</th>
                             <th>Aksi</th>
                         </tr>
@@ -102,7 +102,7 @@
                                     @if ($classGroup->branch?->code)<br><span>{{ $classGroup->branch->code }}</span>@endif
                                 </td>
                                 <td>{{ $teacherName }}</td>
-                                <td>{{ $classGroup->memberships_count }} peserta</td>
+                                <td>{{ $classGroup->memberships_count }} aktif</td>
                                 <td>
                                     <span class="dpe-dashboard-badge {{ $classGroup->is_active ? 'dpe-dashboard-badge--success' : 'dpe-dashboard-badge--danger' }}">
                                         {{ $classGroup->is_active ? 'Aktif' : 'Nonaktif' }}
