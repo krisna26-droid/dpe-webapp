@@ -32,7 +32,7 @@ class UpdateStudentRequest extends FormRequest
             'grade_name' => ['nullable', 'string', 'max:255'],
             'began_on' => ['required', 'date'],
             'special_notes_internal' => ['nullable', 'string', 'max:10000'],
-            'guardian_phone' => ['sometimes', 'required', 'string', 'max:30', 'regex:/^\+?[0-9][0-9\s().-]{6,28}[0-9}$/'],
+            'guardian_phone' => ['sometimes', 'required', 'string', 'max:30', 'regex:/^\+?[0-9][0-9\s().-]{6,28}[0-9]$/'],
             'photo' => ['nullable', 'image', 'max:2048'],
         ];
     }
