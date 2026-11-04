@@ -19,7 +19,7 @@ class UpdateGuardianPhoneRequest extends FormRequest
                 'required',
                 'string',
                 'max:30',
-                'regex:/^\+?[0-9][0-9\s().-]{6,28}[0-9}$/',
+                'regex:/^\+?[0-9][0-9\s().-]{6,28}[0-9]$/',
             ],
         ];
     }

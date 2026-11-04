@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -66,5 +67,24 @@ class ClassGroupMembership extends Model
 
         return $this->starts_on->toDateString() <= $day
             && ($this->ends_on === null || $this->ends_on->toDateString() >= $day);
+    }
+
+    public function isActiveParticipant(?Carbon $date = null): bool
+    {
+        return $this->isActiveOn($date)
+            && $this->student !== null
+            && ! $this->student->trashed();
+    }
+
+    public function scopeActiveParticipants(Builder $query, ?Carbon $date = null): Builder
+    {
+        $day = ($date ?? Carbon::today())->toDateString();
+
+        return $query
+            ->whereDate($this->qualifyColumn('starts_on'), '<=', $day)
+            ->where(fn (Builder $period) => $period
+                ->whereNull($this->qualifyColumn('ends_on'))
+                ->orWhereDate($this->qualifyColumn('ends_on'), '>=', $day))
+            ->whereHas('student', fn (Builder $students) => $students->withoutTrashed());
     }
 }

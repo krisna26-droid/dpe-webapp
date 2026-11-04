@@ -36,6 +36,7 @@ class TeacherSlotService
                 'classGroup.branch',
                 'classGroup.program',
                 'classGroup.memberships.learningSessionEnrollments',
+                'classGroup.memberships.student',
                 'lessonSessions' => fn ($query) => $query
                     ->whereNotIn('status', ['cancelled', 'canceled', 'dibatalkan'])
                     ->with(['teacher.user', 'rescheduledFrom'])
@@ -67,6 +68,7 @@ class TeacherSlotService
                 ->firstOrFail();
             $current->load([
                 'classGroup.memberships.learningSessionEnrollments',
+                'classGroup.memberships.student',
                 'lessonSessions' => fn ($query) => $query
                     ->whereNotIn('status', ['cancelled', 'canceled', 'dibatalkan'])
                     ->with('rescheduledFrom')
@@ -97,7 +99,7 @@ class TeacherSlotService
         $studentIds = [];
 
         foreach ($memberships as $membership) {
-            if (! $membership->isActiveOn($today)) {
+            if (! $membership->isActiveParticipant($today)) {
                 continue;
             }
 

@@ -8,6 +8,7 @@ use App\Models\ClassLearningSession;
 use App\Models\LessonSession;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -214,8 +215,7 @@ class ClassLearningSessionService
         $others = ClassGroupMembership::query()
             ->where('class_group_id', $membership->class_group_id)
             ->where('id', '!=', $membership->id)
-            ->whereDate('starts_on', '<=', $from)
-            ->where(fn ($query) => $query->whereNull('ends_on')->orWhereDate('ends_on', '>=', $from))
+            ->activeParticipants(Carbon::parse($from))
             ->with('learningSessionEnrollments')
             ->get();
         $filled = [];

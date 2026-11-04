@@ -43,7 +43,8 @@ class ClassGroupFilterService
         }
 
         $search = $filters['q'] ?? '';
-        $classGroups = $scope->with(['branch', 'program', 'defaultTeacher.user'])->withCount('memberships')
+        $classGroups = $scope->with(['branch', 'program', 'defaultTeacher.user'])
+            ->withCount(['memberships' => fn ($query) => $query->activeParticipants()])
             ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
                 ->where('code', 'like', '%'.$search.'%')->orWhere('name', 'like', '%'.$search.'%')))
             ->when($filters['branch_id'] ?? null, fn ($query, $id) => $query->where('branch_id', $id))
