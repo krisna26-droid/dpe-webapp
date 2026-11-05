@@ -30,13 +30,9 @@ class ClassGroupMembershipController extends Controller
                 ->when($f['branch_id'] ?? null, fn ($q, $id) => $q->where('branch_id', $id))
                 ->when($f['program_id'] ?? null, fn ($q, $id) => $q->where('program_id', $id))
                 ->when($f['teacher_id'] ?? null, fn ($q, $id) => $q->where('default_teacher_id', $id)))
-            ->when($f['status'] ?? null, function ($q, $status) {
-                if ($status === 'active') {
-                    $q->whereDate('starts_on', '<=', today())->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', today()));
-                } else {
-                    $q->where(fn ($q) => $q->whereDate('starts_on', '>', today())->orWhereDate('ends_on', '<', today()));
-                }
-            })
+            ->when($f['status'] ?? null, fn ($query, $status) => $status === 'active'
+                ? $query->activeParticipants()
+                : $query->whereNot(fn ($participants) => $participants->activeParticipants()))
             ->orderByDesc('starts_on')->orderBy('id')->paginate(15)->withQueryString();
 
         return view('superadmin.class-group-memberships.index', $context + compact('memberships'));

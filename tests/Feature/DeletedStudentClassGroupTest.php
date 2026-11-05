@@ -161,6 +161,11 @@ class DeletedStudentClassGroupTest extends TestCase
         $this->assertStringContainsString($this->student->full_name, $history);
         $this->assertSame(0, $slots->filledCount($this->session->fresh()));
 
+        $this->get(route($role.'.class-group-memberships.show', $this->membership))
+            ->assertOk()
+            ->assertSeeTextInOrder(['Ringkasan keanggotaan', 'Siswa dihapus', 'Status siswa', 'Siswa dihapus'])
+            ->assertSeeTextInOrder(['Riwayat sesi belajar', 'Sesi Rabu']);
+
         $this->assertDatabaseHas('class_group_memberships', [
             'id' => $this->membership->id, 'student_id' => $this->student->id,
             'ends_on' => '2026-11-04',
@@ -223,5 +228,17 @@ class DeletedStudentClassGroupTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.class-groups.show', $this->group))
             ->assertOk()->assertSee('Belum ada peserta aktif')->assertSee('Siswa dihapus');
         $this->assertDatabaseHas('class_group_memberships', ['id' => $this->membership->id, 'ends_on' => null]);
+
+        $this->get(route('admin.class-group-memberships.show', $this->membership))
+            ->assertOk()->assertSeeText('Riwayat sesi belajar')->assertDontSeeText('Masih berjalan');
+
+        $activeMember = $this->member($this->student('Siswa Aktif Uji'));
+        $activeList = $this->get(route('admin.class-group-memberships.index', ['status' => 'active']))
+            ->assertOk();
+        $this->assertSame([$activeMember->id], $activeList->viewData('memberships')->getCollection()->modelKeys());
+
+        $inactiveList = $this->get(route('admin.class-group-memberships.index', ['status' => 'inactive']))
+            ->assertOk()->assertSeeText('Siswa dihapus');
+        $this->assertSame([$this->membership->id], $inactiveList->viewData('memberships')->getCollection()->modelKeys());
     }
 }
