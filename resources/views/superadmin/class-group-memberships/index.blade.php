@@ -65,7 +65,6 @@
                     </thead>
                     <tbody>
                         @foreach ($memberships as $membership)
-                            @php($active = $membership->isActiveOn())
                             <tr>
                                 <td>
                                     <a href="{{ route($operationRoutePrefix.'.class-group-memberships.show', $membership) }}">
@@ -86,11 +85,9 @@
                                     @if ($membership->classGroup?->branch?->name)<br><span>{{ $membership->classGroup->branch->name }}</span>@endif
                                 </td>
                                 <td>{{ $membership->starts_on?->format('d M Y') ?: '—' }}</td>
-                                <td>{{ $membership->ends_on?->format('d M Y') ?: 'Berjalan' }}</td>
+                                <td>{{ $membership->ends_on?->format('d M Y') ?? ($membership->student?->trashed() ? '—' : 'Berjalan') }}</td>
                                 <td>
-                                    <span class="dpe-dashboard-badge {{ $active ? 'dpe-dashboard-badge--success' : 'dpe-dashboard-badge--warning' }}">
-                                        {{ $active ? 'Aktif' : 'Selesai' }}
-                                    </span>
+                                    <x-dashboard.class-membership-status :membership="$membership" />
                                 </td>
                                 <td>
                                     <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route($operationRoutePrefix.'.class-group-memberships.show', $membership) }}">Detail</a>

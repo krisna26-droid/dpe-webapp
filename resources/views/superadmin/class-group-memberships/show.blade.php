@@ -2,9 +2,14 @@
     $operationRoutePrefix = $operationRoutePrefix ?? 'superadmin';
 @endphp
 @php
-    $active = $classGroupMembership->isActiveOn();
     $classGroup = $classGroupMembership->classGroup;
     $student = $classGroupMembership->student;
+    $studentDeleted = $student?->trashed() ?? false;
+    $studentStatus = match (true) {
+        $studentDeleted => 'Siswa dihapus',
+        $student?->status === 'active' => 'Aktif',
+        default => ucfirst($student?->status ?: '—'),
+    };
 @endphp
 
 @extends('layouts.dashboard')
@@ -44,9 +49,7 @@
                 <h2>Ringkasan keanggotaan</h2>
                 <p>Periode ini membedakan riwayat belajar lama dan keanggotaan yang masih aktif.</p>
             </div>
-            <span class="dpe-dashboard-badge {{ $active ? 'dpe-dashboard-badge--success' : 'dpe-dashboard-badge--warning' }}">
-                {{ $active ? 'Aktif' : 'Selesai' }}
-            </span>
+            <x-dashboard.class-membership-status :membership="$classGroupMembership" />
         </header>
         <div class="dpe-dashboard-card__body">
             <div class="dpe-dashboard-detail-grid">
@@ -56,7 +59,7 @@
                 </div>
                 <div class="dpe-dashboard-detail">
                     <p class="dpe-dashboard-detail__label">Status siswa</p>
-                    <p class="dpe-dashboard-detail__value">{{ $student?->status === 'active' ? 'Aktif' : ucfirst($student?->status ?: '—') }}</p>
+                    <p class="dpe-dashboard-detail__value">{{ $studentStatus }}</p>
                 </div>
                 <div class="dpe-dashboard-detail">
                     <p class="dpe-dashboard-detail__label">Kelompok</p>
@@ -80,10 +83,10 @@
                 </div>
                 <div class="dpe-dashboard-detail">
                     <p class="dpe-dashboard-detail__label">Tanggal berakhir</p>
-                    <p class="dpe-dashboard-detail__value">{{ $classGroupMembership->ends_on?->format('d M Y') ?: 'Masih berjalan' }}</p>
+                    <p class="dpe-dashboard-detail__value">{{ $classGroupMembership->ends_on?->format('d M Y') ?? ($studentDeleted ? '—' : 'Masih berjalan') }}</p>
                 </div>
             </div>
         </div>
     </article>
-<x-dashboard.student-session-summary :student="$classGroupMembership->student" />
+    <x-dashboard.student-session-summary :student="$student" />
 @endsection
