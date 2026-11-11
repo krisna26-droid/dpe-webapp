@@ -47,7 +47,7 @@
             <div class="dpe-dashboard-table-wrap"><table class="dpe-dashboard-table"><thead><tr><th>Waktu / operator</th><th>Tindakan</th><th>Sebelum</th><th>Sesudah</th><th>Alasan</th></tr></thead><tbody>
                 @foreach ($history as $event)
                     @php
-                        $events = ['recorded' => 'Pencatatan', 'corrected' => 'Koreksi', 'participant_added' => 'Peserta ditambahkan', 'participant_removed' => 'Peserta dilepas'];
+                        $events = ['recorded' => 'Pencatatan', 'corrected' => 'Koreksi', 'participant_added' => 'Peserta ditambahkan', 'makeup_participant_added' => 'Siswa susulan ditambahkan', 'participant_removed' => 'Peserta dilepas'];
                         $before = $event->before_snapshot['attendance_status'] ?? null;
                         $after = $event->after_snapshot['attendance_status'] ?? null;
                     @endphp

@@ -312,6 +312,54 @@ class StudentAttendanceWorkflowTest extends TestCase
         $this->assertDatabaseCount('student_attendance_audits', 2);
     }
 
+    public function test_teacher_can_add_branch_student_as_session_only_makeup_and_record_attendance(): void
+    {
+        $session = $this->makeLesson();
+        $makeup = $this->enrolledStudent('Siswa Susulan');
+        ClassGroupMembership::create(['id' => (string) Str::uuid(), 'class_group_id' => $this->group->id, 'student_id' => $makeup->id,
+            'starts_on' => '2026-09-01', 'ends_on' => '2026-09-30', 'session_selection_from' => '2026-10-01']);
+
+        $otherBranch = Branch::create(['id' => (string) Str::uuid(), 'code' => Str::random(12), 'name' => 'Cabang Lain', 'timezone_name' => 'Asia/Makassar', 'payment_recap_day' => 20, 'is_active' => true]);
+        $other = Student::create(['id' => (string) Str::uuid(), 'portal_user_id' => $this->user('student')->id,
+            'full_name' => 'Siswa Cabang Lain', 'began_on' => '2026-10-01', 'status' => 'active']);
+        StudentEnrollment::create(['id' => (string) Str::uuid(), 'student_id' => $other->id, 'branch_id' => $otherBranch->id,
+            'program_id' => $this->program->id, 'starts_on' => '2026-10-01']);
+
+        $this->actingAs($this->teacherUser)->get(route('teacher.student-attendance.show', $session))
+            ->assertOk()->assertSee('Siswa Susulan')->assertSee('Tambah siswa susulan')
+            ->assertDontSee('Siswa Cabang Lain')->assertDontSee('SECRET_INTERNAL_ONLY');
+
+        $url = route('teacher.student-attendance.makeup.add', $session);
+        $signature = app(StudentAttendanceService::class)->rosterSignature($session);
+        $this->post($url, ['student_id' => $other->id, 'expected_roster' => $signature])->assertSessionHasErrors('student_id');
+        $this->post($url, ['student_id' => $makeup->id, 'expected_roster' => $signature])->assertRedirect(route('teacher.student-attendance.show', $session));
+
+        $this->assertDatabaseHas('session_students', ['session_id' => $session->id, 'student_id' => $makeup->id, 'attendance_status' => null]);
+        $this->assertDatabaseHas('student_attendance_audits', ['session_id' => $session->id, 'student_id' => $makeup->id,
+            'actor_user_id' => $this->teacherUser->id, 'event_type' => 'makeup_participant_added']);
+        $this->assertSame(1, ClassGroupMembership::where('student_id', $makeup->id)->count());
+
+        $this->get(route('teacher.student-attendance.show', $session))->assertOk()->assertSee($makeup->full_name)->assertSee('Siswa susulan');
+        $this->postJson($this->saveUrl($session, $makeup), $this->payload('present'))->assertOk()
+            ->assertJsonPath('cell.is_attending', true)->assertJsonPath('cell.can_record', true);
+        $this->assertSame('present', $this->ledger($session, $makeup)->attendance_status);
+        $this->get(route('teacher.student-attendance.edit', [$session, $makeup]))->assertOk()->assertSee('Siswa susulan ditambahkan');
+    }
+
+    public function test_makeup_participant_is_teacher_only_and_requires_current_branch_enrollment(): void
+    {
+        $session = $this->makeLesson();
+        $student = $this->enrolledStudent('Siswa Pindah Cabang');
+        StudentEnrollment::where('student_id', $student->id)->update(['ends_on' => '2026-09-30']);
+        $payload = ['student_id' => $student->id, 'expected_roster' => app(StudentAttendanceService::class)->rosterSignature($session)];
+
+        $this->actingAs($this->user('admin'))->post(route('teacher.student-attendance.makeup.add', $session), $payload)->assertForbidden();
+        $this->actingAs($this->teacherUser)->postJson(route('teacher.student-attendance.makeup.add', $session), $payload)
+            ->assertUnprocessable()->assertJsonValidationErrors('student_id');
+        $this->assertDatabaseCount('session_students', 0);
+        $this->assertDatabaseCount('student_attendance_audits', 0);
+    }
+
     public function test_roster_rejects_invalid_enrollment_and_rolls_back_all_additions(): void
     {
         $session = $this->makeLesson(['class_group_id' => null]);

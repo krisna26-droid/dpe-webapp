@@ -14,7 +14,9 @@
     <section class="dpe-dashboard-page-header">
         <div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">Pembelajaran / Pertemuan</p><h2>{{ $lessonSession->classGroup?->name ?: 'Private / tanpa kelompok' }}</h2><p>{{ $lessonSession->program?->name }} · {{ $lessonSession->branch?->name }} · {{ $meetingAt->locale('id')->translatedFormat('d F Y, H:i') }}</p></div>
         <div class="dpe-dashboard-page-header__actions">
-            @if ($routeBase === 'superadmin.student-attendance' && $lessonSession->class_group_id)
+            @if ($canAddMakeup)
+                <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="#makeup-participant"><x-dashboard.icon name="plus" />Tambah siswa susulan</a>
+            @elseif ($routeBase === 'superadmin.student-attendance' && $lessonSession->class_group_id)
                 <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route('superadmin.class-group-memberships.create', ['class_group_id' => $lessonSession->class_group_id]) }}"><x-dashboard.icon name="plus" />Tambah anggota kelas</a>
             @elseif ($canManageRoster)
                 <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="#attendance-roster"><x-dashboard.icon name="users" />Kelola peserta private</a>
@@ -27,6 +29,26 @@
     @endif
     @if ($isSuperseded)
         <p class="dpe-student-attendance-notice">Sesi ini sudah memiliki jadwal pengganti. Kehadiran Hadir/Terlambat dicatat pada sesi penggantinya.</p>
+    @endif
+    @if ($canAddMakeup)
+        <article class="dpe-dashboard-card dpe-student-attendance-roster" id="makeup-participant">
+            <header class="dpe-dashboard-card__head"><div><h2>Tambah siswa susulan</h2><p>Pilih siswa aktif yang terdaftar di cabang {{ $lessonSession->branch?->name }} pada tanggal {{ $meetingAt->format('d/m/Y') }}. Peserta hanya ditambahkan ke pertemuan ini.</p></div></header>
+            <div class="dpe-dashboard-card__body">
+                @error('student_id')<p class="dpe-dashboard-alert dpe-dashboard-alert--error">{{ $message }}</p>@enderror
+                @if ($makeupCandidates->isNotEmpty())
+                    <form method="POST" action="{{ route('teacher.student-attendance.makeup.add', $lessonSession) }}" class="dpe-dashboard-form">
+                        @csrf
+                        <input type="hidden" name="expected_roster" value="{{ $rosterSignature }}">
+                        <div class="dpe-dashboard-form-grid">
+                            <div class="dpe-dashboard-field dpe-dashboard-field--full"><label for="makeup-student">Siswa</label><select id="makeup-student" name="student_id" required><option value="">Pilih siswa dari cabang ini</option>@foreach ($makeupCandidates as $candidate)<option value="{{ $candidate->id }}" @selected(old('student_id') === $candidate->id)>{{ $candidate->full_name }}</option>@endforeach</select></div>
+                        </div>
+                        <div class="dpe-dashboard-form-actions"><button type="submit" class="dpe-dashboard-button dpe-dashboard-button--primary"><x-dashboard.icon name="plus" />Tambahkan ke pertemuan</button></div>
+                    </form>
+                @else
+                    <p>Semua siswa aktif di cabang ini yang memenuhi syarat sudah ada di peserta sesi, atau belum ada siswa lain yang memenuhi syarat.</p>
+                @endif
+            </div>
+        </article>
     @endif
     @if ($students->isEmpty())
         @include('student-attendance._participant-help', ['classGroupId' => $lessonSession->class_group_id])
@@ -44,7 +66,7 @@
                         $editUrl = route($routeBase.'.edit', [$lessonSession, $student]);
                     @endphp
                     <tr data-attendance-cell-view>
-                        <td><strong>{{ $student->full_name }}</strong></td>
+                        <td><strong>{{ $student->full_name }}</strong>@if ($makeupStudentIds->contains($student->id))<small>Siswa susulan</small>@endif</td>
                         <td class="dpe-student-attendance-check-cell">@include('student-attendance._quick', ['attendanceSession' => $lessonSession])</td>
                         <td>{{ $student->began_on->format('d M Y') }}</td>
                         <td><span class="dpe-student-attendance-status dpe-student-attendance-status--{{ array_key_exists($cell['status'] ?? '', $statuses) ? $cell['status'] : 'empty' }}" data-attendance-status>{{ $cell['label'] }}</span></td>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\RecordStudentAttendanceRequest;
 use App\Http\Requests\StudentAttendanceIndexRequest;
 use App\Http\Requests\StudentAttendanceRosterRequest;
+use App\Http\Requests\TeacherMakeupParticipantRequest;
 use App\Models\Branch;
 use App\Models\ClassGroup;
 use App\Models\LessonSession;
@@ -101,6 +102,8 @@ class StudentAttendanceController extends Controller
         $students = $this->attendance->roster($lessonSession);
         $cells = $students->mapWithKeys(fn ($s) => [$s->id => $this->attendance->cell($lessonSession, $s)]);
         $canManageRoster = $this->access->canManageRoster($request->user()) && $lessonSession->class_group_id === null;
+        $canAddMakeup = $request->user()->role_code === 'teacher' && $lessonSession->class_group_id !== null
+            && ! $lessonSession->isCancelled() && ! $this->attendance->isSuperseded($lessonSession);
         $candidates = collect();
         if ($canManageRoster) {
             $date = $this->attendance->meetingAt($lessonSession)->toDateString();
@@ -110,12 +113,25 @@ class StudentAttendanceController extends Controller
                     ->where(fn ($e) => $e->whereNull('ends_on')->orWhereDate('ends_on', '>=', $date)))
                 ->orderBy('full_name')->get()->merge($students)->unique('id')->sortBy('full_name')->values();
         }
+        $makeupCandidates = collect();
+        $makeupStudentIds = collect();
+        if ($canAddMakeup) {
+            $date = $this->attendance->meetingAt($lessonSession)->toDateString();
+            $makeupStudentIds = StudentAttendanceAudit::query()->where('session_id', $lessonSession->id)
+                ->where('event_type', 'makeup_participant_added')->orderBy('id')->pluck('student_id')->unique()->values();
+            $makeupCandidates = Student::query()->where('status', 'active')->whereDate('began_on', '<=', $date)
+                ->whereHas('enrollments', fn ($q) => $q->where('branch_id', $lessonSession->branch_id)
+                    ->whereDate('starts_on', '<=', $date)->where(fn ($e) => $e->whereNull('ends_on')->orWhereDate('ends_on', '>=', $date)))
+                ->whereNotIn('id', $lessonSession->sessionStudents->pluck('student_id'))
+                ->orderBy('full_name')->get();
+        }
 
         return view('student-attendance.show', [
             'lessonSession' => $lessonSession, 'students' => $students, 'cells' => $cells,
             'meetingAt' => $this->attendance->meetingAt($lessonSession), 'canManageRoster' => $canManageRoster,
             'isSuperseded' => $this->attendance->isSuperseded($lessonSession),
             'candidates' => $candidates, 'rosterSignature' => $this->attendance->rosterSignature($lessonSession),
+            'canAddMakeup' => $canAddMakeup, 'makeupCandidates' => $makeupCandidates, 'makeupStudentIds' => $makeupStudentIds,
             'routeBase' => $this->routeBase($request), 'statuses' => StudentAttendanceService::STATUSES,
         ]);
     }
@@ -164,6 +180,13 @@ class StudentAttendanceController extends Controller
         $this->attendance->setRoster($request->user(), $lessonSession, $request->validated('student_ids', []), $request->validated('expected_roster'));
 
         return redirect()->route($this->routeBase($request).'.show', $lessonSession)->with('success', 'Daftar peserta berhasil disimpan.');
+    }
+
+    public function addMakeupParticipant(TeacherMakeupParticipantRequest $request, LessonSession $lessonSession): RedirectResponse
+    {
+        $this->attendance->addMakeupParticipant($request->user(), $lessonSession, $request->validated());
+
+        return redirect()->route('teacher.student-attendance.show', $lessonSession)->with('success', 'Siswa susulan ditambahkan ke pertemuan ini.');
     }
 
     private function summarize(Collection $cells): array

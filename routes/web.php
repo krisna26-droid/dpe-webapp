@@ -762,6 +762,8 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
             Route::get('/student-attendance/sessions/{lessonSession}', [StudentAttendanceController::class, 'show'])->name('student-attendance.show');
             Route::get('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'edit'])->name('student-attendance.edit');
             Route::post('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'save'])->name('student-attendance.save');
+            Route::post('/student-attendance/sessions/{lessonSession}/participants/makeup', [StudentAttendanceController::class, 'addMakeupParticipant'])
+                ->middleware(['role:teacher', 'throttle:20,1'])->name('student-attendance.makeup.add');
 
             Route::get('/attendance', [
                 TeacherAttendanceController::class,

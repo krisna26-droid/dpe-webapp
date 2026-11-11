@@ -45,10 +45,12 @@ class StudentAttendanceService
     {
         $session->loadMissing(['sessionStudents.student.enrollments', 'classGroup.memberships.student.enrollments']);
         $date = $this->meetingAt($session)->toDateString();
-        $students = $session->sessionStudents->filter(function ($row) use ($session, $date) {
+        $makeupStudentIds = StudentAttendanceAudit::query()->where('session_id', $session->id)
+            ->where('event_type', 'makeup_participant_added')->pluck('student_id')->flip();
+        $students = $session->sessionStudents->filter(function ($row) use ($session, $date, $makeupStudentIds) {
             if (!$row->student) return false;
             $recorded = $row->attendance_status !== null || $row->recorded_at !== null || $row->individual_learning_note !== null;
-            if ($recorded) return true;
+            if ($recorded || $makeupStudentIds->has($row->student_id)) return true;
             if ($row->student->deleted_at && $date >= $row->student->deleted_at->toDateString()) return false;
             if (!$session->class_group_id) return true;
             $row->student->loadMissing('classGroupMemberships');
@@ -233,6 +235,44 @@ class StudentAttendanceService
         $rows = DB::table('session_students')->where('session_id', $session->id)->orderBy('student_id')->get();
 
         return hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR));
+    }
+
+    public function addMakeupParticipant(User $actor, LessonSession $session, array $data): void
+    {
+        $this->access->authorize($actor, $session);
+        abort_unless($actor->role_code === 'teacher' && $session->class_group_id !== null, 403);
+
+        DB::transaction(function () use ($actor, $session, $data) {
+            $actor = User::query()->whereKey($actor->id)->lockForUpdate()->firstOrFail();
+            abort_unless($actor->is_active && $actor->role_code === 'teacher', 403);
+            $session = LessonSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
+            $this->access->authorize($actor, $session);
+            abort_unless($session->class_group_id !== null, 403);
+
+            if (! hash_equals($this->rosterSignature($session), $data['expected_roster'])) {
+                throw ValidationException::withMessages(['student_id' => 'Daftar peserta sudah berubah. Muat ulang pertemuan sebelum menambahkan siswa.']);
+            }
+            if ($session->isCancelled() || $this->isSuperseded($session)) {
+                throw ValidationException::withMessages(['student_id' => 'Sesi ini sudah dibatalkan atau digantikan. Tambahkan siswa pada pertemuan penggantinya.']);
+            }
+
+            $date = $this->meetingAt($session)->toDateString();
+            $student = Student::query()->whereKey($data['student_id'])->where('status', 'active')
+                ->whereDate('began_on', '<=', $date)
+                ->whereHas('enrollments', fn ($q) => $q->where('branch_id', $session->branch_id)
+                    ->whereDate('starts_on', '<=', $date)
+                    ->where(fn ($e) => $e->whereNull('ends_on')->orWhereDate('ends_on', '>=', $date)))
+                ->lockForUpdate()->first();
+            if (! $student) {
+                throw ValidationException::withMessages(['student_id' => 'Pilih siswa aktif yang terdaftar di cabang ini pada tanggal pertemuan.']);
+            }
+            if (SessionStudent::query()->where('session_id', $session->id)->where('student_id', $student->id)->exists()) {
+                throw ValidationException::withMessages(['student_id' => 'Siswa tersebut sudah menjadi peserta pertemuan ini.']);
+            }
+
+            $record = SessionStudent::query()->create(['session_id' => $session->id, 'student_id' => $student->id]);
+            $this->audit($actor, $session, $student->id, 'makeup_participant_added', null, $this->snapshot($record, $session), null);
+        }, 3);
     }
 
     public function setRoster(User $actor, LessonSession $session, array $studentIds, string $expected): void
