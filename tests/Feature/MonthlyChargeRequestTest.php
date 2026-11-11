@@ -48,7 +48,7 @@ class MonthlyChargeRequestTest extends TestCase
         );
     }
 
-    public function test_store_request_rejects_non_superadmin(): void
+    public function test_store_request_authorizes_active_branch_admin(): void
     {
         $user = $this->createUser('admin', true);
 
@@ -59,7 +59,7 @@ class MonthlyChargeRequestTest extends TestCase
             'POST'
         );
 
-        $this->assertFalse(
+        $this->assertTrue(
             $request->authorize()
         );
     }

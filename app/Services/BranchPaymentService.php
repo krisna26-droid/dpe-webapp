@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\MonthlyCharge;
 use App\Models\PaymentProof;
+use App\Models\Student;
 use App\Models\StudentPortalEvent;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -29,6 +30,68 @@ class BranchPaymentService
         return $charge;
     }
 
+    public function formOptions(User $user, ?MonthlyCharge $current = null): array
+    {
+        $actor = $this->settings->actor($user);
+        abort_unless($actor->role_code === 'admin', 403);
+        $branches = $this->settings->branches($actor)->where('is_active', true)->orderBy('name')->get();
+        $monthInput = request()->input('charge_month', $current?->charge_month?->toDateString() ?? today()->startOfMonth()->toDateString());
+        try {
+            $month = CarbonImmutable::parse($monthInput);
+        } catch (\Throwable) {
+            $month = CarbonImmutable::today();
+        }
+        $start = $month->startOfMonth()->toDateString();
+        $end = $month->endOfMonth()->toDateString();
+        $students = Student::query()->where('status', 'active')->whereHas('enrollments', fn ($q) => $q
+            ->whereIn('branch_id', $branches->pluck('id'))->whereDate('starts_on', '<=', $end)
+            ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', $start)))
+            ->when($current, fn ($q) => $q->orWhereKey($current->student_id))
+            ->with('portalUser')->orderBy('full_name')->get();
+
+        return compact('branches', 'students');
+    }
+
+    public function createCharge(User $user, array $data): MonthlyCharge
+    {
+        $actor = $this->settings->actor($user);
+        abort_unless($actor->role_code === 'admin', 403);
+        $this->assertChargeInput($actor, $data);
+
+        return app(MonthlyChargeService::class)->create($data);
+    }
+
+    public function updateCharge(User $user, MonthlyCharge $charge, array $data): MonthlyCharge
+    {
+        $actor = $this->settings->actor($user);
+        abort_unless($actor->role_code === 'admin', 403);
+        $current = $this->charge($actor, $charge->id);
+        $this->assertChargeInput($actor, $data, $current);
+
+        return app(MonthlyChargeService::class)->update($current, $data);
+    }
+
+    public function deleteCharge(User $user, MonthlyCharge $charge): void
+    {
+        $actor = $this->settings->actor($user);
+        abort_unless($actor->role_code === 'admin', 403);
+        app(MonthlyChargeService::class)->delete($this->charge($actor, $charge->id));
+    }
+
+    private function assertChargeInput(User $actor, array $data, ?MonthlyCharge $current = null): void
+    {
+        $branch = $this->settings->branch($actor, $data['branch_id'], editable: true);
+        $month = CarbonImmutable::parse($data['charge_month']);
+        $studentQuery = Student::query()->whereKey($data['student_id'])->where('status', 'active')->whereHas('enrollments', fn ($e) => $e
+            ->where('branch_id', $branch->id)->whereDate('starts_on', '<=', $month->endOfMonth()->toDateString())
+            ->where(fn ($e) => $e->whereNull('ends_on')->orWhereDate('ends_on', '>=', $month->startOfMonth()->toDateString())));
+        if ($current && $current->student_id === $data['student_id'] && $current->branch_id === $branch->id
+            && $current->charge_month->startOfMonth()->toDateString() === $month->startOfMonth()->toDateString()) {
+            $studentQuery->orWhereKey($current->student_id);
+        }
+        abort_unless($studentQuery->exists(), 403, 'Siswa tidak terdaftar pada cabang ini di periode tagihan tersebut.');
+    }
+
     public function proof(User $user, string $id): PaymentProof
     {
         $this->settings->actor($user);
@@ -37,6 +100,25 @@ class BranchPaymentService
         abort_unless($proof, 403);
 
         return $proof;
+    }
+
+    public function review(User $user, string $id, array $data): PaymentProof
+    {
+        $actor = $this->settings->actor($user);
+        abort_unless($actor->role_code === 'admin', 403);
+        $proof = $this->proof($actor, $id);
+
+        return $this->payments->reviewByBranchAdmin($actor, $proof, $data);
+    }
+
+    public function reviewDetail(User $user, string $id): array
+    {
+        $proof = $this->proof($user, $id)->fresh(['charge.student', 'charge.branch', 'imageFile', 'uploadedBy', 'reviewedBy']);
+        $snapshot = $this->payments->proofSignature($proof);
+        $imageAvailable = $this->payments->imageBytes($proof) !== null;
+        $events = StudentPortalEvent::where('payment_proof_id', $proof->id)->with('actor')->orderByDesc('id')->get();
+
+        return compact('proof', 'snapshot', 'imageAvailable', 'events');
     }
 
     public function filters(Request $request): array

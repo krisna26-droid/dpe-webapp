@@ -23,6 +23,10 @@
 
 @extends('layouts.dashboard')
 
+@php
+    $routePrefix = auth()->user()->role_code === 'admin' ? 'admin' : 'superadmin';
+@endphp
+
 @section('title', 'Detail Tagihan Bulanan')
 @section('heading', 'Detail Tagihan Bulanan')
 @section('description', 'Periksa nilai tagihan, jatuh tempo, dan riwayat bukti pembayaran siswa.')
@@ -35,11 +39,11 @@
             <p>{{ $monthlyCharge->charge_month?->format('F Y') ?: 'Periode belum tersedia' }} · {{ $monthlyCharge->branch?->name ?: 'Cabang belum tersedia' }}</p>
         </div>
         <div class="dpe-dashboard-page-header__actions">
-            <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route('superadmin.monthly-charges.edit', $monthlyCharge) }}">
+            <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($routePrefix.'.monthly-charges.edit', $monthlyCharge) }}">
                 <x-dashboard.icon name="settings" />
                 <span>Edit tagihan</span>
             </a>
-            <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route('superadmin.monthly-charges.index') }}">
+            <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routePrefix.'.monthly-charges.index') }}">
                 <x-dashboard.icon name="back" />
                 <span>Kembali</span>
             </a>
@@ -135,7 +139,7 @@
                     </div>
                 @endif
 
-                <form method="POST" action="{{ route('superadmin.monthly-charges.destroy', $monthlyCharge) }}" class="dpe-dashboard-form-actions" data-confirm-form data-confirm-title="Hapus tagihan ini?" data-confirm-message="Tagihan hanya dapat dihapus bila belum memiliki bukti pembayaran. Riwayat pembayaran harus dipertahankan." data-confirm-action="Hapus tagihan">
+                <form method="POST" action="{{ route($routePrefix.'.monthly-charges.destroy', $monthlyCharge) }}" class="dpe-dashboard-form-actions" data-confirm-form data-confirm-title="Hapus tagihan ini?" data-confirm-message="Tagihan hanya dapat dihapus bila belum memiliki bukti pembayaran. Riwayat pembayaran harus dipertahankan." data-confirm-action="Hapus tagihan">
                     @csrf
                     @method('DELETE')
                     <button class="dpe-dashboard-button dpe-dashboard-button--danger" type="submit">
@@ -196,7 +200,7 @@
                                 <td>{{ $proof->imageFile?->original_name ?: 'File tidak ditemukan' }}</td>
                                 <td>{{ $proof->uploadedBy?->full_name ?: ($proof->uploadedBy?->username ?: '—') }}</td>
                                 <td>{{ $proof->rejection_reason ?: '—' }}</td>
-                                <td><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route('superadmin.payment-review.show', $proof) }}">Periksa Bukti</a></td>
+                                <td>@if ($routePrefix === 'admin')<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route('admin.payments.review.show', $proof) }}">Periksa Bukti</a>@else<a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route('superadmin.payment-review.show', $proof) }}">Periksa Bukti</a>@endif</td>
                             </tr>
                         @endforeach
                     </tbody>

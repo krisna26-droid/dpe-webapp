@@ -12,6 +12,7 @@ use App\Services\PortalPaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Http\RedirectResponse;
 
 class PaymentController extends Controller
 {
@@ -38,6 +39,18 @@ class PaymentController extends Controller
 
         return response($bytes, 200, ['Content-Type' => $proof->imageFile->mime_type,
             'Content-Disposition' => 'inline; filename="Bukti-Pembayaran-'.$proof->id.'.'.['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'][$proof->imageFile->mime_type].'"']);
+    }
+
+    public function reviewShow(Request $request, PaymentProof $paymentProof, BranchPaymentService $payments)
+    {
+        return view('admin.payments.review', $payments->reviewDetail($request->user(), $paymentProof->id));
+    }
+
+    public function review(Request $request, PaymentProof $paymentProof, BranchPaymentService $payments): RedirectResponse
+    {
+        $payments->review($request->user(), $paymentProof->id, $request->all());
+
+        return redirect()->route('admin.payments.review.show', $paymentProof)->with('success', 'Keputusan pembayaran siswa cabang berhasil disimpan.');
     }
 
     public function download(Request $request, string $format, BranchPaymentService $payments,

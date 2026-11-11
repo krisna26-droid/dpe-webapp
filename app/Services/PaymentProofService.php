@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\MonthlyCharge;
 use App\Models\PaymentProof;
+use App\Models\BranchAdminAssignment;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -56,8 +57,8 @@ class PaymentProofService
         ?string $rejectionReason = null,
         ?string $expectedSnapshot = null
     ): PaymentProof {
-        if (! $reviewer->is_active || $reviewer->role_code !== 'superadmin') {
-            throw new AuthorizationException('Hanya Super Admin aktif yang dapat memvalidasi pembayaran.');
+        if (! $reviewer->is_active || ! in_array($reviewer->role_code, ['superadmin', 'admin'], true)) {
+            throw new AuthorizationException('Hanya petugas cabang atau Super Admin aktif yang dapat memvalidasi pembayaran.');
         }
         if (! in_array($status, ['approved', 'rejected'], true)) {
             throw ValidationException::withMessages(['status' => 'Pilih disetujui atau ditolak.']);
@@ -75,11 +76,20 @@ class PaymentProofService
             $expectedSnapshot
         ) {
             $reviewer = User::whereKey($reviewer->id)->lockForUpdate()->firstOrFail();
-            if (! $reviewer->is_active || $reviewer->role_code !== 'superadmin') {
-                throw new AuthorizationException('Hanya Super Admin aktif yang dapat memvalidasi pembayaran.');
+            if (! $reviewer->is_active || ! in_array($reviewer->role_code, ['superadmin', 'admin'], true)) {
+                throw new AuthorizationException('Hanya petugas cabang atau Super Admin aktif yang dapat memvalidasi pembayaran.');
             }
             $current = PaymentProof::whereKey($paymentProof->id)->firstOrFail();
-            MonthlyCharge::whereKey($current->charge_id)->lockForUpdate()->firstOrFail();
+            $charge = MonthlyCharge::whereKey($current->charge_id)->lockForUpdate()->firstOrFail();
+            if ($reviewer->role_code === 'admin') {
+                $assigned = BranchAdminAssignment::where('admin_user_id', $reviewer->id)->where('branch_id', $charge->branch_id)
+                    ->whereDate('starts_on', '<=', today())
+                    ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', today()))
+                    ->lockForUpdate()->exists();
+                if (! $assigned) {
+                    throw new AuthorizationException('Admin hanya dapat memvalidasi pembayaran siswa di cabang yang sedang ditugaskan.');
+                }
+            }
             $paymentProof = PaymentProof::whereKey($current->id)->lockForUpdate()->firstOrFail();
             if ($paymentProof->charge_id !== $current->charge_id) {
                 throw ValidationException::withMessages(['status' => 'Tagihan bukti berubah. Muat data terbaru sebelum memeriksa ulang.']);

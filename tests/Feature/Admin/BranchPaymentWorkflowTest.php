@@ -6,7 +6,9 @@ use App\Models\Branch;
 use App\Models\BranchAdminAssignment;
 use App\Models\MonthlyCharge;
 use App\Models\PaymentProof;
+use App\Models\Program;
 use App\Models\Student;
+use App\Models\StudentEnrollment;
 use App\Models\User;
 use App\Services\BranchPaymentService;
 use App\Services\PortalPaymentService;
@@ -90,20 +92,73 @@ class BranchPaymentWorkflowTest extends TestCase
             $extra + ['month' => '2026-10', 'branch_id' => '', 'q' => '', 'status' => 'all']);
     }
 
-    public function test_admin_list_detail_history_and_images_are_scoped_and_read_only(): void
+    public function test_admin_list_detail_history_and_images_are_scoped_and_review_is_available(): void
     {
         $proof = $this->review($this->upload($this->charge), 'rejected');
         $this->actingAs($this->admin)->get(route('admin.payments.index'))->assertOk()->assertSee('Siswa A Uji')->assertSee('Ditolak')
             ->assertDontSee('Siswa Luar Rahasia')->assertDontSee('Cabang Luar Rahasia')->assertDontSee('RAHASIA INTERNAL');
         $this->get(route('admin.payments.show', $this->charge))->assertOk()->assertSee('Alasan dari Super Admin')->assertSee('Keputusan pembayaran')
-            ->assertDontSee('Validasi Pembayaran')->assertDontSee('Tolak Bukti')->assertDontSee('RAHASIA INTERNAL');
+            ->assertSee('Periksa pembayaran')->assertDontSee('RAHASIA INTERNAL');
+        $this->get(route('admin.payments.review.show', $proof))->assertOk()->assertSee('Validasi Pembayaran')->assertSee('Tolak Bukti');
         $this->get(route('admin.payments.image', $proof))->assertOk()->assertHeader('Content-Type', 'image/png')
             ->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->get(route('admin.payments.show', $this->secret))->assertForbidden();
         $other = $this->upload($this->secret);
         $this->get(route('admin.payments.image', $other))->assertForbidden();
+        $this->get(route('admin.payments.review.show', $other))->assertForbidden();
         $this->get(route('admin.payments.index', ['branch_id' => $this->foreign->id]))->assertForbidden();
+        $this->post(route('admin.payments.review', $other), ['status' => 'approved', 'expected_snapshot' => app(PortalPaymentService::class)->proofSignature($other)])->assertForbidden();
         $this->patchJson(route('superadmin.payment-proofs.review', $proof), ['status' => 'approved'])->assertForbidden();
+    }
+
+    public function test_branch_admin_can_approve_reject_and_cancel_approval_with_audit_attribution(): void
+    {
+        $proof = $this->upload($this->charge);
+        $portal = app(PortalPaymentService::class);
+        $this->actingAs($this->admin)->post(route('admin.payments.review', $proof), [
+            'status' => 'approved', 'expected_snapshot' => $portal->proofSignature($proof),
+        ])->assertRedirect(route('admin.payments.review.show', $proof))->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('payment_proofs', ['id' => $proof->id, 'status' => 'approved', 'reviewed_by_user_id' => $this->admin->id]);
+        $this->assertDatabaseHas('student_portal_events', ['payment_proof_id' => $proof->id, 'actor_user_id' => $this->admin->id, 'event_type' => 'payment_reviewed']);
+
+        $proof->refresh();
+        $this->post(route('admin.payments.review', $proof), [
+            'status' => 'rejected', 'rejection_reason' => 'Bukti perlu diperbaiki', 'expected_snapshot' => $portal->proofSignature($proof),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('payment_proofs', ['id' => $proof->id, 'status' => 'rejected', 'rejection_reason' => 'Bukti perlu diperbaiki']);
+
+        $proof->refresh();
+        $this->post(route('admin.payments.review', $proof), [
+            'status' => 'approved', 'expected_snapshot' => $portal->proofSignature($proof),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $proof->refresh();
+        $this->post(route('admin.payments.review', $proof), [
+            'status' => 'rejected', 'rejection_reason' => 'Alasan penolakan terakhir', 'expected_snapshot' => $portal->proofSignature($proof),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('payment_proofs', ['id' => $proof->id, 'status' => 'rejected', 'rejection_reason' => 'Alasan penolakan terakhir', 'reviewed_by_user_id' => $this->admin->id]);
+    }
+
+    public function test_branch_admin_can_manage_charges_only_for_enrolled_students_in_assigned_branches(): void
+    {
+        $program = Program::create(['id' => (string) Str::uuid(), 'code' => Str::random(8), 'name' => 'Program Uji', 'class_type' => 'branch', 'is_active' => true]);
+        StudentEnrollment::create(['id' => (string) Str::uuid(), 'student_id' => $this->charge->student_id, 'branch_id' => $this->branch->id,
+            'program_id' => $program->id, 'starts_on' => '2026-01-01']);
+        StudentEnrollment::create(['id' => (string) Str::uuid(), 'student_id' => $this->secret->student_id, 'branch_id' => $this->foreign->id,
+            'program_id' => $program->id, 'starts_on' => '2026-01-01']);
+
+        $this->actingAs($this->admin)->get(route('admin.monthly-charges.index'))->assertOk()->assertSee('Siswa A Uji')->assertDontSee('Siswa Luar Rahasia');
+        $this->get(route('admin.monthly-charges.create'))->assertOk()->assertSee('Siswa A Uji')->assertDontSee('Siswa Luar Rahasia');
+        $payload = ['student_id' => $this->charge->student_id, 'branch_id' => $this->branch->id, 'charge_month' => '2026-11-01', 'amount_idr' => '450000', 'due_on' => '2026-11-20'];
+        $this->post(route('admin.monthly-charges.store'), $payload)->assertRedirect();
+        $created = MonthlyCharge::where('student_id', $this->charge->student_id)->whereDate('charge_month', '2026-11-01')->firstOrFail();
+        $this->assertSame('450000.00', $created->amount_idr);
+        $this->get(route('admin.monthly-charges.show', $created))->assertOk()->assertSee('Siswa A Uji');
+
+        $this->post(route('admin.monthly-charges.store'), array_replace($payload, ['branch_id' => $this->foreign->id]))->assertForbidden();
+        $this->put(route('admin.monthly-charges.update', $created), array_replace($payload, ['student_id' => $this->secret->student_id]))->assertForbidden();
+        $this->delete(route('admin.monthly-charges.destroy', $this->secret))->assertForbidden();
+        $this->delete(route('admin.monthly-charges.destroy', $created))->assertRedirect(route('admin.monthly-charges.index'));
+        $this->assertDatabaseMissing('monthly_charges', ['id' => $created->id]);
     }
 
     public function test_states_match_parent_portal_across_rejection_resubmission_and_approval(): void
@@ -173,6 +228,8 @@ class BranchPaymentWorkflowTest extends TestCase
         $this->get(route('admin.payments.index'))->assertOk()->assertViewHas('total', 0);
         $this->get(route('admin.payments.show', $this->charge))->assertForbidden();
         $this->get(route('admin.payments.image', $proof))->assertForbidden();
+        $this->post(route('admin.payments.review', $proof), ['status' => 'approved', 'expected_snapshot' => app(PortalPaymentService::class)->proofSignature($proof)])->assertForbidden();
+        $this->assertSame('pending', $proof->fresh()->status);
         BranchAdminAssignment::where('admin_user_id', $this->admin->id)->update(['starts_on' => '2026-10-15', 'ends_on' => null]);
         $this->get(route('admin.payments.show', $this->charge))->assertForbidden();
     }

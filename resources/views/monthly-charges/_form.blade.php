@@ -1,9 +1,10 @@
 @php
+    $routePrefix = auth()->user()->role_code === 'admin' ? 'admin' : 'superadmin';
     $monthlyCharge = $monthlyCharge ?? null;
     $isEdit = $monthlyCharge !== null;
     $formAction = $isEdit
-        ? route('superadmin.monthly-charges.update', $monthlyCharge)
-        : route('superadmin.monthly-charges.store');
+        ? route($routePrefix.'.monthly-charges.update', $monthlyCharge)
+        : route($routePrefix.'.monthly-charges.store');
     $formMethod = $isEdit ? 'PUT' : 'POST';
     $selectedStudent = old('student_id', $monthlyCharge?->student_id);
     $selectedBranch = old('branch_id', $monthlyCharge?->branch_id);
@@ -90,7 +91,7 @@
     </div>
 
     <div class="dpe-dashboard-form-actions">
-        <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ $isEdit ? route('superadmin.monthly-charges.show', $monthlyCharge) : route('superadmin.monthly-charges.index') }}">Batal</a>
+        <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ $isEdit ? route($routePrefix.'.monthly-charges.show', $monthlyCharge) : route($routePrefix.'.monthly-charges.index') }}">Batal</a>
         <button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit" @disabled($students->isEmpty() || $branches->isEmpty())>
             <x-dashboard.icon name="check" />
             <span>{{ $isEdit ? 'Simpan perubahan' : 'Simpan tagihan' }}</span>

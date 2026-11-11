@@ -10,7 +10,7 @@ class StoreMonthlyChargeRequest extends FormRequest
     public function authorize(): bool
     {
         return auth()->check()
-            && auth()->user()->role_code === 'superadmin'
+            && in_array(auth()->user()->role_code, ['superadmin', 'admin'], true)
             && auth()->user()->is_active;
     }
 

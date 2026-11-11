@@ -160,6 +160,17 @@ class PortalPaymentService
     public function review(User $actor, PaymentProof $proof, array $data): PaymentProof
     {
         $actor = $this->actor($actor, 'superadmin');
+        return $this->saveReview($actor, $proof, $data);
+    }
+
+    public function reviewByBranchAdmin(User $actor, PaymentProof $proof, array $data): PaymentProof
+    {
+        $actor = $this->actor($actor, 'admin');
+        return $this->saveReview($actor, $proof, $data);
+    }
+
+    private function saveReview(User $actor, PaymentProof $proof, array $data): PaymentProof
+    {
         $validated = Validator::make($data, ['status' => ['required', 'in:approved,rejected'], 'rejection_reason' => ['nullable', 'required_if:status,rejected', 'string', 'max:4000'],
             'expected_snapshot' => ['required', 'string', 'regex:/^[a-f0-9]{64}$/']])->validate();
         if ($validated['status'] === 'approved' && $this->imageBytes($proof) === null) {

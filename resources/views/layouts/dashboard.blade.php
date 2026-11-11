@@ -118,6 +118,7 @@
                     ['label' => 'Siklus Laporan', 'icon' => 'report', 'route' => 'admin.report-cycles.index', 'active' => ['admin.report-cycles.*']],
                     ['label' => 'Tinjau Laporan Bulanan', 'icon' => 'report', 'route' => 'admin.monthly-reports.index', 'active' => ['admin.monthly-reports.*']],
                     ['label' => 'Tinjau Rapor Tiga Bulan', 'icon' => 'report', 'route' => 'admin.quarterly-reports.index', 'active' => ['admin.quarterly-reports.*']],
+                    ['label' => 'Tagihan Bulanan', 'icon' => 'wallet', 'route' => 'admin.monthly-charges.index', 'active' => ['admin.monthly-charges.*']],
                     ['label' => 'Pembayaran', 'icon' => 'wallet', 'route' => 'admin.payments.index', 'active' => ['admin.payments.*']],
                 ],
             ],

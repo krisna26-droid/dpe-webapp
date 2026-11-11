@@ -121,8 +121,11 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
         Route::get('/branch-settings/{branch}/edit', [\App\Http\Controllers\Admin\BranchSettingsController::class, 'edit'])->name('branch-settings.edit');
         Route::put('/branch-settings/{branch}', [\App\Http\Controllers\Admin\BranchSettingsController::class, 'update'])->name('branch-settings.update');
         Route::get('/payments', [\App\Http\Controllers\Admin\PaymentController::class, 'index'])->name('payments.index');
+        Route::resource('monthly-charges', \App\Http\Controllers\Admin\MonthlyChargeController::class)->middleware('role:admin');
         Route::get('/payments/export/{format}', [\App\Http\Controllers\Admin\PaymentController::class, 'download'])->whereIn('format', ['xlsx', 'pdf'])->name('payments.download');
         Route::get('/payments/proofs/{paymentProof}/image', [\App\Http\Controllers\Admin\PaymentController::class, 'image'])->name('payments.image');
+        Route::get('/payments/proofs/{paymentProof}/review', [\App\Http\Controllers\Admin\PaymentController::class, 'reviewShow'])->middleware('role:admin')->name('payments.review.show');
+        Route::post('/payments/proofs/{paymentProof}/review', [\App\Http\Controllers\Admin\PaymentController::class, 'review'])->middleware(['role:admin', 'throttle:20,1'])->name('payments.review');
         Route::get('/payments/{monthlyCharge}', [\App\Http\Controllers\Admin\PaymentController::class, 'show'])->name('payments.show');
         Route::delete('/users/{user}', [\App\Http\Controllers\Admin\StudentUserController::class, 'destroy'])->name('users.destroy');
         Route::get('/guardians/{guardian}/edit', [\App\Http\Controllers\Admin\GuardianController::class, 'edit'])

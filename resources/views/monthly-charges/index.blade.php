@@ -5,6 +5,9 @@
 @section('description', 'Kelola tagihan bulanan siswa dan pantau status bukti pembayarannya.')
 
 @section('content')
+    @php
+        $routePrefix = auth()->user()->role_code === 'admin' ? 'admin' : 'superadmin';
+    @endphp
     <section class="dpe-dashboard-page-header">
         <div class="dpe-dashboard-page-header__copy">
             <p class="dpe-dashboard-kicker">Laporan & Keuangan / Tagihan</p>
@@ -12,11 +15,11 @@
             <p>Catat nominal tagihan per siswa, tetapkan jatuh tempo, dan lihat status pembayaran yang masuk.</p>
         </div>
         <div class="dpe-dashboard-page-header__actions">
-            <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route('superadmin.monthly-charges.create') }}">
+            <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route($routePrefix.'.monthly-charges.create') }}">
                 <x-dashboard.icon name="wallet" />
                 <span>Tambah tagihan</span>
             </a>
-            <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route('superadmin.dashboard') }}">
+            <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routePrefix.'.dashboard') }}">
                 <x-dashboard.icon name="back" />
                 <span>Kembali ke dashboard</span>
             </a>
@@ -37,7 +40,7 @@
                 title="Belum ada tagihan bulanan"
                 message="Tambahkan tagihan pertama untuk mulai mencatat kewajiban pembayaran siswa."
                 icon="wallet"
-                :action-url="route('superadmin.monthly-charges.create')"
+                :action-url="route($routePrefix.'.monthly-charges.create')"
                 action-label="Tambah tagihan"
             />
         @else
@@ -79,7 +82,7 @@
                             @endphp
                             <tr>
                                 <td>
-                                    <a href="{{ route('superadmin.monthly-charges.show', $monthlyCharge) }}">
+                                    <a href="{{ route($routePrefix.'.monthly-charges.show', $monthlyCharge) }}">
                                         <strong>{{ $monthlyCharge->charge_month?->format('M Y') ?: '—' }}</strong>
                                     </a>
                                 </td>
@@ -89,7 +92,7 @@
                                 <td>{{ $monthlyCharge->due_on?->format('d M Y') ?: 'Tidak ditentukan' }}</td>
                                 <td><span class="dpe-dashboard-badge {{ $statusClass }}">{{ $statusLabel }}</span></td>
                                 <td>
-                                    <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route('superadmin.monthly-charges.show', $monthlyCharge) }}">Detail</a>
+                                    <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route($routePrefix.'.monthly-charges.show', $monthlyCharge) }}">Detail</a>
                                 </td>
                             </tr>
                         @endforeach
