@@ -122,6 +122,8 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
         Route::put('/branch-settings/{branch}', [\App\Http\Controllers\Admin\BranchSettingsController::class, 'update'])->name('branch-settings.update');
         Route::get('/payments', [\App\Http\Controllers\Admin\PaymentController::class, 'index'])->name('payments.index');
         Route::resource('monthly-charges', \App\Http\Controllers\Admin\MonthlyChargeController::class)->middleware('role:admin');
+        Route::get('/monthly-charge-student-options', [\App\Http\Controllers\Admin\MonthlyChargeController::class, 'studentOptions'])
+            ->middleware('role:admin')->name('monthly-charges.student-options');
         Route::get('/payments/export/{format}', [\App\Http\Controllers\Admin\PaymentController::class, 'download'])->whereIn('format', ['xlsx', 'pdf'])->name('payments.download');
         Route::get('/payments/proofs/{paymentProof}/image', [\App\Http\Controllers\Admin\PaymentController::class, 'image'])->name('payments.image');
         Route::get('/payments/proofs/{paymentProof}/review', [\App\Http\Controllers\Admin\PaymentController::class, 'reviewShow'])->middleware('role:admin')->name('payments.review.show');
@@ -306,6 +308,8 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
                 'monthly-charges',
                 MonthlyChargeController::class
             );
+            Route::get('/monthly-charge-student-options', [MonthlyChargeController::class, 'studentOptions'])
+                ->name('monthly-charges.student-options');
 
             Route::post(
                 '/payment-proofs',

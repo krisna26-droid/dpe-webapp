@@ -8,6 +8,7 @@ use App\Http\Requests\SuperAdmin\UpdateUserRequest;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
+use App\Services\UserDirectoryFilterService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,15 +18,19 @@ use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
-    public function index(): View
+    public function index(Request $request, UserDirectoryFilterService $directory): View
     {
-        $users = User::query()
+        $filters = $directory->filters($request);
+        $users = $directory->apply(User::query(), $filters)
             ->orderBy('role_code')
             ->orderBy('full_name')
-            ->paginate(15);
+            ->orderBy('id')
+            ->paginate(15)->appends($filters);
 
         return view('superadmin.users.index', [
             'users' => $users,
+            'filters' => $filters,
+            'hasUserFilters' => implode('', $filters) !== '',
         ]);
     }
 

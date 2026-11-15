@@ -82,7 +82,7 @@ class MonthlyReportLifecycleTest extends TestCase
 
     private function report(string $month = '2026-10', bool $complete = true, ?Student $student = null): MonthlyReport
     {
-        $report = app(StudentProgressService::class)->prepare($this->admin, $student ?? $this->student, CarbonImmutable::createFromFormat('!Y-m', $month), ['teacher_id' => $this->teacher->id, 'video_target' => 4]);
+        $report = app(StudentProgressService::class)->prepare($this->admin, $student ?? $this->student, CarbonImmutable::createFromFormat('!Y-m', $month), ['teacher_id' => $this->teacher->id]);
         if ($complete) {
             foreach (app(StudentProgressService::class)->categories() as $code => $skill) {
                 DB::table('monthly_report_skills')->insert(['report_id' => $report->id, 'skill_id' => $skill->id, 'trend' => 'Improving', 'description' => 'Kemajuan '.$code]);
@@ -217,11 +217,11 @@ class MonthlyReportLifecycleTest extends TestCase
 
     public static function invalidPeriod(): array
     {
-        return [['future_month'], ['before_join'], ['future_join'], ['target_unconfirmed'], ['target_negative']];
+        return [['future_month'], ['before_join'], ['future_join'], ['target_negative']];
     }
 
     #[DataProvider('invalidPeriod')]
-    public function test_future_period_invalid_join_and_unconfirmed_target_cannot_be_submitted(string $case): void
+    public function test_future_period_invalid_join_and_invalid_target_cannot_be_submitted(string $case): void
     {
         $report = $this->report($case === 'future_month' ? '2026-11' : '2026-10');
         $field = 'period';
@@ -229,9 +229,6 @@ class MonthlyReportLifecycleTest extends TestCase
             $this->student->update(['began_on' => '2026-11-01']);
         } elseif ($case === 'future_join') {
             $this->student->update(['began_on' => '2026-10-20']);
-        } elseif ($case === 'target_unconfirmed') {
-            $report->update(['video_target_confirmed_at' => null]);
-            $field = 'video_target';
         } elseif ($case === 'target_negative') {
             $report->update(['video_target' => -1]);
             $field = 'video_target';
@@ -444,7 +441,7 @@ class MonthlyReportLifecycleTest extends TestCase
             }
             $this->actingAs($this->teacher->user)->putJson(route('teacher.student-progress.save', $report), $this->progressForm($report))->assertUnprocessable()->assertJsonValidationErrors('status');
             $this->deleteJson(route('teacher.student-progress.videos.delete', [$report, $video]), ['expected_snapshot' => app(StudentProgressService::class)->signature($report->fresh())])->assertUnprocessable()->assertJsonValidationErrors('status');
-            $this->actingAs($this->admin)->putJson(route('admin.student-progress.target', $report), ['video_target' => 0, 'expected_snapshot' => app(StudentProgressService::class)->signature($report->fresh())])->assertUnprocessable()->assertJsonValidationErrors('status');
+            $this->actingAs($this->superadmin)->putJson(route('superadmin.student-progress.target', $report), ['video_target' => 0, 'expected_snapshot' => app(StudentProgressService::class)->signature($report->fresh())])->assertForbidden();
         }
         $this->assertSame('Ringkasan publik asli', $report->fresh()->development_summary);
         $this->assertDatabaseHas('learning_videos', ['id' => $video->id]);

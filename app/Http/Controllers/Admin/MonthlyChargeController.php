@@ -7,7 +7,10 @@ use App\Http\Requests\MonthlyCharge\StoreMonthlyChargeRequest;
 use App\Http\Requests\MonthlyCharge\UpdateMonthlyChargeRequest;
 use App\Models\MonthlyCharge;
 use App\Services\BranchPaymentService;
+use App\Services\MonthlyChargeStudentFilterService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class MonthlyChargeController extends Controller
@@ -20,14 +23,23 @@ class MonthlyChargeController extends Controller
         return view('monthly-charges.index', compact('monthlyCharges'));
     }
 
-    public function create(BranchPaymentService $payments): View
+    public function create(Request $request, MonthlyChargeStudentFilterService $filter): View
     {
-        return view('monthly-charges.create', $payments->formOptions(auth()->user()));
+        return view('monthly-charges.create', $filter->options($request->user(), $filter->filters($request, oldInput: true), allowUnavailable: true));
+    }
+
+    public function studentOptions(Request $request, MonthlyChargeStudentFilterService $filter): JsonResponse
+    {
+        return response()->json($filter->jsonOptions($request->user(), $filter->filters($request)))
+            ->header('Cache-Control', 'private, no-store');
     }
 
     public function store(StoreMonthlyChargeRequest $request, BranchPaymentService $payments): RedirectResponse
     {
-        $charge = $payments->createCharge($request->user(), $request->validated());
+        $data = $request->validated();
+        app(MonthlyChargeStudentFilterService::class)->assertSelection($request->user(), $data);
+        unset($data['teacher_filter_id']);
+        $charge = $payments->createCharge($request->user(), $data);
 
         return redirect()->route('admin.monthly-charges.show', $charge)->with('success', 'Tagihan bulanan berhasil dibuat.');
     }

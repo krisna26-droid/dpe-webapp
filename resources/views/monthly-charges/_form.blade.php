@@ -8,9 +8,10 @@
     $formMethod = $isEdit ? 'PUT' : 'POST';
     $selectedStudent = old('student_id', $monthlyCharge?->student_id);
     $selectedBranch = old('branch_id', $monthlyCharge?->branch_id);
+    $selectedTeacher = $chargeFilters['teacher_filter_id'] ?? '';
     $chargeMonth = old(
         'charge_month',
-        $monthlyCharge?->charge_month?->format('Y-m-d') ?: now()->startOfMonth()->format('Y-m-d')
+        $monthlyCharge?->charge_month?->format('Y-m-d') ?: ($chargeFilters['charge_month'] ?? now()->startOfMonth()->format('Y-m-d'))
     );
     $amount = old('amount_idr', $monthlyCharge?->amount_idr);
     $dueOn = old('due_on', $monthlyCharge?->due_on?->format('Y-m-d'));
@@ -23,16 +24,32 @@
     </div>
 @endif
 
-<form method="POST" action="{{ $formAction }}">
+<form method="POST" action="{{ $formAction }}" @if (! $isEdit) data-monthly-charge-filter data-options-url="{{ route($routePrefix.'.monthly-charges.student-options') }}" data-has-branches="{{ $branches->isNotEmpty() ? '1' : '0' }}" @endif>
     @csrf
     @if ($formMethod !== 'POST')
         @method($formMethod)
     @endif
 
     <div class="dpe-dashboard-form-grid">
+        @if (! $isEdit)
+            <div class="dpe-dashboard-field">
+                <label for="teacher_filter_id">Guru <span>(opsional)</span></label>
+                <select id="teacher_filter_id" name="teacher_filter_id" aria-describedby="charge-teacher-help">
+                    <option value="">Semua guru / tampilkan semua siswa</option>
+                    @if ($selectedTeacher && ! $teachers->contains('id', $selectedTeacher))
+                        <option value="{{ $selectedTeacher }}" selected disabled>Guru tidak tersedia, pilih kembali</option>
+                    @endif
+                    @foreach ($teachers as $teacher)
+                        <option value="{{ $teacher->id }}" @selected((string) $selectedTeacher === (string) $teacher->id)>{{ $teacher->user->full_name }} · {{ $teacher->user->username }}</option>
+                    @endforeach
+                </select>
+                <p id="charge-teacher-help" class="dpe-dashboard-field__hint">Pilih guru untuk menyaring siswa binaannya pada bulan tagihan. Tagihan tetap ditujukan ke siswa yang dipilih.</p>
+                @error('teacher_filter_id')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
+            </div>
+        @endif
         <div class="dpe-dashboard-field">
             <label for="student_id">Siswa</label>
-            <select id="student_id" name="student_id" required>
+            <select id="student_id" name="student_id" required aria-describedby="charge-student-help">
                 <option value="">Pilih siswa</option>
                 @foreach ($students as $student)
                     <option value="{{ $student->id }}" @selected((string) $selectedStudent === (string) $student->id)>
@@ -41,9 +58,8 @@
                     </option>
                 @endforeach
             </select>
-            @if ($students->isEmpty())
-                <p class="dpe-dashboard-field__hint">Belum ada siswa aktif yang dapat dipilih.</p>
-            @endif
+            <p id="charge-student-help" class="dpe-dashboard-field__hint" role="status" aria-live="polite">{{ $students->isEmpty() ? ($selectedTeacher ? 'Tidak ada siswa untuk guru dan bulan tagihan ini. Pilih guru atau bulan lain.' : 'Belum ada siswa aktif yang dapat dipilih.') : $students->count().' siswa dapat dipilih.' }}</p>
+            @if (! $isEdit)<button type="button" class="dpe-dashboard-button dpe-dashboard-button--outline" data-charge-retry hidden>Coba lagi</button>@endif
             @error('student_id')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
         </div>
 
@@ -92,7 +108,7 @@
 
     <div class="dpe-dashboard-form-actions">
         <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ $isEdit ? route($routePrefix.'.monthly-charges.show', $monthlyCharge) : route($routePrefix.'.monthly-charges.index') }}">Batal</a>
-        <button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit" @disabled($students->isEmpty() || $branches->isEmpty())>
+        <button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit" data-charge-submit @disabled($students->isEmpty() || $branches->isEmpty())>
             <x-dashboard.icon name="check" />
             <span>{{ $isEdit ? 'Simpan perubahan' : 'Simpan tagihan' }}</span>
         </button>

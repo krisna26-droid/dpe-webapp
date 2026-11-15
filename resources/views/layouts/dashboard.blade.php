@@ -228,7 +228,7 @@
     <link rel="stylesheet" href="{{ asset('assets/dpe/status-badges.css') }}?v={{ filemtime(public_path('assets/dpe/status-badges.css')) }}">
     <x-dpe.branding-assets />
 </head>
-<body class="dpe-dashboard-page">
+<body class="dpe-dashboard-page @yield('body_class')">
     <a class="dpe-dashboard-skip" href="#dashboard-main">Lewati ke konten</a>
 
     <div class="dpe-dashboard-shell">

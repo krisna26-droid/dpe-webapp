@@ -65,19 +65,21 @@
         </div>
     @endif
 
-    <article class="dpe-dashboard-card">
+    @include('users._filters')
+
+    <article class="dpe-dashboard-card dpe-dashboard-card--spaced">
         <header class="dpe-dashboard-card__head">
             <div>
                 <h2>Daftar pengguna</h2>
-                <p>{{ $users->total() }} akun tercatat</p>
+                <p>{{ $users->total() }} {{ $hasUserFilters ? 'akun sesuai filter' : 'akun tercatat' }}</p>
             </div>
             <span class="dpe-dashboard-badge"><x-dashboard.icon name="users" /> Akses portal</span>
         </header>
 
         @if ($users->count() === 0)
             <x-dashboard.empty
-                title="Belum ada pengguna"
-                message="Belum ada akun lain yang tersimpan di sistem."
+                :title="$hasUserFilters ? 'Pengguna tidak ditemukan' : 'Belum ada pengguna'"
+                :message="$hasUserFilters ? 'Coba kata pencarian atau filter lain, atau pilih Reset.' : 'Belum ada akun lain yang tersimpan di sistem.'"
                 icon="users"
                 :action-url="route('superadmin.users.create')"
                 action-label="Tambah pengguna"

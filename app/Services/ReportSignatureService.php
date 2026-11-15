@@ -79,6 +79,17 @@ class ReportSignatureService
     public function lockManager(): void
     {
         if (Schema::hasTable('report_signatures')) {
+            // Some imports retain the table and migration record but omit this
+            // permanent row. Its unique owner/revision key protects concurrent
+            // recovery without changing any uploaded signature or its version.
+            if (! ReportSignature::where('owner_key', 'manager')->where('revision', 0)->exists()) {
+                DB::table('report_signatures')->insertOrIgnore([
+                    'id' => (string) Str::uuid(),
+                    'owner_key' => 'manager',
+                    'revision' => 0,
+                    'created_at' => now(),
+                ]);
+            }
             $anchor = ReportSignature::where('owner_key', 'manager')->where('revision', 0)->lockForUpdate()->first();
             if (! $anchor) {
                 throw ValidationException::withMessages(['signatures' => 'Data pengunci tanda tangan Manager tidak tersedia. Hubungi pengelola sistem.']);

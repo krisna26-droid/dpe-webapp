@@ -137,9 +137,9 @@ class StudentProgressService
                 $context = $this->preparationContext($actor, $student, $month);
                 $validated = Validator::make($data, [
                     'teacher_id' => ['required', 'string', Rule::in($context['teachers']->pluck('id')->all())],
-                    'video_target' => [$context['firstPartialMonth'] ? 'required' : 'nullable', 'integer', 'min:0', 'max:32767'],
+                    'video_target' => ['prohibited'],
                 ], ['teacher_id.in' => 'Pilih Teacher aktif yang mengajar siswa ini atau ditugaskan di cabang selama periode belajarnya pada bulan ini.',
-                    'video_target.required' => 'Admin perlu menetapkan target bulan pertama sesuai pertemuan yang dijadwalkan.'])->validate();
+                    'video_target.prohibited' => 'Target video hanya diatur melalui Pengaturan Sistem Super Admin. Periode ini menggunakan target default sistem.'])->validate();
             }
             $cycle = ReportCycle::where('student_id', $student->id)->whereDate('start_month', '<=', $month->toDateString())
                 ->whereDate('end_month', '>=', $month->toDateString())->lockForUpdate()->get();
@@ -161,15 +161,15 @@ class StudentProgressService
                     'start_month' => $cycleStart->toDateString(), 'end_month' => $cycleEnd->toDateString()]);
             }
             $settings = SystemSetting::first();
-            $target = $validated['video_target'] ?? $context['defaultTarget'];
+            $target = $context['defaultTarget'];
             if ($target < 0 || $target > 32767) {
                 throw ValidationException::withMessages(['video_target' => 'Target video pada pengaturan tidak valid.']);
             }
             $report = MonthlyReport::forceCreate(['id' => (string) Str::uuid(), 'student_id' => $student->id, 'cycle_id' => $cycle->id,
                 'branch_id' => $context['enrollment']->branch_id, 'teacher_id' => $validated['teacher_id'],
                 'report_month' => $month->toDateString(), 'due_on' => $month->setDay(min(max($settings?->default_report_due_day ?? 31, 1), $month->daysInMonth))->toDateString(),
-                'video_target' => $target, 'video_target_confirmed_at' => isset($validated['video_target']) ? now() : null,
-                'video_target_confirmed_by_user_id' => isset($validated['video_target']) ? $actor->id : null, 'status' => 'draft']);
+                'video_target' => $target, 'video_target_confirmed_at' => null,
+                'video_target_confirmed_by_user_id' => null, 'status' => 'draft']);
             $this->audit($actor, $report, $automatic ? 'prepared_automatically' : 'prepared', null);
 
             return $report;
@@ -208,10 +208,9 @@ class StudentProgressService
 
     public function targetReady(MonthlyReport $report): bool
     {
-        $report->loadMissing('student');
-
-        return $report->student->began_on->format('Y-m') !== $report->report_month->format('Y-m')
-            || $report->student->began_on->day === 1 || $report->video_target_confirmed_at !== null;
+        // A saved target is an indicator, including in a partial first month.
+        // Neither manual confirmation nor reaching the count gates a report.
+        return $report->video_target >= 0 && $report->video_target <= 32767;
     }
 
     public function blockReason(MonthlyReport $report): ?string
@@ -249,7 +248,7 @@ class StudentProgressService
             $this->categories()->map(fn ($s) => $s?->only(['id', 'is_active']))], JSON_THROW_ON_ERROR));
     }
 
-    private function lock(User $actor, MonthlyReport $report, array $data, bool $target = false): MonthlyReport
+    private function lock(User $actor, MonthlyReport $report, array $data): MonthlyReport
     {
         $report = MonthlyReport::whereKey($report->id)->lockForUpdate()->firstOrFail();
         $this->access->authorize($actor, $report);
@@ -257,7 +256,7 @@ class StudentProgressService
         if ($report->report_month->copy()->endOfMonth()->toDateString() < $report->student->began_on->toDateString()) {
             throw ValidationException::withMessages(['status' => 'Periode berada sebelum siswa mulai les.']);
         }
-        $reason = $target && in_array($report->status, ['draft', 'revision'], true) ? null : $this->blockReason($report);
+        $reason = $this->blockReason($report);
         if ($reason) {
             throw ValidationException::withMessages(['status' => $reason]);
         }
@@ -321,17 +320,8 @@ class StudentProgressService
 
     public function setTarget(User $actor, MonthlyReport $report, array $data): void
     {
-        abort_unless($this->access->canManage($actor), 403);
-        DB::transaction(function () use ($actor, $report, $data) {
-            $report = $this->lock($actor, $report, $data, true);
-            $values = Validator::make($data, ['video_target' => ['required', 'integer', 'min:0', 'max:32767']])->validate();
-            if ($report->video_target === (int) $values['video_target'] && $report->video_target_confirmed_at !== null) {
-                return;
-            }
-            $before = $this->snapshot($report);
-            $report->forceFill(['video_target' => $values['video_target'], 'video_target_confirmed_at' => now(), 'video_target_confirmed_by_user_id' => $actor->id])->save();
-            $this->audit($actor, $report, 'target_set', $before);
-        });
+        // Retain the old endpoint for open forms, but retire per-report edits.
+        abort(403, 'Target video hanya diatur melalui Pengaturan Sistem Super Admin.');
     }
 
     public function canEditVideo(User $actor, MonthlyReport $report, LearningVideo $video): bool

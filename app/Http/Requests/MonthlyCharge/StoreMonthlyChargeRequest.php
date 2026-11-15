@@ -17,6 +17,7 @@ class StoreMonthlyChargeRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'teacher_filter_id' => ['nullable', 'uuid'],
             'student_id' => [
                 'required',
                 'string',

@@ -231,6 +231,7 @@ class StudentProgressController extends Controller
 
     private function common(Request $request): array
     {
-        return ['routeBase' => $this->base($request), 'canManage' => $this->access->canManage($request->user()), 'monthlyReportBase' => $request->user()->role_code.'.monthly-reports'];
+        return ['routeBase' => $this->base($request), 'canManage' => $this->access->canManage($request->user()),
+            'monthlyReportBase' => $request->user()->role_code.'.monthly-reports'];
     }
 }
