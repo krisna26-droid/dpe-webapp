@@ -130,13 +130,13 @@ class ClientRevisionsWorkflowTest extends TestCase
         $this->assertDatabaseCount('monthly_reports', 2);
     }
 
-    public function test_partial_first_month_draft_is_available_but_target_still_requires_admin_confirmation(): void
+    public function test_partial_first_month_draft_uses_default_target_without_admin_confirmation(): void
     {
         $this->student->update(['began_on' => '2026-11-02']);
         app(AutomaticMonthlyReportService::class)->ensureFor($this->superadmin);
         $report = MonthlyReport::sole();
         $this->assertNull($report->video_target_confirmed_at);
-        $this->assertFalse(app(\App\Services\StudentProgressService::class)->targetReady($report));
+        $this->assertTrue(app(\App\Services\StudentProgressService::class)->targetReady($report));
         $this->actingAs($this->teacher->user)->get(route('teacher.student-progress.edit', $report))->assertOk();
     }
 

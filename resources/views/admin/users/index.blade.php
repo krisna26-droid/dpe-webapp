@@ -18,13 +18,15 @@
         </div>
     </section>
 
-    <article class="dpe-dashboard-card">
+    @include('users._filters')
+
+    <article class="dpe-dashboard-card dpe-dashboard-card--spaced">
         <header class="dpe-dashboard-card__head">
-            <div><h2>Daftar pengguna</h2><p>{{ $users->total() }} akun siswa tercatat</p></div>
+            <div><h2>Daftar pengguna</h2><p>{{ $users->total() }} {{ $hasUserFilters ? 'akun siswa sesuai filter' : 'akun siswa tercatat' }}</p></div>
             <span class="dpe-dashboard-badge"><x-dashboard.icon name="student" /> Siswa / Parent</span>
         </header>
         @if ($users->isEmpty())
-            <x-dashboard.empty title="Belum ada pengguna siswa" message="Tambahkan akun siswa beserta program belajarnya. Pendaftaran cabang akan dibuat otomatis." icon="users" :action-url="route('admin.users.create')" action-label="Tambah pengguna" />
+            <x-dashboard.empty :title="$hasUserFilters ? 'Pengguna tidak ditemukan' : 'Belum ada pengguna siswa'" :message="$hasUserFilters ? 'Coba kata pencarian atau filter lain, atau pilih Reset.' : 'Tambahkan akun siswa beserta program belajarnya. Pendaftaran cabang akan dibuat otomatis.'" icon="users" :action-url="route('admin.users.create')" action-label="Tambah pengguna" />
         @else
             <div class="dpe-dashboard-table-wrap">
                 <table class="dpe-dashboard-table">

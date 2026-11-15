@@ -109,7 +109,11 @@ class ProjectAuditRegressionTest extends TestCase
 
     private function report(): MonthlyReport
     {
-        return app(StudentProgressService::class)->prepare($this->admin, $this->student, CarbonImmutable::parse('2026-10-01'), ['teacher_id' => $this->teacher->id, 'video_target' => 2]);
+        $report = app(StudentProgressService::class)->prepare($this->admin, $this->student, CarbonImmutable::parse('2026-10-01'), ['teacher_id' => $this->teacher->id]);
+        // Existing imported periods may retain an older target.
+        $report->update(['video_target' => 2]);
+
+        return $report;
     }
 
     private function charge(): MonthlyCharge
@@ -406,7 +410,7 @@ class ProjectAuditRegressionTest extends TestCase
     public function test_preparation_accepts_single_day_enrollment_including_last_day_of_month(string $day): void
     {
         $this->student->enrollments()->first()->update(['starts_on' => $day, 'ends_on' => $day]);
-        $this->actingAs($this->admin)->post(route('admin.student-progress.prepare', ['student' => $this->student, 'month' => '2026-10']), ['teacher_id' => $this->teacher->id, 'video_target' => 1])->assertSessionHasNoErrors();
+        $this->actingAs($this->admin)->post(route('admin.student-progress.prepare', ['student' => $this->student, 'month' => '2026-10']), ['teacher_id' => $this->teacher->id])->assertSessionHasNoErrors();
         $this->assertDatabaseCount('monthly_reports', 1);
     }
 

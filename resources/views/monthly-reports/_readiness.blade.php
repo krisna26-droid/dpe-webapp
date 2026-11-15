@@ -5,7 +5,7 @@
             @if ($readiness['errors'])<ul class="dpe-monthly-checklist">@foreach ($readiness['errors'] as $field => $message)@if ($field !== 'skills')<li>{{ $message }}</li>@endif
 @endforeach</ul>@else<p>Isian wajib sudah lengkap.</p>@endif
             <p class="dpe-progress-help">{{ $readiness['videoCount'] }}{{ $readiness['targetReady'] ? ' / '.$monthlyReport->video_target : '' }} video tercatat. {{ $readiness['videoShortage'] > 0 ? 'Target belum tercapai. Kekurangan video tidak menghalangi pengajuan atau persetujuan.' : 'Jumlah video tidak menjadi syarat pengajuan atau persetujuan.' }}</p>
-            @if (! $readiness['targetReady'])<p class="dpe-progress-help">Konfirmasi target oleh Admin berbeda dari jumlah video yang telah diunggah.</p>@endif
+            @if (! $readiness['targetReady'])<p class="dpe-progress-help">Target video periode ini perlu diperiksa oleh Super Admin.</p>@endif
             <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($progressBase.'.edit', $monthlyReport) }}">{{ in_array($monthlyReport->status, ['draft', 'revision'], true) ? 'Lengkapi perkembangan & pesan' : 'Lihat perkembangan tersimpan' }}</a>
         </div>
     </article>

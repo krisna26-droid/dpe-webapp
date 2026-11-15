@@ -273,7 +273,7 @@ class StudentProgressStudentListTest extends TestCase
         $owner = $this->newTeacher($this->user('teacher'));
         BranchAdminAssignment::create(['id' => (string) Str::uuid(), 'admin_user_id' => $admin->id, 'branch_id' => $this->branch->id, 'starts_on' => '2026-10-01']);
         TeacherBranchAssignment::create(['id' => (string) Str::uuid(), 'teacher_id' => $owner->id, 'branch_id' => $this->branch->id, 'starts_on' => '2026-10-01']);
-        $report = app(StudentProgressService::class)->prepare($admin, $student, CarbonImmutable::parse('2026-10-01'), ['teacher_id' => $owner->id, 'video_target' => 2]);
+        $report = app(StudentProgressService::class)->prepare($admin, $student, CarbonImmutable::parse('2026-10-01'), ['teacher_id' => $owner->id]);
         $report->update(['parent_message' => 'PESAN RAHASIA LAPORAN', 'internal_teacher_note' => 'CATATAN RAHASIA LAPORAN']);
         $this->index()->assertSee($student->full_name)->assertSee('Dikelola Teacher lain')->assertSee('Hubungi Admin untuk penetapan pemilik laporan')
             ->assertDontSee('PESAN RAHASIA LAPORAN')->assertDontSee('CATATAN RAHASIA LAPORAN')

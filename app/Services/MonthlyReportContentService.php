@@ -52,7 +52,7 @@ class MonthlyReportContentService
         }
         $targetReady = $report->student && $this->progress->targetReady($report);
         if (! $targetReady || $report->video_target < 0 || $report->video_target > 32767) {
-            $errors['video_target'] = 'Admin perlu memastikan target video periode ini, termasuk target bulan pertama.';
+            $errors['video_target'] = 'Target video periode ini tidak valid. Hubungi Super Admin.';
         }
         $videoCount = $this->progress->videoRows($report)->filter(fn ($video) => $this->progress->validVideo($report, $video))->count();
 

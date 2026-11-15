@@ -2,6 +2,7 @@
 @section('title', 'Siswa Binaan')
 @section('heading', 'Siswa Binaan')
 @section('description', 'Siswa dari penugasan, kelas, sesi, atau laporan yang menjadi tanggung jawab Anda.')
+@section('body_class', 'dpe-teacher-students-page')
 
 @section('content')
     <section class="dpe-dashboard-page-header"><div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">Teacher / Kelas Saya</p><h2>Kenali siswa yang Anda bimbing.</h2><p>Siswa tetap tampil sebelum periode rapor disiapkan oleh Admin.</p></div></section>
@@ -20,7 +21,7 @@
             <header class="dpe-dashboard-card__head"><div><h2>{{ $month->locale('id')->translatedFormat('F Y') }}</h2><p>Buka profil untuk melihat kelas dan pertemuan siswa bersama Anda.</p></div><span class="dpe-dashboard-badge">{{ $students->total() }} siswa</span></header>
             @if($rows->isEmpty())<x-dashboard.empty title="Belum ada siswa untuk filter ini" message="Periksa bulan dan pencarian. Admin dapat menugaskan siswa langsung, menambah anggota kelas, atau menetapkan peserta sesi Anda." icon="student" />
             @else
-                <div class="dpe-dashboard-table-wrap"><table class="dpe-dashboard-table dpe-teacher-table"><thead><tr><th>Nama siswa</th><th>Sekolah</th><th>Kelas sekolah</th><th>Program / Cabang</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
+                <div class="dpe-dashboard-table-wrap dpe-teacher-students-table-wrap" role="region" aria-label="Daftar siswa binaan" tabindex="0"><table class="dpe-dashboard-table dpe-teacher-table dpe-teacher-students-table"><thead><tr><th>Nama siswa</th><th>Sekolah</th><th>Kelas sekolah</th><th>Program / Cabang</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
                     @foreach($rows as $row)
                         <tr><td><strong>{{ $row['student']->full_name }}</strong><small>Mulai les {{ $row['student']->began_on->format('d M Y') }}</small></td><td>{{ $row['student']->school_name ?: '—' }}</td><td>{{ $row['student']->grade_name ?: '—' }}</td>
                             <td>@forelse($row['student']->enrollments as $enrollment)<strong>{{ $enrollment->program?->name ?: 'Program belum tersedia' }}</strong><small>{{ $enrollment->branch?->name }}</small>@empty<span>Pendaftaran belum tersedia</span>@endforelse</td>

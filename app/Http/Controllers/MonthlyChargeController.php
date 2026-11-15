@@ -8,7 +8,10 @@ use App\Models\Branch;
 use App\Models\MonthlyCharge;
 use App\Models\Student;
 use App\Services\MonthlyChargeService;
+use App\Services\MonthlyChargeStudentFilterService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class MonthlyChargeController extends Controller
@@ -37,20 +40,27 @@ class MonthlyChargeController extends Controller
         );
     }
 
-    public function create(): View
+    public function create(Request $request, MonthlyChargeStudentFilterService $filter): View
     {
         return view(
             'monthly-charges.create',
-            $this->formOptions()
+            $filter->options($request->user(), $filter->filters($request, oldInput: true), allowUnavailable: true)
         );
+    }
+
+    public function studentOptions(Request $request, MonthlyChargeStudentFilterService $filter): JsonResponse
+    {
+        return response()->json($filter->jsonOptions($request->user(), $filter->filters($request)))
+            ->header('Cache-Control', 'private, no-store');
     }
 
     public function store(
         StoreMonthlyChargeRequest $request
     ): RedirectResponse {
-        $monthlyCharge = $this->monthlyChargeService->create(
-            $request->validated()
-        );
+        $data = $request->validated();
+        app(MonthlyChargeStudentFilterService::class)->assertSelection($request->user(), $data);
+        unset($data['teacher_filter_id']);
+        $monthlyCharge = $this->monthlyChargeService->create($data);
 
         return redirect()
             ->route(

@@ -31,6 +31,26 @@
 .dpe-teacher-table .dpe-operations-actions { justify-content: center; gap: 12px; }
 .dpe-teacher-table .dpe-dashboard-badge { white-space: normal; justify-content: center; text-align: center; }
 .dpe-teacher-table .dpe-dashboard-button { white-space: normal; text-align: center; justify-content: center; }
+.dpe-teacher-students-table-wrap { width: 100%; max-width: 100%; min-width: 0; }
+.dpe-teacher-students-table-wrap:focus-visible { outline: 3px solid #8bb1f7; outline-offset: 3px; }
+.dpe-teacher-students-table { min-width: 1080px; table-layout: fixed; }
+.dpe-teacher-students-table th:nth-child(1) { width: 23%; }
+.dpe-teacher-students-table th:nth-child(2) { width: 14%; }
+.dpe-teacher-students-table th:nth-child(3) { width: 10%; }
+.dpe-teacher-students-table th:nth-child(4) { width: 23%; }
+.dpe-teacher-students-table th:nth-child(5) { width: 10%; }
+.dpe-teacher-students-table th:nth-child(6) { width: 20%; }
+.dpe-teacher-students-table th { white-space: normal; overflow-wrap: normal; }
+.dpe-teacher-students-table td:last-child { overflow-wrap: normal; word-break: normal; }
+.dpe-teacher-students-table .dpe-operations-actions { flex-direction: column; align-items: stretch; }
+.dpe-teacher-students-table .dpe-dashboard-button { flex: 0 0 auto; width: 100%; white-space: nowrap; }
+@media (min-width: 981px) and (max-width: 1280px) {
+    .dpe-teacher-students-page .dpe-dashboard-sidebar { position: fixed; left: 0; transform: translateX(-102%); transition: transform .23s ease; }
+    .dpe-teacher-students-page .dpe-dashboard-sidebar.is-open { transform: translateX(0); }
+    .dpe-teacher-students-page .dpe-dashboard-icon-button--sidebar-close,
+    .dpe-teacher-students-page .dpe-dashboard-icon-button--menu { display: inline-grid; }
+    .dpe-teacher-students-page .dpe-dashboard-overlay:not([hidden]) { position: fixed; inset: 0; z-index: 30; display: block; background: #102d6338; backdrop-filter: blur(2px); }
+}
 @media (max-width: 1100px) { .dpe-teacher-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 800px) { .dpe-teacher-sessions { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) { .dpe-teacher-filters { grid-template-columns: minmax(0, 1fr); } .dpe-teacher-session { padding: 20px; } .dpe-teacher-form-actions .dpe-dashboard-button { flex: 1 1 140px; } }

@@ -8,6 +8,7 @@
             if (image.hasAttribute('src') && image.complete && image.naturalWidth === 0) image.hidden = true;
         });
         var body = document.body;
+        var sidebarBreakpoint = body.classList.contains('dpe-teacher-students-page') ? 1280 : 980;
         var sidebar = document.querySelector('[data-sidebar]');
         var sidebarToggle = document.querySelector('[data-sidebar-toggle]');
         var sidebarClose = document.querySelector('[data-sidebar-close]');
@@ -226,14 +227,14 @@
 
         document.querySelectorAll('[data-sidebar] a:not([data-planned])').forEach(function (link) {
             link.addEventListener('click', function () {
-                if (window.innerWidth <= 980) {
+                if (window.innerWidth <= sidebarBreakpoint) {
                     setSidebar(false);
                 }
             });
         });
 
         window.addEventListener('resize', function () {
-            if (window.innerWidth > 980) {
+            if (window.innerWidth > sidebarBreakpoint) {
                 setSidebar(false);
             }
         });

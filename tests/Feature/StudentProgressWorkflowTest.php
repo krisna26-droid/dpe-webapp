@@ -90,7 +90,11 @@ class StudentProgressWorkflowTest extends TestCase
 
     private function report(?Student $student = null, string $month = '2026-10'): MonthlyReport
     {
-        return $this->service->prepare($this->admin, $student ?? $this->student, CarbonImmutable::createFromFormat('!Y-m', $month), ['teacher_id' => $this->teacher->id, 'video_target' => 2]);
+        $report = $this->service->prepare($this->admin, $student ?? $this->student, CarbonImmutable::createFromFormat('!Y-m', $month), ['teacher_id' => $this->teacher->id]);
+        // Preserve legacy-target fixtures for the history and editing tests.
+        $report->update(['video_target' => 2]);
+
+        return $report;
     }
 
     private function url(string $action, MonthlyReport $report, string $role = 'teacher', ?LearningVideo $video = null): string
@@ -112,17 +116,18 @@ class StudentProgressWorkflowTest extends TestCase
             'topic' => 'Greeting practice', 'description' => 'Latihan salam', 'video_url' => 'https://example.com/learning-video', 'session_id' => null];
     }
 
-    public function test_admin_prepares_partial_first_month_with_manual_target_and_correct_three_month_cycle(): void
+    public function test_admin_prepares_partial_first_month_with_default_target_and_correct_three_month_cycle(): void
     {
         $response = $this->actingAs($this->admin)->get(route('admin.student-progress.preparation', ['student' => $this->student, 'month' => '2026-10']))->assertOk()
             ->assertSee('Siswa Progres')->assertSee('05 Oct 2026')->assertSee('Kembali ke daftar siswa');
         $response->assertViewHas('firstPartialMonth', true);
-        $this->post(route('admin.student-progress.prepare', $this->student), ['month' => '2026-10', 'teacher_id' => $this->teacher->id])->assertSessionHasErrors('video_target');
+        $response->assertDontSee('name="video_target"', false);
+        $this->post(route('admin.student-progress.prepare', $this->student), ['month' => '2026-10', 'teacher_id' => $this->teacher->id, 'video_target' => 0])->assertSessionHasErrors('video_target');
         $this->assertDatabaseCount('monthly_reports', 0);
-        $this->post(route('admin.student-progress.prepare', $this->student), ['month' => '2026-10', 'teacher_id' => $this->teacher->id, 'video_target' => 0])->assertRedirect();
+        $this->post(route('admin.student-progress.prepare', $this->student), ['month' => '2026-10', 'teacher_id' => $this->teacher->id])->assertRedirect()->assertSessionHasNoErrors();
         $report = MonthlyReport::firstOrFail();
-        $this->assertSame(0, $report->video_target);
-        $this->assertSame($this->admin->id, $report->video_target_confirmed_by_user_id);
+        $this->assertSame(4, $report->video_target);
+        $this->assertNull($report->video_target_confirmed_by_user_id);
         $this->assertTrue($this->service->targetReady($report));
         $this->assertSame('2026-10-01', $report->cycle->start_month->toDateString());
         $this->assertSame('2026-12-01', $report->cycle->end_month->toDateString());
@@ -213,15 +218,15 @@ class StudentProgressWorkflowTest extends TestCase
         $this->actingAs($this->actor)->get($this->url('edit', $report))->assertForbidden();
     }
 
-    public function test_admin_branch_scope_and_superadmin_global_scope_apply_to_index_and_target(): void
+    public function test_admin_branch_scope_and_superadmin_global_scope_apply_without_per_report_target_edits(): void
     {
         $report = $this->report();
         $otherAdmin = $this->user('admin');
         $this->actingAs($otherAdmin)->get(route('admin.student-progress.index', ['month' => '2026-10']))->assertOk()->assertDontSee('Siswa Progres');
         $this->put($this->url('target', $report, 'admin'), ['video_target' => 5, 'expected_snapshot' => $this->service->signature($report)])->assertForbidden();
         $this->actingAs($this->superadmin)->get($this->url('edit', $report, 'superadmin'))->assertOk()->assertSee('Siswa Progres');
-        $this->put($this->url('target', $report, 'superadmin'), ['video_target' => 5, 'expected_snapshot' => $this->service->signature($report)])->assertRedirect();
-        $this->assertSame(5, $report->fresh()->video_target);
+        $this->put($this->url('target', $report, 'superadmin'), ['video_target' => 5, 'expected_snapshot' => $this->service->signature($report)])->assertForbidden();
+        $this->assertSame(2, $report->fresh()->video_target);
     }
 
     public function test_public_content_and_internal_content_are_saved_separately_without_attendance_or_message_side_effects(): void
@@ -324,12 +329,13 @@ class StudentProgressWorkflowTest extends TestCase
     {
         $report = $this->report();
         $payload = $this->payload($report, ['next' => 'video_create']);
-        $this->service->setTarget($this->admin, $report, ['video_target' => 3, 'expected_snapshot' => $payload['expected_snapshot']]);
+        $this->service->saveVideo($this->actor, $report, $this->videoPayload($report));
         $this->actingAs($this->actor)->from($this->url('edit', $report))->put($this->url('save', $report), $payload)
             ->assertRedirect($this->url('edit', $report))->assertSessionHasErrors('expected_snapshot')
             ->assertSessionHasInput('parent_message', $payload['parent_message']);
         $this->assertSame(0, $report->reportSkills()->count());
-        $this->assertSame(3, $report->fresh()->video_target);
+        $this->assertSame(2, $report->fresh()->video_target);
+        $this->assertDatabaseCount('learning_videos', 1);
     }
 
     public static function videoNavigationActions(): array
@@ -416,12 +422,13 @@ class StudentProgressWorkflowTest extends TestCase
     {
         $report = $this->report();
         $stale = $this->payload($report);
-        $this->service->setTarget($this->admin, $report, ['video_target' => 3, 'expected_snapshot' => $stale['expected_snapshot']]);
+        $this->service->saveVideo($this->actor, $report, $this->videoPayload($report));
         $editUrl = $this->url('edit', $report);
         $this->actingAs($this->actor)->from($editUrl)->put($this->url('save', $report), $stale)->assertRedirect($editUrl)->assertSessionHasErrors('expected_snapshot');
         $this->get($editUrl)->assertOk()->assertSee('Muat data terbaru')->assertSee('Ringkasan publik')->assertDontSee('Simpan draf perkembangan');
         $this->assertNull($report->fresh()->parent_message);
-        $this->assertSame(3, $report->fresh()->video_target);
+        $this->assertSame(2, $report->fresh()->video_target);
+        $this->assertDatabaseCount('learning_videos', 1);
     }
 
     public function test_repeated_same_save_is_noop_and_revision_remains_revision(): void
@@ -450,7 +457,7 @@ class StudentProgressWorkflowTest extends TestCase
         $this->put($this->url('save', $report), $this->payload($report))->assertSessionHasErrors('status');
         $this->post($this->url('videos.store', $report), $this->videoPayload($report))->assertSessionHasErrors('status');
         $this->delete($this->url('videos.delete', $report, 'teacher', $video), ['expected_snapshot' => $this->service->signature($report->fresh())])->assertSessionHasErrors('status');
-        $this->actingAs($this->admin)->put($this->url('target', $report, 'admin'), ['video_target' => 8, 'expected_snapshot' => $this->service->signature($report->fresh())])->assertSessionHasErrors('status');
+        $this->actingAs($this->superadmin)->put($this->url('target', $report, 'superadmin'), ['video_target' => 8, 'expected_snapshot' => $this->service->signature($report->fresh())])->assertForbidden();
         foreach (['legacy-video' => fn () => app(LearningVideoService::class)->delete($video),
             'legacy-skill' => fn () => app(MonthlyReportSkillService::class)->create(['report_id' => $report->id, 'skill_id' => $this->service->categories()->first()->id, 'trend' => 'Stable', 'description' => 'forged'])] as $run) {
             try {
@@ -465,12 +472,12 @@ class StudentProgressWorkflowTest extends TestCase
         $this->assertSame(2, $report->fresh()->video_target);
     }
 
-    public function test_future_period_allows_admin_target_planning_but_blocks_learning_data(): void
+    public function test_future_period_blocks_per_report_target_edits_and_learning_data(): void
     {
         $report = $this->report(month: '2026-11');
         $this->actingAs($this->actor)->put($this->url('save', $report), $this->payload($report))->assertSessionHasErrors('status');
-        $this->actingAs($this->admin)->put($this->url('target', $report, 'admin'), ['video_target' => 3, 'expected_snapshot' => $this->service->signature($report->fresh())])->assertRedirect();
-        $this->assertSame(3, $report->fresh()->video_target);
+        $this->actingAs($this->superadmin)->put($this->url('target', $report, 'superadmin'), ['video_target' => 3, 'expected_snapshot' => $this->service->signature($report->fresh())])->assertForbidden();
+        $this->assertSame(2, $report->fresh()->video_target);
     }
 
     public function test_video_create_edit_and_confirmed_delete_preserve_attribution_and_period_scope(): void
@@ -566,13 +573,12 @@ class StudentProgressWorkflowTest extends TestCase
         $this->actingAs($this->student->portalUser)->get($this->url('edit', $report))->assertForbidden();
     }
 
-    public function test_legacy_partial_first_month_needs_admin_confirmation_and_invalid_legacy_links_are_not_clickable_or_counted(): void
+    public function test_legacy_partial_first_month_needs_no_confirmation_and_invalid_legacy_links_are_not_clickable_or_counted(): void
     {
         $report = $this->report();
         $report->update(['video_target_confirmed_at' => null, 'video_target_confirmed_by_user_id' => null]);
         LearningVideo::create(['id' => (string) Str::uuid(), 'student_id' => $this->student->id, 'teacher_id' => $this->teacher->id, 'video_on' => '2026-10-06', 'topic' => 'Legacy', 'video_url' => 'javascript:alert(1)']);
-        $this->actingAs($this->actor)->get($this->url('edit', $report))->assertOk()->assertSee('Target belum dikonfirmasi')->assertViewHas('videoCount', 0)->assertDontSee('href="javascript:', false);
-        $this->actingAs($this->admin)->put($this->url('target', $report, 'admin'), ['video_target' => 0, 'expected_snapshot' => $this->service->signature($report->fresh())])->assertRedirect();
+        $this->actingAs($this->actor)->get($this->url('edit', $report))->assertOk()->assertDontSee('Target belum dikonfirmasi')->assertViewHas('videoCount', 0)->assertDontSee('href="javascript:', false);
         $this->assertTrue($this->service->targetReady($report->fresh()));
     }
 
@@ -582,7 +588,7 @@ class StudentProgressWorkflowTest extends TestCase
         StudentTeacherAssignment::create(['id' => (string) Str::uuid(), 'student_id' => $this->student->id, 'teacher_id' => $this->teacher->id, 'starts_on' => '2026-10-05', 'is_report_owner' => true]);
         $reports = app(MonthlyReportService::class)->generateForCycle($cycle);
         $this->assertCount(3, $reports);
-        $this->assertFalse($this->service->targetReady($reports->first()));
+        $this->assertTrue($this->service->targetReady($reports->first()));
         $this->assertSame('2026-10-01', $reports->first()->report_month->toDateString());
         $this->assertSame($this->teacher->id, $reports->first()->teacher_id);
     }
@@ -590,7 +596,7 @@ class StudentProgressWorkflowTest extends TestCase
     public function test_overlapping_existing_cycle_is_rejected_without_creating_partial_records(): void
     {
         ReportCycle::forceCreate(['id' => (string) Str::uuid(), 'student_id' => $this->student->id, 'cycle_number' => 1, 'start_month' => '2026-11-01', 'end_month' => '2027-01-01']);
-        $this->actingAs($this->admin)->post(route('admin.student-progress.prepare', $this->student), ['month' => '2026-10', 'teacher_id' => $this->teacher->id, 'video_target' => 2])->assertSessionHasErrors('month');
+        $this->actingAs($this->admin)->post(route('admin.student-progress.prepare', $this->student), ['month' => '2026-10', 'teacher_id' => $this->teacher->id])->assertSessionHasErrors('month');
         $this->assertDatabaseCount('monthly_reports', 0);
         $this->assertDatabaseCount('report_cycles', 1);
         $this->assertDatabaseCount('monthly_progress_audits', 0);
@@ -659,7 +665,7 @@ class StudentProgressWorkflowTest extends TestCase
         $report = $this->report();
         $this->student->update(['began_on' => '2026-11-05']);
         $this->actingAs($this->actor)->put($this->url('save', $report), $this->payload($report))->assertSessionHasErrors('status');
-        $this->actingAs($this->admin)->put($this->url('target', $report, 'admin'), ['video_target' => 8, 'expected_snapshot' => $this->service->signature($report->fresh())])->assertSessionHasErrors('status');
+        $this->actingAs($this->superadmin)->put($this->url('target', $report, 'superadmin'), ['video_target' => 8, 'expected_snapshot' => $this->service->signature($report->fresh())])->assertForbidden();
         $this->assertSame(2, $report->fresh()->video_target);
     }
 
@@ -689,8 +695,8 @@ class StudentProgressWorkflowTest extends TestCase
     public function test_history_pagination_stays_scoped_to_report_and_preserves_all_events(): void
     {
         $report = $this->report();
-        for ($target = 3; $target <= 14; $target++) {
-            $this->service->setTarget($this->admin, $report, ['video_target' => $target, 'expected_snapshot' => $this->service->signature($report->fresh())]);
+        for ($revision = 3; $revision <= 14; $revision++) {
+            $this->service->save($this->actor, $report, $this->payload($report, ['parent_message' => 'Pesan revisi '.$revision]));
         }
         $other = $this->report($this->newStudent('Siswa Lain'));
         $response = $this->actingAs($this->actor)->get($this->url('edit', $report).'?history_page=2')->assertOk();

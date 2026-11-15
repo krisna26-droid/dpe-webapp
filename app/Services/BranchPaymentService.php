@@ -46,7 +46,7 @@ class BranchPaymentService
         $students = Student::query()->where('status', 'active')->whereHas('enrollments', fn ($q) => $q
             ->whereIn('branch_id', $branches->pluck('id'))->whereDate('starts_on', '<=', $end)
             ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', $start)))
-            ->when($current, fn ($q) => $q->orWhereKey($current->student_id))
+            ->when($current, fn ($q) => $q->orWhere('students.id', $current->student_id))
             ->with('portalUser')->orderBy('full_name')->get();
 
         return compact('branches', 'students');
@@ -87,7 +87,7 @@ class BranchPaymentService
             ->where(fn ($e) => $e->whereNull('ends_on')->orWhereDate('ends_on', '>=', $month->startOfMonth()->toDateString())));
         if ($current && $current->student_id === $data['student_id'] && $current->branch_id === $branch->id
             && $current->charge_month->startOfMonth()->toDateString() === $month->startOfMonth()->toDateString()) {
-            $studentQuery->orWhereKey($current->student_id);
+            $studentQuery->orWhere('students.id', $current->student_id);
         }
         abort_unless($studentQuery->exists(), 403, 'Siswa tidak terdaftar pada cabang ini di periode tagihan tersebut.');
     }

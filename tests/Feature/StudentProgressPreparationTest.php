@@ -103,7 +103,7 @@ class StudentProgressPreparationTest extends TestCase
 
     private function submit(Student $student, Teacher $teacher, array $extra = []): TestResponse
     {
-        return $this->actingAs($this->admin)->post(route('admin.student-progress.prepare', $student), $extra + ['month' => '2026-10', 'teacher_id' => $teacher->id, 'video_target' => 2]);
+        return $this->actingAs($this->admin)->post(route('admin.student-progress.prepare', $student), $extra + ['month' => '2026-10', 'teacher_id' => $teacher->id]);
     }
 
     private function xpath(TestResponse $response): \DOMXPath
@@ -321,7 +321,7 @@ class StudentProgressPreparationTest extends TestCase
         $response = $this->preparation($student)->assertSee('Belum ada Teacher yang dapat dipilih')->assertSee('Buka Data Guru');
         $xpath = $this->xpath($response);
         $this->assertSame(1, $xpath->query('//select[@name="teacher_id" and @disabled]')->length);
-        $this->assertSame(1, $xpath->query('//input[@name="video_target"]')->length);
+        $this->assertSame(0, $xpath->query('//input[@name="video_target"]')->length);
         $this->assertSame(1, $xpath->query('//form//button[@type="submit" and @disabled]')->length);
         $this->assertDatabaseCount('monthly_reports', 0);
     }

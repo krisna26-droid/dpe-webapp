@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 @section('title', 'Siapkan Periode Siswa')
 @section('heading', 'Siapkan Periode Siswa')
-@section('description', 'Tetapkan Teacher dan target video untuk satu siswa-bulan.')
+@section('description', 'Tetapkan Teacher untuk satu siswa-bulan. Target video mengikuti pengaturan Super Admin.')
 @push('head')
     <link rel="stylesheet" href="{{ asset('assets/dpe/student-progress.css') }}?v={{ filemtime(public_path('assets/dpe/student-progress.css')) }}">
 @endpush
@@ -9,7 +9,7 @@
     <section class="dpe-dashboard-page-header"><div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">Perkembangan & Pesan / Persiapan</p><h2>{{ $student->full_name }}</h2><p>{{ $month->locale('id')->translatedFormat('F Y') }} · {{ $enrollment->branch?->name }}</p></div><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.index', ['month' => $month->format('Y-m')]) }}"><x-dashboard.icon name="back" />Kembali ke daftar siswa</a></section>
     <article class="dpe-dashboard-card"><header class="dpe-dashboard-card__head"><div><h2>Periode pembelajaran</h2><p>Periode yang sudah tersedia dipertahankan ketika persiapan diulang.</p></div></header><div class="dpe-dashboard-card__body">
         <div class="dpe-progress-meta"><span><strong>Mulai les</strong>{{ $student->began_on->format('d M Y') }}</span><span><strong>Pencatatan periode dimulai</strong>{{ \Carbon\Carbon::parse($startsOn)->format('d M Y') }}</span><span><strong>Bulan</strong>{{ $month->locale('id')->translatedFormat('F Y') }}</span></div>
-        @if ($firstPartialMonth)<div class="dpe-progress-notice" role="status"><x-dashboard.icon name="info" /><p>Siswa mulai di tengah bulan. Tetapkan target video berdasarkan pertemuan yang dijadwalkan bulan ini.</p></div>@endif
+        @if ($firstPartialMonth)<div class="dpe-progress-notice" role="status"><x-dashboard.icon name="info" /><p>Siswa mulai di tengah bulan. Target awal tetap mengikuti pengaturan Super Admin. Jumlah video yang belum mencapai target tidak menghalangi pengajuan atau persetujuan laporan.</p></div>@endif
         @if ($unavailableAssignedTeachers->isNotEmpty())
             <div class="dpe-progress-notice" role="status"><x-dashboard.icon name="info" /><p>Teacher yang ditugaskan belum dapat dipilih: <strong>{{ $unavailableAssignedTeachers->pluck('user.full_name')->filter()->join(', ') }}</strong>. Periksa status profil dan akun Teacher; keduanya harus aktif dan akun memakai peran Teacher.</p></div>
         @endif
@@ -47,7 +47,7 @@
                     @endif
                     @error('teacher_id')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
                 </div>
-                <div class="dpe-dashboard-field"><label for="progress-target">Target video bulan ini{{ $firstPartialMonth ? ' (wajib ditetapkan)' : '' }}</label><input id="progress-target" type="number" name="video_target" min="0" max="32767" value="{{ old('video_target', $firstPartialMonth ? '' : $defaultTarget) }}" @required($firstPartialMonth)><p class="dpe-progress-help">{{ $firstPartialMonth ? 'Masukkan jumlah sesuai jadwal. Nilai 0 diperbolehkan jika tidak ada target video.' : 'Target awal mengikuti pengaturan sistem dan disimpan untuk bulan ini.' }}</p>@error('video_target')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror</div>
+                <div class="dpe-dashboard-field"><p><strong>Target video default: {{ $defaultTarget }}</strong></p><p class="dpe-progress-help">Diatur melalui Pengaturan Sistem Super Admin dan disimpan saat periode disiapkan. Teacher tetap dapat mengajukan laporan ketika jumlah video belum mencapai target.</p>@error('video_target')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror</div>
             </div>
             <div class="dpe-dashboard-form-actions"><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.index', ['month' => $month->format('Y-m')]) }}">Batal</a><button type="submit" class="dpe-dashboard-button dpe-dashboard-button--primary" @disabled($teachers->isEmpty())>Siapkan periode</button></div>
         </form>
