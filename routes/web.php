@@ -221,7 +221,7 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
             Route::get('/student-progress/{monthlyReport}/videos/{learningVideo}/remove', [StudentProgressController::class, 'videoConfirm'])->name('student-progress.videos.confirm');
             Route::delete('/student-progress/{monthlyReport}/videos/{learningVideo}', [StudentProgressController::class, 'videoDelete'])->name('student-progress.videos.delete');
             Route::get('/student-attendance/sessions/{lessonSession}', [StudentAttendanceController::class, 'show'])->name('student-attendance.show');
-            Route::get('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'edit'])->name('student-attendance.edit');
+            Route::get('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'edit'])->withTrashed()->name('student-attendance.edit');
             Route::post('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'save'])->name('student-attendance.save');
             Route::put('/student-attendance/sessions/{lessonSession}/participants', [StudentAttendanceController::class, 'roster'])->name('student-attendance.roster');
 
@@ -560,7 +560,7 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
             Route::get('/student-progress/{monthlyReport}/videos/{learningVideo}/remove', [StudentProgressController::class, 'videoConfirm'])->name('student-progress.videos.confirm');
             Route::delete('/student-progress/{monthlyReport}/videos/{learningVideo}', [StudentProgressController::class, 'videoDelete'])->name('student-progress.videos.delete');
             Route::get('/student-attendance/sessions/{lessonSession}', [StudentAttendanceController::class, 'show'])->name('student-attendance.show');
-            Route::get('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'edit'])->name('student-attendance.edit');
+            Route::get('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'edit'])->withTrashed()->name('student-attendance.edit');
             Route::post('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'save'])->name('student-attendance.save');
             Route::put('/student-attendance/sessions/{lessonSession}/participants', [StudentAttendanceController::class, 'roster'])->name('student-attendance.roster');
 
@@ -764,7 +764,7 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
             Route::get('/student-progress/{monthlyReport}/videos/{learningVideo}/remove', [StudentProgressController::class, 'videoConfirm'])->name('student-progress.videos.confirm');
             Route::delete('/student-progress/{monthlyReport}/videos/{learningVideo}', [StudentProgressController::class, 'videoDelete'])->name('student-progress.videos.delete');
             Route::get('/student-attendance/sessions/{lessonSession}', [StudentAttendanceController::class, 'show'])->name('student-attendance.show');
-            Route::get('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'edit'])->name('student-attendance.edit');
+            Route::get('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'edit'])->withTrashed()->name('student-attendance.edit');
             Route::post('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'save'])->name('student-attendance.save');
             Route::post('/student-attendance/sessions/{lessonSession}/participants/makeup', [StudentAttendanceController::class, 'addMakeupParticipant'])
                 ->middleware(['role:teacher', 'throttle:20,1'])->name('student-attendance.makeup.add');

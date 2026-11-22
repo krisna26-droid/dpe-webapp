@@ -37,5 +37,6 @@
                 </tbody></table></div>
             @endif
         </article>
+        @include('student-attendance._deleted-history', ['lessonSession' => $session, 'routeBase' => 'teacher.student-attendance'])
     </div>
 @endsection

@@ -36,11 +36,23 @@
             <div class="dpe-dashboard-card__body">
                 @error('student_id')<p class="dpe-dashboard-alert dpe-dashboard-alert--error">{{ $message }}</p>@enderror
                 @if ($makeupCandidates->isNotEmpty())
-                    <form method="POST" action="{{ route('teacher.student-attendance.makeup.add', $lessonSession) }}" class="dpe-dashboard-form">
+                    <form method="POST" action="{{ route('teacher.student-attendance.makeup.add', $lessonSession) }}" class="dpe-dashboard-form" data-makeup-form>
                         @csrf
-                        <input type="hidden" name="expected_roster" value="{{ $rosterSignature }}">
                         <div class="dpe-dashboard-form-grid">
-                            <div class="dpe-dashboard-field dpe-dashboard-field--full"><label for="makeup-student">Siswa</label><select id="makeup-student" name="student_id" required><option value="">Pilih siswa dari cabang ini</option>@foreach ($makeupCandidates as $candidate)<option value="{{ $candidate->id }}" @selected(old('student_id') === $candidate->id)>{{ $candidate->full_name }}</option>@endforeach</select></div>
+                            <div class="dpe-dashboard-field" data-makeup-search-field hidden>
+                                <label for="makeup-student-search">Cari nama siswa</label>
+                                <input id="makeup-student-search" type="search" placeholder="Ketik sebagian nama" autocomplete="off" aria-controls="makeup-student">
+                            </div>
+                            <div class="dpe-dashboard-field">
+                                <label for="makeup-student">Siswa</label>
+                                <select id="makeup-student" name="student_id" required aria-describedby="makeup-student-results">
+                                    <option value="">Pilih siswa dari cabang ini</option>
+                                    @foreach ($makeupCandidates as $candidate)
+                                        <option value="{{ $candidate->id }}" @selected(old('student_id') === $candidate->id)>{{ $candidate->full_name }}</option>
+                                    @endforeach
+                                </select>
+                                <p id="makeup-student-results" class="dpe-dashboard-field__hint" role="status"></p>
+                            </div>
                         </div>
                         <div class="dpe-dashboard-form-actions"><button type="submit" class="dpe-dashboard-button dpe-dashboard-button--primary"><x-dashboard.icon name="plus" />Tambahkan ke pertemuan</button></div>
                     </form>
@@ -77,6 +89,8 @@
             </tbody></table></div>
         @endif
     </article>
+
+    @include('student-attendance._deleted-history')
 
     @if ($lessonSession->class_group_id)
         <p class="dpe-student-attendance-help">Peserta kelas mengikuti keanggotaan, pendaftaran program, dan tanggal mulai les pada tanggal pertemuan. Catatan yang sudah tersimpan tetap dapat ditelusuri.</p>

@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Catat Kehadiran Siswa')
-@section('heading', 'Catat Kehadiran Siswa')
+@section('title', $student->trashed() ? 'Riwayat Kehadiran Siswa' : 'Catat Kehadiran Siswa')
+@section('heading', $student->trashed() ? 'Riwayat Kehadiran Siswa' : 'Catat Kehadiran Siswa')
 @section('description', 'Status kehadiran, catatan, dan riwayat koreksi siswa pada pertemuan ini.')
 @push('head')
     <link rel="stylesheet" href="{{ asset('assets/dpe/student-attendance.css') }}?v={{ filemtime(public_path('assets/dpe/student-attendance.css')) }}">
@@ -12,7 +12,16 @@
         <div class="dpe-dashboard-page-header__copy"><p class="dpe-dashboard-kicker">Pembelajaran / Kehadiran siswa</p><h2>{{ $student->full_name }}</h2><p>{{ $lessonSession->branch?->name }} · {{ $lessonSession->program?->name }} · Pertemuan {{ $cell['date']->locale('id')->translatedFormat('d F Y, H:i') }}</p></div>
         <div class="dpe-dashboard-page-header__actions"><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.show', $lessonSession) }}"><x-dashboard.icon name="back" />Kembali ke peserta</a></div>
     </section>
-    <div class="dpe-student-attendance-detail-meta"><p><span>Mulai les</span><strong>{{ $student->began_on->format('d M Y') }}</strong></p><p><span>Status saat ini</span><strong>{{ $cell['label'] }}</strong></p><p><span>Dicatat pertama</span><strong>{{ $cell['record']?->recorded_at?->format('d M Y H:i') ?: ($cell['requires_reason'] ? 'Waktu lama tidak tersedia' : 'Belum dicatat') }}</strong></p><p><span>Perubahan terakhir</span><strong>{{ $cell['record']?->attendance_updated_at?->format('d M Y H:i') ?: '—' }}</strong></p></div>
+    @php
+        $storedStatus = $cell['record']?->attendance_status;
+    @endphp
+    <div class="dpe-student-attendance-detail-meta"><p><span>Mulai les</span><strong>{{ $student->began_on->format('d M Y') }}</strong></p><p><span>Kehadiran</span><strong>{{ $student->trashed() ? ($statuses[$storedStatus] ?? ($storedStatus ?: 'Belum dicatat')) : $cell['label'] }}</strong></p><p><span>Dicatat pertama</span><strong>{{ $cell['record']?->recorded_at?->format('d M Y H:i') ?: ($cell['requires_reason'] ? 'Waktu lama tidak tersedia' : 'Belum dicatat') }}</strong></p><p><span>Perubahan terakhir</span><strong>{{ $cell['record']?->attendance_updated_at?->format('d M Y H:i') ?: '—' }}</strong></p></div>
+    @if ($student->trashed())
+        <p class="dpe-student-attendance-notice"><strong>Siswa dihapus.</strong> Catatan ini tersedia untuk dibaca.</p>
+        @if ($cell['record']->individual_learning_note !== null)
+            <p><strong>Catatan pertemuan siswa</strong><br>{{ $cell['record']->individual_learning_note }}</p>
+        @endif
+    @else
     @if ($cell['reason'])<p class="dpe-student-attendance-notice">{{ $cell['reason'] }}. Kehadiran baru mengikuti tanggal pertemuan yang berlaku.</p>@endif
     <form method="POST" action="{{ route($routeBase.'.save', [$lessonSession, $student]) }}" class="dpe-dashboard-form">
         @csrf
@@ -38,6 +47,7 @@
         @error('expected_version')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
         <div class="dpe-dashboard-form-actions"><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route($routeBase.'.show', $lessonSession) }}">Batal</a><button type="submit" class="dpe-dashboard-button dpe-dashboard-button--primary">Simpan kehadiran</button></div>
     </form>
+    @endif
 
     <article class="dpe-dashboard-card dpe-student-attendance-history">
         <header class="dpe-dashboard-card__head"><div><h2>Riwayat pencatatan dan koreksi</h2><p>Tanggal pertemuan {{ $cell['date']->format('d M Y') }} tersimpan terpisah dari waktu pengisian.</p></div></header>

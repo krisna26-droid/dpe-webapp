@@ -29,7 +29,7 @@ function setup() {
     const requests = [];
     const context = { document: { querySelectorAll: () => [form] }, window: { location: { href: 'https://example.test/admin/monthly-charges/create' } },
         URL, AbortController, Option: function (label, value) { return option(label, value); },
-        fetch: (url, options) => new Promise((resolve, reject) => requests.push({ url, options, resolve, reject })) };
+        fetch: (url, options) => new Promise((resolve, reject) => requests.push({ url: new URL(url), options, resolve, reject })) };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../public/assets/dpe/monthly-charge-filter.js'), 'utf8'), context);
     const respond = (index, students, teachers = [{ id: 'teacher-a', label: 'Guru A' }, { id: 'teacher-b', label: 'Guru B' }]) => {
         requests[index].resolve({ ok: true, redirected: false, json: async () => ({ students, teachers }) });
@@ -67,13 +67,27 @@ test('loading errors keep submission blocked and a retry can recover', async () 
     assert.equal(ui.retry.hidden, true); assert.equal(ui.student.disabled, false); assert.equal(ui.submit.disabled, false);
 });
 
-test('changing billing month resets both choices and refreshes available teachers', async () => {
+test('changing billing month refreshes available teachers and retains a teacher who is still available', async () => {
     const ui = setup(); ui.teacher.value = 'teacher-a'; ui.month.value = '2026-12-01'; ui.month.dispatchEvent(new Event('change'));
-    assert.equal(ui.teacher.value, ''); assert.equal(ui.student.value, '');
-    assert.equal(ui.requests[0].url.searchParams.get('teacher_filter_id'), null);
+    assert.equal(ui.teacher.value, 'teacher-a'); assert.equal(ui.student.value, '');
+    assert.equal(ui.requests[0].url.searchParams.get('teacher_filter_id'), 'teacher-a');
     assert.equal(ui.requests[0].url.searchParams.get('charge_month'), '2026-12-01');
-    ui.respond(0, [{ id: 'student-c', label: 'Siswa C' }], [{ id: 'teacher-c', label: 'Guru C' }]); await tick();
+    ui.respond(0, [{ id: 'student-c', label: 'Siswa C' }], [{ id: 'teacher-a', label: 'Guru A' }]); await tick();
+    assert.deepEqual(ui.teacher.options.map((o) => o.value), ['', 'teacher-a']);
+    assert.deepEqual(ui.student.options.map((o) => o.value), ['', 'student-c']);
+    assert.equal(ui.teacher.value, 'teacher-a');
+});
+
+test('changing month reloads available options when the previous teacher is unavailable', async () => {
+    const ui = setup(); ui.teacher.value = 'teacher-a'; ui.month.value = '2026-12-01'; ui.month.dispatchEvent(new Event('change'));
+    ui.requests[0].resolve({ status: 422, ok: false, redirected: false, json: async () => ({ errors: { teacher_filter_id: ['Guru tidak tersedia.'] } }) });
+    await tick();
+    assert.equal(ui.requests[1].url.searchParams.get('teacher_filter_id'), null);
+    assert.equal(ui.requests[1].url.searchParams.get('charge_month'), '2026-12-01');
+    ui.respond(1, [{ id: 'student-c', label: 'Siswa C' }], [{ id: 'teacher-c', label: 'Guru C' }]); await tick();
+    assert.equal(ui.teacher.value, '');
     assert.deepEqual(ui.teacher.options.map((o) => o.value), ['', 'teacher-c']);
+    assert.match(ui.hint.textContent, /Guru sebelumnya tidak tersedia/);
 });
 
 test('an empty roster is explicit and selecting all teachers can restore the student list', async () => {
