@@ -1,4 +1,23 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const makeupForm = document.querySelector('[data-makeup-form]');
+    if (makeupForm) {
+        const field = makeupForm.querySelector('[data-makeup-search-field]');
+        const search = makeupForm.querySelector('#makeup-student-search');
+        const students = makeupForm.querySelector('#makeup-student');
+        const results = makeupForm.querySelector('#makeup-student-results');
+        const [placeholder, ...options] = students.options;
+
+        field.hidden = false;
+        search.addEventListener('input', () => {
+            const term = search.value.trim().toLocaleLowerCase('id');
+            const matches = options.filter((option) => option.textContent.toLocaleLowerCase('id').includes(term));
+            const selected = students.value;
+            students.replaceChildren(placeholder, ...matches);
+            students.value = matches.some((option) => option.value === selected) ? selected : '';
+            results.textContent = matches.length ? `${matches.length} siswa ditemukan.` : 'Nama siswa tidak ditemukan.';
+        });
+    }
+
     const keys = ['present', 'late', 'absent', 'sick', 'permission', 'rescheduled', 'unrecorded', 'unknown', 'meeting_count', 'attended_count'];
     const statuses = ['present', 'late', 'absent', 'sick', 'permission', 'rescheduled'];
     const modal = document.querySelector('[data-attendance-modal]');

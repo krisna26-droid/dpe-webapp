@@ -325,19 +325,30 @@ class StudentAttendanceWorkflowTest extends TestCase
         StudentEnrollment::create(['id' => (string) Str::uuid(), 'student_id' => $other->id, 'branch_id' => $otherBranch->id,
             'program_id' => $this->program->id, 'starts_on' => '2026-10-01']);
 
-        $this->actingAs($this->teacherUser)->get(route('teacher.student-attendance.show', $session))
-            ->assertOk()->assertSee('Siswa Susulan')->assertSee('Tambah siswa susulan')
+        $page = $this->actingAs($this->teacherUser)->get(route('teacher.student-attendance.show', $session))
+            ->assertOk()->assertSee('Siswa Susulan')->assertSee('Cari nama siswa')
             ->assertDontSee('Siswa Cabang Lain')->assertDontSee('SECRET_INTERNAL_ONLY');
+        $this->assertSame([$makeup->id], $page->viewData('makeupCandidates')->modelKeys());
 
         $url = route('teacher.student-attendance.makeup.add', $session);
-        $signature = app(StudentAttendanceService::class)->rosterSignature($session);
-        $this->post($url, ['student_id' => $other->id, 'expected_roster' => $signature])->assertSessionHasErrors('student_id');
+        $this->post($url, ['student_id' => $other->id])->assertSessionHasErrors('student_id');
+        $this->post($url, ['student_id' => $this->student->id])
+            ->assertSessionHas('success', 'Siswa tersebut sudah menjadi peserta pertemuan ini.');
+        $this->assertDatabaseCount('session_students', 0);
+
+        $service = app(StudentAttendanceService::class);
+        $signature = $service->rosterSignature($session);
+        $this->postJson($this->saveUrl($session), $this->payload())->assertOk();
+        $this->assertNotSame($signature, $service->rosterSignature($session));
         $this->post($url, ['student_id' => $makeup->id, 'expected_roster' => $signature])->assertRedirect(route('teacher.student-attendance.show', $session));
+        $this->post($url, ['student_id' => $makeup->id])
+            ->assertSessionHas('success', 'Siswa tersebut sudah menjadi peserta pertemuan ini.');
 
         $this->assertDatabaseHas('session_students', ['session_id' => $session->id, 'student_id' => $makeup->id, 'attendance_status' => null]);
         $this->assertDatabaseHas('student_attendance_audits', ['session_id' => $session->id, 'student_id' => $makeup->id,
             'actor_user_id' => $this->teacherUser->id, 'event_type' => 'makeup_participant_added']);
         $this->assertSame(1, ClassGroupMembership::where('student_id', $makeup->id)->count());
+        $this->assertSame(1, StudentAttendanceAudit::where('session_id', $session->id)->where('event_type', 'makeup_participant_added')->count());
 
         $this->get(route('teacher.student-attendance.show', $session))->assertOk()->assertSee($makeup->full_name)->assertSee('Siswa susulan');
         $this->postJson($this->saveUrl($session, $makeup), $this->payload('present'))->assertOk()
@@ -358,6 +369,31 @@ class StudentAttendanceWorkflowTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('student_id');
         $this->assertDatabaseCount('session_students', 0);
         $this->assertDatabaseCount('student_attendance_audits', 0);
+    }
+
+    public function test_deleted_students_leave_active_attendance_and_only_saved_records_appear_in_history(): void
+    {
+        $session = $this->makeLesson();
+        $blank = $this->enrolledStudent('Siswa Tanpa Catatan');
+        $this->actingAs($this->teacherUser)->post(route('teacher.student-attendance.makeup.add', $session), ['student_id' => $blank->id])
+            ->assertSessionHasNoErrors();
+        $this->postJson($this->saveUrl($session), $this->payload('present'))->assertOk();
+        $this->student->delete();
+        $blank->delete();
+
+        $page = $this->get(route('teacher.student-attendance.show', $session))->assertOk()
+            ->assertSeeInOrder(['Peserta pertemuan', 'Riwayat kehadiran siswa terhapus', $this->student->full_name, 'Siswa dihapus', 'Lihat riwayat'])
+            ->assertDontSee($blank->full_name);
+        $this->assertEmpty($page->viewData('students'));
+        $this->get($this->indexUrl())->assertOk()->assertDontSee($this->student->full_name)->assertDontSee($blank->full_name);
+        $this->get(route('teacher.schedule.show', $session))->assertOk()
+            ->assertSeeInOrder(['Daftar peserta', 'Riwayat kehadiran siswa terhapus', $this->student->full_name, 'Siswa dihapus'])
+            ->assertDontSee($blank->full_name);
+        $this->get(route('teacher.student-attendance.edit', [$session, $this->student]))
+            ->assertOk()->assertSee('Siswa dihapus')->assertSee('Pencatatan')->assertDontSee('Simpan kehadiran');
+        $this->get(route('teacher.student-attendance.edit', [$session, $blank]))->assertNotFound();
+        $this->postJson($this->saveUrl($session), $this->payload('late', 1))->assertNotFound();
+        $this->assertSame('present', $this->ledger($session)->attendance_status);
     }
 
     public function test_roster_rejects_invalid_enrollment_and_rolls_back_all_additions(): void

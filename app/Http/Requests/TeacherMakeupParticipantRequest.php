@@ -15,7 +15,6 @@ class TeacherMakeupParticipantRequest extends FormRequest
     {
         return [
             'student_id' => ['required', 'uuid', 'exists:students,id'],
-            'expected_roster' => ['required', 'string', 'regex:/\A[a-f0-9]{64}\z/'],
         ];
     }
 }

@@ -187,6 +187,28 @@ class TeacherWorkspaceWorkflowTest extends TestCase
         $this->assertSame($before,SessionStudent::count());$this->assertSame($reports,MonthlyReport::count());
     }
 
+    public function test_schedule_search_matches_binaan_participants_and_excludes_makeup_only_students(): void
+    {
+        $private = $this->makeSession($this->teacher, [
+            'class_group_id' => null, 'planned_start_at' => '2026-10-15 13:00:00', 'planned_end_at' => '2026-10-15 14:00:00',
+        ]);
+        SessionStudent::create(['session_id' => $private->id, 'student_id' => $this->student->id]);
+        $this->makeSession($this->teacher, [
+            'class_group_id' => null, 'planned_start_at' => '2026-10-15 15:00:00', 'planned_end_at' => '2026-10-15 16:00:00',
+        ]);
+        $guest = $this->student('Siswa Khusus Susulan', $this->branch, $this->otherTeacher);
+        $this->login();
+        $this->post(route('teacher.student-attendance.makeup.add', $this->session), ['student_id' => $guest->id])->assertSessionHasNoErrors();
+
+        $query = ['from' => '2026-10-14', 'to' => '2026-10-16'];
+        $page = $this->get(route('teacher.schedule.index', $query + ['student_name' => 'uTaMa']))
+            ->assertOk()->assertSee('Nama siswa')->assertSee('Kelas Utama')->assertSee('13:00–14:00')->assertDontSee('15:00–16:00');
+        $this->assertSame([$this->session->id, $private->id], $page->viewData('sessions')->pluck('id')->all());
+
+        $this->get(route('teacher.schedule.index', $query + ['student_name' => 'khusus susulan']))
+            ->assertOk()->assertSee('Belum ada jadwal untuk filter ini')->assertDontSee('Siswa Luar Rahasia');
+    }
+
     public function test_foreign_session_slot_and_student_urls_are_forbidden(): void
     {
         $this->login();

@@ -22,7 +22,7 @@
             const currentRequest = ++requestNumber;
             if (controller) controller.abort();
             controller = new AbortController();
-            const teacherId = teacher.value;
+            let teacherId = teacher.value;
             // A previous selection must never survive a teacher/month change.
             student.value = '';
             student.disabled = true;
@@ -40,9 +40,21 @@
             const url = new URL(form.dataset.optionsUrl, window.location.href);
             url.searchParams.set('charge_month', month.value);
             if (teacherId) url.searchParams.set('teacher_filter_id', teacherId);
+            const requestOptions = { credentials: 'same-origin', cache: 'no-store',
+                headers: { Accept: 'application/json' }, signal: controller.signal };
             try {
-                const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store',
-                    headers: { Accept: 'application/json' }, signal: controller.signal });
+                let response = await fetch(url, requestOptions);
+                let teacherUnavailable = false;
+                if (teacherId && response.status === 422 && !response.redirected) {
+                    const validation = await response.json();
+                    if (currentRequest !== requestNumber) return;
+                    if (validation.errors?.teacher_filter_id) {
+                        teacherUnavailable = true;
+                        teacherId = '';
+                        url.searchParams.delete('teacher_filter_id');
+                        response = await fetch(url, requestOptions);
+                    }
+                }
                 if (!response.ok || response.redirected) throw new Error('Pilihan siswa belum dapat dimuat.');
                 const data = await response.json();
                 if (currentRequest !== requestNumber) return;
@@ -53,8 +65,9 @@
                 student.disabled = data.students.length === 0;
                 student.setAttribute('aria-busy', 'false');
                 submit.disabled = data.students.length === 0 || form.dataset.hasBranches !== '1';
-                hint.textContent = data.students.length ? `${data.students.length} siswa dapat dipilih.`
+                const results = data.students.length ? `${data.students.length} siswa dapat dipilih.`
                     : 'Tidak ada siswa untuk guru dan bulan tagihan ini. Pilih guru atau bulan lain.';
+                hint.textContent = teacherUnavailable ? 'Guru sebelumnya tidak tersedia pada bulan ini. ' + results : results;
             } catch (error) {
                 if (currentRequest !== requestNumber || error.name === 'AbortError') return;
                 student.setAttribute('aria-busy', 'false');
@@ -65,10 +78,7 @@
         };
 
         teacher.addEventListener('change', refresh);
-        month.addEventListener('change', () => {
-            teacher.value = '';
-            refresh();
-        });
+        month.addEventListener('change', refresh);
         retry.addEventListener('click', refresh);
     });
 })();

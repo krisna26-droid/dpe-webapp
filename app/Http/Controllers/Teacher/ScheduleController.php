@@ -9,6 +9,7 @@ use App\Services\TeacherWorkspaceService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class ScheduleController extends Controller
 {
@@ -18,6 +19,8 @@ class ScheduleController extends Controller
     {
         $actor = $this->workspace->actor($request->user());
         $options = $this->workspace->periodFilters($request, $actor, false, 'week');
+        $input = $request->validate(['student_name' => ['nullable', 'string', 'max:120']]);
+        $options['filters']['student_name'] = trim($input['student_name'] ?? '');
         $filters = $options['filters'];
         $query = $this->workspace->applySessionPeriod($this->workspace->sessions($actor), $filters['from'], $filters['to']);
         foreach (['branch_id', 'program_id'] as $field) {
@@ -40,11 +43,19 @@ class ScheduleController extends Controller
                 ->orWhereHas('classGroup', fn ($g) => $g->where('name', 'like', $term)->orWhere('code', 'like', $term))
                 ->orWhereHas('program', fn ($p) => $p->where('name', 'like', $term)));
         }
-        $sessions = $query->with($this->workspace->sessionRelations())
-            ->orderByRaw('COALESCE(actual_start_at, planned_start_at)')->orderBy('id')->paginate(12)->withQueryString();
+        $query->with($this->workspace->sessionRelations())->orderByRaw('COALESCE(actual_start_at, planned_start_at)')->orderBy('id');
+        if ($filters['student_name'] !== '') {
+            $matches = $this->workspace->findScheduleRowsByStudent($actor, $query, $filters['student_name']);
+            $page = LengthAwarePaginator::resolveCurrentPage();
+            $rows = $matches->forPage($page, 12)->values();
+            $sessions = new LengthAwarePaginator($rows->pluck('session'), $matches->count(), 12, $page, ['path' => $request->url()]);
+        } else {
+            $sessions = $query->paginate(12);
+            $rows = $this->workspace->sessionRows($sessions->getCollection());
+        }
 
         return view('teacher.schedule.index', $options + [
-            'sessions' => $sessions, 'rows' => $this->workspace->sessionRows($sessions->getCollection()),
+            'sessions' => $sessions->withQueryString(), 'rows' => $rows,
         ]);
     }
 
@@ -64,6 +75,9 @@ class ScheduleController extends Controller
         $related = $this->workspace->sessions($actor)->whereIn('id', $relatedIds)
             ->with(['branch', 'program', 'classGroup'])->orderBy('planned_start_at')->get();
 
-        return view('teacher.schedule.show', compact('row', 'participants', 'month', 'related'));
+        return view('teacher.schedule.show', compact('row', 'participants', 'month', 'related') + [
+            'deletedRecords' => $this->attendance->deletedStudentHistory($lessonSession),
+            'statuses' => StudentAttendanceService::STATUSES,
+        ]);
     }
 }

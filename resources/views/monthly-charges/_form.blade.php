@@ -43,7 +43,14 @@
                         <option value="{{ $teacher->id }}" @selected((string) $selectedTeacher === (string) $teacher->id)>{{ $teacher->user->full_name }} · {{ $teacher->user->username }}</option>
                     @endforeach
                 </select>
-                <p id="charge-teacher-help" class="dpe-dashboard-field__hint">Pilih guru untuk menyaring siswa binaannya pada bulan tagihan. Tagihan tetap ditujukan ke siswa yang dipilih.</p>
+                <p id="charge-teacher-help" class="dpe-dashboard-field__hint">
+                    @if ($routePrefix === 'admin')
+                        Pilih guru utama untuk menyaring siswa pada bulan tagihan.
+                    @else
+                        Pilih guru untuk menyaring siswa binaannya pada bulan tagihan.
+                    @endif
+                    Tagihan tetap ditujukan ke siswa yang dipilih.
+                </p>
                 @error('teacher_filter_id')<p class="dpe-dashboard-field__error">{{ $message }}</p>@enderror
             </div>
         @endif

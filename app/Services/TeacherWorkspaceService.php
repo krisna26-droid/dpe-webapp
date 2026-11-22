@@ -145,9 +145,27 @@ class TeacherWorkspaceService
             $end = $session->getRawOriginal('actual_end_at') ?: $session->getRawOriginal('planned_end_at');
 
             return ['session' => $session, 'meetingAt' => $at,
-                'endsAt' => CarbonImmutable::parse($end, $at->timezoneName), 'participants' => $this->attendance->roster($session),
+                'endsAt' => CarbonImmutable::parse($end, $at->timezoneName), 'participants' => $this->attendance->activeRoster($session),
                 'status' => $status, 'statusKey' => $key, 'superseded' => $superseded];
         });
+    }
+
+    public function findScheduleRowsByStudent(User $actor, Builder $sessions, string $name): Collection
+    {
+        $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($name)).'%';
+        $namedStudents = Student::query()->whereRaw("LOWER(full_name) LIKE ? ESCAPE '!'", [$pattern])->select('students.id');
+        $candidates = $sessions->where(fn ($q) => $q
+            ->whereHas('sessionStudents', fn ($p) => $p->whereIn('student_id', clone $namedStudents))
+            ->orWhereHas('classGroup.memberships', fn ($m) => $m->whereIn('student_id', clone $namedStudents)))->get();
+        $binaanByMonth = [];
+
+        return $this->sessionRows($candidates)->filter(function ($row) use ($actor, $namedStudents, &$binaanByMonth) {
+            $month = CarbonImmutable::instance($row['meetingAt'])->startOfMonth();
+            $binaan = $binaanByMonth[$month->format('Y-m')] ??= $this->progress->students($actor, $month)
+                ->whereIn('students.id', clone $namedStudents)->pluck('students.id')->flip();
+
+            return $row['participants']->contains(fn (Student $student) => $binaan->has($student->id));
+        })->values();
     }
 
     public function sessionRelations(): array

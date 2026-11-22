@@ -13,6 +13,7 @@ use App\Models\Program;
 use App\Models\ReportCycle;
 use App\Models\SessionStudent;
 use App\Models\Student;
+use App\Models\StudentAttendanceAudit;
 use App\Models\StudentEnrollment;
 use App\Models\StudentTeacherAssignment;
 use App\Models\Teacher;
@@ -226,6 +227,40 @@ class MonthlyChargeTeacherFilterTest extends TestCase
         $lesson->update(['status' => 'cancelled']);
         $response = $this->getJson(route($role.'.monthly-charges.student-options', $this->filters($this->teacherA)))->assertOk();
         $this->assertNotContains($lessonStudent->id, array_column($response->json('students'), 'id'));
+    }
+
+    public function test_branch_filter_prioritizes_period_owner_and_regular_teacher_over_makeup(): void
+    {
+        StudentTeacherAssignment::where('student_id', $this->shared->id)->where('teacher_id', $this->teacherA->id)
+            ->update(['is_report_owner' => true, 'ends_on' => '2026-11-30']);
+        $regular = $this->student('Siswa Kelas Reguler A');
+        $group = ClassGroup::create([
+            'id' => (string) Str::uuid(), 'branch_id' => $this->branch->id, 'program_id' => $this->program->id,
+            'default_teacher_id' => $this->teacherA->id, 'code' => 'REG-A', 'name' => 'Reguler A', 'is_active' => true,
+        ]);
+        ClassGroupMembership::create([
+            'id' => (string) Str::uuid(), 'class_group_id' => $group->id, 'student_id' => $regular->id, 'starts_on' => '2026-11-01',
+        ]);
+        $makeup = LessonSession::create([
+            'id' => (string) Str::uuid(), 'branch_id' => $this->branch->id, 'program_id' => $this->program->id,
+            'teacher_id' => $this->teacherB->id, 'class_group_id' => $group->id,
+            'planned_start_at' => '2026-11-14 10:00:00', 'planned_end_at' => '2026-11-14 11:00:00', 'status' => 'completed',
+        ]);
+        SessionStudent::create(['session_id' => $makeup->id, 'student_id' => $regular->id, 'attendance_status' => 'present']);
+        StudentAttendanceAudit::create([
+            'session_id' => $makeup->id, 'student_id' => $regular->id, 'actor_user_id' => $this->teacherB->user_id,
+            'event_type' => 'makeup_participant_added', 'happened_at' => now(),
+        ]);
+
+        $this->actingAs($this->admin);
+        $novemberA = $this->getJson(route('admin.monthly-charges.student-options', $this->filters($this->teacherA)))->assertOk();
+        $this->assertEqualsCanonicalizing([...$this->expectedA('admin'), $regular->id], array_column($novemberA->json('students'), 'id'));
+        $novemberB = $this->getJson(route('admin.monthly-charges.student-options', $this->filters($this->teacherB)))->assertOk();
+        $this->assertSame([$this->studentB->id], array_column($novemberB->json('students'), 'id'));
+        $this->postJson(route('admin.monthly-charges.store'), $this->data($regular, $this->teacherB))
+            ->assertUnprocessable()->assertJsonValidationErrors('student_id');
+        $decemberB = $this->getJson(route('admin.monthly-charges.student-options', $this->filters($this->teacherB, '2026-12-01')))->assertOk();
+        $this->assertContains($this->shared->id, array_column($decemberB->json('students'), 'id'));
     }
 
     public function test_teacher_who_only_owns_a_report_is_available_to_admin_consistently_with_siswa_binaan(): void

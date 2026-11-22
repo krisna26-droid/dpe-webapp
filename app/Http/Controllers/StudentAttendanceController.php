@@ -53,12 +53,13 @@ class StudentAttendanceController extends Controller
         $visible->whereRaw('COALESCE(actual_start_at, planned_start_at) >= ?', [$month->toDateTimeString()])
             ->whereRaw('COALESCE(actual_start_at, planned_start_at) < ?', [$month->copy()->addMonth()->toDateTimeString()]);
         $sessions = (clone $visible)->with($this->relations())->orderByRaw('COALESCE(actual_start_at, planned_start_at)')->orderBy('id')->get();
-        $students = $sessions->flatMap(fn ($s) => $this->attendance->roster($s));
+        $students = $sessions->flatMap(fn ($session) => $this->attendance->activeRoster($session));
         if ($groupId !== 'private') {
             $group = $groups->firstWhere('id', $groupId);
             $group->load('memberships.student.enrollments');
             foreach ($group->memberships as $membership) {
-                if ($membership->student && $membership->starts_on->toDateString() <= $month->copy()->endOfMonth()->toDateString()
+                if ($membership->student && ! $membership->student->trashed()
+                    && $membership->starts_on->toDateString() <= $month->copy()->endOfMonth()->toDateString()
                     && ($membership->ends_on === null || $membership->ends_on->toDateString() >= $month->toDateString())) {
                     $students->push($membership->student);
                 }
@@ -69,7 +70,7 @@ class StudentAttendanceController extends Controller
             abort_unless($studentOptions->contains('id', $filters['student_id']), 403);
             $students = $studentOptions->where('id', $filters['student_id']);
             if ($groupId === 'private') {
-                $sessions = $sessions->filter(fn ($s) => $this->attendance->roster($s)->contains('id', $filters['student_id']))->values();
+                $sessions = $sessions->filter(fn ($session) => $this->attendance->activeRoster($session)->contains('id', $filters['student_id']))->values();
                 $visible->whereHas('sessionStudents', fn ($q) => $q->where('student_id', $filters['student_id']));
             }
         } else {
@@ -99,7 +100,7 @@ class StudentAttendanceController extends Controller
     {
         $this->access->authorize($request->user(), $lessonSession);
         $lessonSession->load($this->relations());
-        $students = $this->attendance->roster($lessonSession);
+        $students = $this->attendance->activeRoster($lessonSession);
         $cells = $students->mapWithKeys(fn ($s) => [$s->id => $this->attendance->cell($lessonSession, $s)]);
         $canManageRoster = $this->access->canManageRoster($request->user()) && $lessonSession->class_group_id === null;
         $canAddMakeup = $request->user()->role_code === 'teacher' && $lessonSession->class_group_id !== null
@@ -116,18 +117,14 @@ class StudentAttendanceController extends Controller
         $makeupCandidates = collect();
         $makeupStudentIds = collect();
         if ($canAddMakeup) {
-            $date = $this->attendance->meetingAt($lessonSession)->toDateString();
             $makeupStudentIds = StudentAttendanceAudit::query()->where('session_id', $lessonSession->id)
                 ->where('event_type', 'makeup_participant_added')->orderBy('id')->pluck('student_id')->unique()->values();
-            $makeupCandidates = Student::query()->where('status', 'active')->whereDate('began_on', '<=', $date)
-                ->whereHas('enrollments', fn ($q) => $q->where('branch_id', $lessonSession->branch_id)
-                    ->whereDate('starts_on', '<=', $date)->where(fn ($e) => $e->whereNull('ends_on')->orWhereDate('ends_on', '>=', $date)))
-                ->whereNotIn('id', $lessonSession->sessionStudents->pluck('student_id'))
-                ->orderBy('full_name')->get();
+            $makeupCandidates = $this->attendance->makeupCandidates($lessonSession);
         }
 
         return view('student-attendance.show', [
             'lessonSession' => $lessonSession, 'students' => $students, 'cells' => $cells,
+            'deletedRecords' => $this->attendance->deletedStudentHistory($lessonSession),
             'meetingAt' => $this->attendance->meetingAt($lessonSession), 'canManageRoster' => $canManageRoster,
             'isSuperseded' => $this->attendance->isSuperseded($lessonSession),
             'candidates' => $candidates, 'rosterSignature' => $this->attendance->rosterSignature($lessonSession),
@@ -140,7 +137,11 @@ class StudentAttendanceController extends Controller
     {
         $this->access->authorize($request->user(), $lessonSession);
         $lessonSession->load($this->relations());
-        abort_unless($this->attendance->roster($lessonSession)->contains('id', $student->id), 403);
+        if ($student->trashed()) {
+            abort_unless($this->attendance->deletedStudentHistory($lessonSession)->contains('student_id', $student->id), 404);
+        } else {
+            abort_unless($this->attendance->activeRoster($lessonSession)->contains('id', $student->id), 403);
+        }
 
         return view('student-attendance.edit', [
             'lessonSession' => $lessonSession, 'student' => $student,
@@ -184,9 +185,12 @@ class StudentAttendanceController extends Controller
 
     public function addMakeupParticipant(TeacherMakeupParticipantRequest $request, LessonSession $lessonSession): RedirectResponse
     {
-        $this->attendance->addMakeupParticipant($request->user(), $lessonSession, $request->validated());
+        $added = $this->attendance->addMakeupParticipant($request->user(), $lessonSession, $request->validated('student_id'));
 
-        return redirect()->route('teacher.student-attendance.show', $lessonSession)->with('success', 'Siswa susulan ditambahkan ke pertemuan ini.');
+        return redirect()->route('teacher.student-attendance.show', $lessonSession)->with(
+            'success',
+            $added ? 'Siswa susulan ditambahkan ke pertemuan ini.' : 'Siswa tersebut sudah menjadi peserta pertemuan ini.'
+        );
     }
 
     private function summarize(Collection $cells): array

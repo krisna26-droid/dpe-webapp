@@ -44,7 +44,7 @@ class StudentProgressAccessService
         return $query;
     }
 
-    public function students(User $actor, CarbonImmutable $month): Builder
+    public function students(User $actor, CarbonImmutable $month, ?Collection $teacherBranchIds = null): Builder
     {
         $this->staff($actor);
         $start = $month->toDateString();
@@ -59,18 +59,25 @@ class StudentProgressAccessService
             });
         } elseif ($actor->role_code === 'teacher') {
             $teacher = $this->teacherId($actor) ?? 'no-active-teacher';
-            $rosterIds = $this->teacherRosterStudentIds($actor, $month);
-            $query->where(fn ($q) => $q->whereHas('monthlyReports', fn ($r) => $r->whereDate('report_month', $start)->where('teacher_id', $teacher))
+            $rosterIds = $this->teacherRosterStudentIds($actor, $month, $teacherBranchIds);
+            $query->where(fn ($q) => $q->whereHas('monthlyReports', fn ($r) => $r->whereDate('report_month', $start)->where('teacher_id', $teacher)
+                ->when($teacherBranchIds !== null, fn ($r) => $r->whereIn('branch_id', $teacherBranchIds)))
                 ->orWhereHas('studentTeacherAssignments', fn ($a) => $a->where('teacher_id', $teacher)
                     ->whereDate('starts_on', '<=', $end)->where(fn ($a) => $a->whereNull('ends_on')->orWhereDate('ends_on', '>=', $start))
-                    ->where(fn ($a) => $a->whereNull('ends_on')->orWhereColumn('ends_on', '>=', 'students.began_on')))
+                    ->where(fn ($a) => $a->whereNull('ends_on')->orWhereColumn('ends_on', '>=', 'students.began_on'))
+                    ->when($teacherBranchIds !== null, fn ($a) => $a->whereHas('student.enrollments', fn ($e) => $e
+                        ->whereIn('student_enrollments.branch_id', $teacherBranchIds)
+                        ->whereDate('student_enrollments.starts_on', '<=', $end)
+                        ->where(fn ($e) => $e->whereNull('student_enrollments.ends_on')->orWhereDate('student_enrollments.ends_on', '>=', $start))
+                        ->where(fn ($e) => $e->whereNull('student_enrollments.ends_on')->orWhereColumn('student_enrollments.ends_on', '>=', 'student_teacher_assignments.starts_on'))
+                        ->where(fn ($e) => $e->whereNull('student_teacher_assignments.ends_on')->orWhereColumn('student_enrollments.starts_on', '<=', 'student_teacher_assignments.ends_on')))))
                 ->orWhereIn('id', $rosterIds));
         }
 
         return $query;
     }
 
-    private function teacherRosterStudentIds(User $actor, CarbonImmutable $month): Collection
+    private function teacherRosterStudentIds(User $actor, CarbonImmutable $month, ?Collection $branchIds): Collection
     {
         $teacher = $this->teacherId($actor);
         if (! $teacher) {
@@ -80,7 +87,8 @@ class StudentProgressAccessService
         $end = $month->endOfMonth()->toDateString();
         $ids = collect();
         $memberships = ClassGroupMembership::query()
-            ->whereHas('classGroup', fn ($q) => $q->where('default_teacher_id', $teacher)->where('is_active', true))
+            ->whereHas('classGroup', fn ($q) => $q->where('default_teacher_id', $teacher)->where('is_active', true)
+                ->when($branchIds !== null, fn ($q) => $q->whereIn('branch_id', $branchIds)))
             ->whereDate('starts_on', '<=', $end)
             ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', $start))
             ->with(['classGroup', 'student.enrollments'])->get();
@@ -105,6 +113,7 @@ class StudentProgressAccessService
 
         $attendance = app(StudentAttendanceService::class);
         $sessions = app(StudentAttendanceAccessService::class)->sessions($actor)
+            ->when($branchIds !== null, fn ($q) => $q->whereIn('branch_id', $branchIds))
             ->whereRaw('DATE(COALESCE(actual_start_at, planned_start_at)) BETWEEN ? AND ?', [$start, $end])
             ->with(['branch', 'replacementSessions', 'sessionStudents.student.enrollments', 'sessionStudents.student.classGroupMemberships',
                 'classGroup.memberships.student.enrollments', 'classGroup.memberships.student.classGroupMemberships'])->get();
