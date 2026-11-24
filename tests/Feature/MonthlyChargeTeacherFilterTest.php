@@ -111,6 +111,16 @@ class MonthlyChargeTeacherFilterTest extends TestCase
             'teacher_id' => $teacher->id, 'starts_on' => '2026-01-01', 'ends_on' => $ends, 'is_report_owner' => false]);
     }
 
+    private function recordCharge(Student $student, Branch $branch, string $month): MonthlyCharge
+    {
+        return MonthlyCharge::create([
+            'id' => (string) Str::uuid(),
+            'student_id' => $student->id,
+            'branch_id' => $branch->id,
+            'charge_month' => $month,
+        ]);
+    }
+
     private function filters(?Teacher $teacher = null, string $month = '2026-11-01'): array
     {
         return ['teacher_filter_id' => $teacher?->id ?? '', 'charge_month' => $month];
@@ -296,6 +306,86 @@ class MonthlyChargeTeacherFilterTest extends TestCase
             $this->actingAs($this->$role)->get(route($role.'.monthly-charges.edit', $charge))->assertOk()
                 ->assertDontSee('name="teacher_filter_id"', false)->assertViewHas('students', fn ($students) => $students->contains('id', $this->studentA->id));
         }
+    }
+
+    #[DataProvider('roles')]
+    public function test_charge_list_combines_billing_month_name_primary_teacher_and_status_filters(string $role): void
+    {
+        $charge = $this->recordCharge($this->studentA, $this->branch, '2026-11-30');
+        $previousCharge = $this->recordCharge($this->studentA, $this->branch, '2026-10-01');
+        $this->recordCharge($this->studentB, $this->branch, '2026-10-01');
+        $this->recordCharge($this->foreignStudent, $this->foreign, '2026-11-01');
+        StudentTeacherAssignment::where('student_id', $this->shared->id)->where('teacher_id', $this->teacherA->id)
+            ->update(['is_report_owner' => true]);
+
+        $branch = $role === 'superadmin' ? $this->branch : $this->foreign;
+        $index = $role.'.monthly-charges.index';
+        $this->actingAs($this->$role);
+
+        $page = $this->get(route($index, ['branch_id' => $branch->id]))->assertOk()
+            ->assertSee($this->studentA->full_name)
+            ->assertSee($this->studentB->full_name)
+            ->assertDontSee($this->foreignStudent->full_name)
+            ->assertViewHas('filters', fn ($filters) => $filters['month'] === '2026-11');
+        if ($role === 'superadmin') {
+            $page->assertSee('name="branch_id"', false);
+        } else {
+            $page->assertDontSee('name="branch_id"', false)->assertDontSee($this->foreignTeacher->user->full_name);
+        }
+
+        $created = $this->get(route($index, [
+            'branch_id' => $branch->id,
+            'teacher_filter_id' => $this->teacherA->id,
+            'charge_status' => 'created',
+        ]))->assertOk()->assertSee(route($role.'.monthly-charges.show', $charge), false)
+            ->assertDontSee(route($role.'.monthly-charges.show', $previousCharge), false)
+            ->assertSee('Belum dibayar');
+        $this->assertSame([$this->studentA->id], $created->viewData('students')->pluck('id')->all());
+
+        $missing = $this->get(route($index, [
+            'month' => '2026-11',
+            'branch_id' => $branch->id,
+            'teacher_filter_id' => $this->teacherB->id,
+            'charge_status' => 'missing',
+            'q' => 'SISWA',
+        ]))->assertOk()->assertDontSee($this->shared->full_name);
+        $this->assertSame([$this->studentB->id], $missing->viewData('students')->pluck('id')->all());
+
+        $searched = $this->get(route($index, [
+            'month' => '2026-10',
+            'branch_id' => $branch->id,
+            'charge_status' => 'created',
+            'q' => 'guRu b',
+        ]))->assertOk();
+        $this->assertSame([$this->studentB->id], $searched->viewData('students')->pluck('id')->all());
+    }
+
+    public function test_unbilled_list_requires_an_active_enrollment_and_checks_for_a_charge_across_branches(): void
+    {
+        $this->recordCharge($this->studentA, $this->foreign, '2026-11-01');
+        $this->studentB->enrollments()->update(['ends_on' => '2026-10-31']);
+        $this->shared->update(['status' => 'inactive']);
+
+        $page = $this->actingAs($this->admin)->get(route('admin.monthly-charges.index', ['charge_status' => 'missing']))
+            ->assertOk()->assertDontSee($this->foreignStudent->full_name);
+
+        $this->assertSame([$this->unassigned->id], $page->viewData('students')->pluck('id')->all());
+        $this->assertDatabaseCount('monthly_charges', 1);
+    }
+
+    public function test_created_list_keeps_all_legacy_charges_for_a_deleted_student(): void
+    {
+        $first = $this->recordCharge($this->studentA, $this->branch, '2026-10-01');
+        $second = $this->recordCharge($this->studentA, $this->branch, '2026-10-21');
+        $this->studentA->delete();
+
+        $this->actingAs($this->superadmin)->get(route('superadmin.monthly-charges.index', [
+            'month' => '2026-10',
+            'charge_status' => 'created',
+        ]))->assertOk()
+            ->assertSee($this->studentA->full_name)
+            ->assertSee(route('superadmin.monthly-charges.show', $first), false)
+            ->assertSee(route('superadmin.monthly-charges.show', $second), false);
     }
 
     public function test_options_endpoint_rejects_unprivileged_roles_and_invalid_inputs(): void

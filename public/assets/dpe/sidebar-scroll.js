@@ -11,6 +11,7 @@
     var key = 'dpe.sidebar-scroll.v1.' + owner;
 
     function restorePosition() {
+        if (sidebar.clientHeight <= 0) return;
         try {
             var saved = window.sessionStorage.getItem(key);
             if (saved === null || saved.trim() === '') {
@@ -40,6 +41,8 @@
     restorePosition();
     sidebar.addEventListener('scroll', savePosition, { passive: true });
     sidebar.addEventListener('click', savePosition, true);
+    sidebar.addEventListener('dpe:sidebar-before-hide', savePosition);
+    sidebar.addEventListener('dpe:sidebar-shown', restorePosition);
     window.addEventListener('pagehide', savePosition);
     window.addEventListener('pageshow', restorePosition);
     document.addEventListener('visibilitychange', function () {

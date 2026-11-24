@@ -50,28 +50,32 @@ class MonthlyChargeStudentFilterService
                 ->where(fn ($e) => $e->whereNull('ends_on')->orWhereDate('ends_on', '>=', $month->toDateString())));
         }
 
+        $branchIds = $actor->role_code === 'admin' ? $branches->pluck('id') : null;
+        $teachers = $this->teacherOptions($students, $month, $branchIds);
+
+        return compact('month', 'branches', 'branchIds', 'students', 'teachers');
+    }
+
+    public function teacherOptions(Builder $students, CarbonImmutable $month, ?Collection $branchIds): Collection
+    {
         $teachers = Teacher::query()->where('is_active', true)
             ->whereHas('user', fn ($u) => $u->where('is_active', true)->where('role_code', 'teacher')->whereNull('deleted_at'));
-        if ($actor->role_code === 'admin') {
+        if ($branchIds !== null) {
             $start = $month->toDateString();
             $end = $month->endOfMonth()->toDateString();
-            $ids = $branches->pluck('id');
             $teachers->where(fn ($t) => $t
-                ->whereHas('branchAssignments', fn ($a) => $a->whereIn('branch_id', $ids)->whereDate('starts_on', '<=', $end)
+                ->whereHas('branchAssignments', fn ($a) => $a->whereIn('branch_id', $branchIds)->whereDate('starts_on', '<=', $end)
                     ->where(fn ($a) => $a->whereNull('ends_on')->orWhereDate('ends_on', '>=', $start)))
                 ->orWhereHas('studentAssignments', fn ($a) => $a->whereIn('student_id', (clone $students)->select('students.id'))
                     ->whereDate('starts_on', '<=', $end)->where(fn ($a) => $a->whereNull('ends_on')->orWhereDate('ends_on', '>=', $start)))
-                ->orWhereHas('classGroups', fn ($g) => $g->whereIn('branch_id', $ids)->where('is_active', true))
-                ->orWhereIn('id', LessonSession::query()->select('teacher_id')->whereIn('branch_id', $ids)
+                ->orWhereHas('classGroups', fn ($g) => $g->whereIn('branch_id', $branchIds)->where('is_active', true))
+                ->orWhereIn('id', LessonSession::query()->select('teacher_id')->whereIn('branch_id', $branchIds)
                     ->whereRaw('DATE(COALESCE(actual_start_at, planned_start_at)) BETWEEN ? AND ?', [$start, $end]))
-                ->orWhereIn('id', MonthlyReport::query()->select('teacher_id')->whereIn('branch_id', $ids)
+                ->orWhereIn('id', MonthlyReport::query()->select('teacher_id')->whereIn('branch_id', $branchIds)
                     ->whereDate('report_month', $start)));
         }
-        $teachers = $teachers->with('user')->get()->sortBy(fn ($t) => $t->user->full_name)->values();
 
-        $branchIds = $actor->role_code === 'admin' ? $branches->pluck('id') : null;
-
-        return compact('month', 'branches', 'branchIds', 'students', 'teachers');
+        return $teachers->with('user')->get()->sortBy(fn ($t) => $t->user->full_name)->values();
     }
 
     private function filterStudents(array $context, string $teacherId): Collection
@@ -85,9 +89,14 @@ class MonthlyChargeStudentFilterService
             throw ValidationException::withMessages(['teacher_filter_id' => 'Guru tidak tersedia untuk bulan atau cabang ini. Pilih guru kembali.']);
         }
 
+        return $this->studentsForTeacher($students, $teacher, $month, $branchIds);
+    }
+
+    public function studentsForTeacher(Builder $students, Teacher $teacher, CarbonImmutable $month, ?Collection $branchIds): Collection
+    {
         $students->whereIn('students.id', $this->progress->students($teacher->user, $month, $branchIds)->select('students.id'));
 
-        return $branchIds === null ? $students->get() : $this->filterPrimaryTeacher($students, $teacherId, $month, $branchIds);
+        return $branchIds === null ? $students->get() : $this->filterPrimaryTeacher($students, $teacher->id, $month, $branchIds);
     }
 
     private function filterPrimaryTeacher(Builder $students, string $teacherId, CarbonImmutable $month, Collection $branchIds): Collection

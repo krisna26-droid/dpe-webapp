@@ -55,6 +55,23 @@ class PublicLoginTest extends TestCase
             ->assertSee('Username atau password tidak sesuai.')->assertDontSee('WrongPassword!');
     }
 
+    public function test_tablet_sidebar_preference_namespace_is_stable_until_the_next_login(): void
+    {
+        $user = $this->account();
+        $credentials = ['username' => $user->username, 'password' => 'CorrectPassword!'];
+        $this->post('/login', $credentials)->assertRedirect(route('superadmin.dashboard'));
+        $firstKey = session('dpe_sidebar_layout_key');
+        $this->assertNotEmpty($firstKey);
+        $dashboard = $this->get(route('superadmin.dashboard'))->assertOk();
+        $layoutKey = hash('sha256', 'superadmin:'.$user->id.':'.$firstKey);
+        $dashboard->assertSee('data-sidebar-layout-key="'.$layoutKey.'"', false);
+        $this->get(route('inbox.index'))->assertOk()->assertSee('data-sidebar-layout-key="'.$layoutKey.'"', false);
+        $this->post('/logout')->assertRedirect('/login');
+        $this->post('/login', $credentials)->assertRedirect(route('superadmin.dashboard'));
+        $this->assertNotSame($firstKey, session('dpe_sidebar_layout_key'));
+        $this->get(route('superadmin.dashboard'))->assertOk()->assertDontSee('data-sidebar-layout-key="'.$layoutKey.'"', false);
+    }
+
     public function test_inactive_account_cannot_login(): void
     {
         $user = $this->account('teacher', false);

@@ -59,7 +59,7 @@ class OperationalExportPdfWriter
         $pdf->setPaper($paper, 'landscape');
         $pdf->render();
         $canvas = $pdf->getCanvas();
-        $canvas->page_text(30, $pageHeight - 22, 'DPE | Rekap operasional', $font, 8, [.35, .4, .5]);
+        $canvas->page_text(30, $pageHeight - 22, $data['footerLabel'] ?? 'DPE | Rekap operasional', $font, 8, [.35, .4, .5]);
         $canvas->page_text($pageWidth - 110, $pageHeight - 22, '{PAGE_NUM} / {PAGE_COUNT}', $font, 8, [.35, .4, .5]);
         $bytes = $pdf->output();
         unset($canvas, $pdf, $metrics);

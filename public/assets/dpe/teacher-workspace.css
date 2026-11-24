@@ -27,7 +27,7 @@
 .dpe-teacher-table { min-width: 760px; }
 .dpe-teacher-table td strong, .dpe-teacher-table td small { display: block; }
 .dpe-teacher-table td small { margin-top: 8px; line-height: 1.6; }
-.dpe-teacher-table td, .dpe-teacher-table th { text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
+.dpe-teacher-table td, .dpe-teacher-table th { text-align: center; vertical-align: middle; overflow-wrap: break-word; word-break: normal; }
 .dpe-teacher-table .dpe-operations-actions { justify-content: center; gap: 12px; }
 .dpe-teacher-table .dpe-dashboard-badge { white-space: normal; justify-content: center; text-align: center; }
 .dpe-teacher-table .dpe-dashboard-button { white-space: normal; text-align: center; justify-content: center; }

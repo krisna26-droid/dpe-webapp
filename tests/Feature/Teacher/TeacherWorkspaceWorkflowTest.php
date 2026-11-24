@@ -342,6 +342,7 @@ class TeacherWorkspaceWorkflowTest extends TestCase
     {
         SessionStudent::create(['session_id'=>$this->otherSession->id,'student_id'=>$this->student->id]);$this->login();
         $this->get(route('teacher.students.show',$this->student))->assertOk()->assertViewHas('sessions',fn($x)=>$x->total()===1)
+            ->assertSee('Rabu, 14 Okt 2026')->assertSee('09:00–10:00')
             ->assertDontSee('href="'.route('teacher.schedule.show',$this->otherSession).'"',false)->assertDontSee('Topik Luar Rahasia');
     }
 

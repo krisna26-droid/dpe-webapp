@@ -391,8 +391,15 @@
 .dpe-dashboard-skeleton--line-short { width: 19%; margin-left: auto; }
 @keyframes dpe-dashboard-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 
-.dpe-dashboard-table-wrap { overflow-x: auto; }
+.dpe-dashboard-table-wrap { width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .dpe-dashboard-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+/* Ordinary multi-column tables should scroll rather than squeeze their cells.
+   Module-specific table widths, loaded after this base sheet, still take precedence. */
+.dpe-dashboard-table:where(:has(> thead > tr:first-child > th:nth-child(4))) { min-width: 560px; }
+.dpe-dashboard-table:where(:has(> thead > tr:first-child > th:nth-child(5))) { min-width: 700px; }
+.dpe-dashboard-table:where(:has(> thead > tr:first-child > th:nth-child(6))) { min-width: 850px; }
+.dpe-dashboard-table:where(:has(> thead > tr:first-child > th:nth-child(7))) { min-width: 980px; }
+.dpe-dashboard-table:where(:has(> thead > tr:first-child > th:nth-child(8))) { min-width: 1120px; }
 .dpe-dashboard-table th { padding: 12px 14px; border-bottom: 1px solid var(--dpe-dashboard-border); color: var(--dpe-dashboard-muted); font-size: 14px; font-weight: 800; letter-spacing: .35px; text-align: center; text-transform: uppercase; white-space: nowrap; }
 .dpe-dashboard-table td { padding: 13px 14px; border-bottom: 1px solid #edf1f8; color: var(--dpe-dashboard-secondary); text-align: center; vertical-align: middle; }
 /* Keep all role tables centered even when a module adds its own cell styles. */

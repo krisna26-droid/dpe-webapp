@@ -370,11 +370,22 @@ class OperationalExportWorkflowTest extends TestCase
         $this->assertSame('Salinan persetujuan', $this->data('videos')['rows'][0]['source']);
     }
 
-    public function test_video_target_automatic_month_and_quarterly_calendar_intersection(): void
+    public function test_saved_video_target_in_partial_first_month_and_quarterly_calendar_intersection(): void
     {
-        $this->assertSame(1, $this->data('monthly-reports')['rows'][0]['target']);
+        $row = $this->data('monthly-reports')['rows'][0];
+        $this->assertSame(1, $row['target']);
+        $this->assertSame(1, $row['videos']);
         $this->student->update(['began_on' => '2026-10-08']);
-        $this->assertNull($this->data('monthly-reports')['rows'][0]['target']);
+        $row = $this->data('monthly-reports')['rows'][0];
+        // The system target is stored on the report, including a partial first month.
+        // A video dated on the joining day is valid; an earlier video is not.
+        $this->assertSame(1, $row['target']);
+        $this->assertSame(1, $row['videos']);
+        $this->student->update(['began_on' => '2026-10-09']);
+        $row = $this->data('monthly-reports')['rows'][0];
+        $this->assertSame(1, $row['target']);
+        $this->assertSame(0, $row['videos']);
+        $this->assertSame('0 / 1 video · kurang 1', $row['video_state']);
         $this->assertSame(1, $this->data('quarterly-reports', null, ['from' => '2026-12-20', 'to' => '2026-12-31'])['total']);
         $this->assertSame(0, $this->data('quarterly-reports', null, ['from' => '2027-01-01', 'to' => '2027-01-31'])['total']);
         $this->assertSame('Belum siap', $this->data('quarterly-reports')['rows'][0]['ready']);

@@ -184,3 +184,16 @@ test('the position restores immediately while the rest of the document is still 
     const storage = new Map([[prefix + 'superadmin:user-a', '650']]);
     assert.equal(page({ storage, loading: true }).sidebar.scrollTop, 650);
 });
+
+test('collapsing and reopening restores the saved sidebar scroll position', () => {
+    const first = page();
+    first.sidebar.scrollTop = 430;
+    first.sidebar.emit('dpe:sidebar-before-hide');
+    first.sidebar.clientHeight = 0;
+    first.sidebar.scrollTop = 0;
+    first.sidebar.emit('scroll');
+    assert.equal(first.storage.get(first.key), '430');
+    first.sidebar.clientHeight = 400;
+    first.sidebar.emit('dpe:sidebar-shown');
+    assert.equal(first.sidebar.scrollTop, 430);
+});
