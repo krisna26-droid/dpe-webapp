@@ -60,6 +60,9 @@ class DashboardSidebarScrollTest extends TestCase
         foreach ([$dashboard, $inbox] as $html) {
             $this->assertSame(1, substr_count($html, '/assets/dpe/sidebar-scroll.js?v='));
             $this->assertLessThan(strpos($html, '<main'), strpos($html, '/assets/dpe/sidebar-scroll.js?v='));
+            $this->assertSame(1, substr_count($html, '/assets/dpe/dashboard-responsive.css?v='));
+            $this->assertSame(1, substr_count($html, '/assets/dpe/dashboard-sidebar.js?v='));
+            $this->assertLessThan(strpos($html, '<main'), strpos($html, '/assets/dpe/dashboard-sidebar.js?v='));
         }
 
         $second = $this->account($role);

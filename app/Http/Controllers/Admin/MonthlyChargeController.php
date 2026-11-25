@@ -7,6 +7,7 @@ use App\Http\Requests\MonthlyCharge\StoreMonthlyChargeRequest;
 use App\Http\Requests\MonthlyCharge\UpdateMonthlyChargeRequest;
 use App\Models\MonthlyCharge;
 use App\Services\BranchPaymentService;
+use App\Services\MonthlyChargeListService;
 use App\Services\MonthlyChargeStudentFilterService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -15,12 +16,9 @@ use Illuminate\View\View;
 
 class MonthlyChargeController extends Controller
 {
-    public function index(BranchPaymentService $payments): View
+    public function index(Request $request, MonthlyChargeListService $list): View
     {
-        $monthlyCharges = $payments->charges(auth()->user())->with(['student.portalUser', 'branch', 'paymentProofs' => fn ($q) => $q->latest('submitted_at')])
-            ->latest('charge_month')->latest('created_at')->paginate(15);
-
-        return view('monthly-charges.index', compact('monthlyCharges'));
+        return view('monthly-charges.index', $list->viewData($request));
     }
 
     public function create(Request $request, MonthlyChargeStudentFilterService $filter): View

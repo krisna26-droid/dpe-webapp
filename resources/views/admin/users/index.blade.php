@@ -15,6 +15,7 @@
             <a class="dpe-dashboard-button dpe-dashboard-button--primary" href="{{ route('admin.users.create') }}">
                 <x-dashboard.icon name="plus" /><span>Tambah pengguna</span>
             </a>
+            @include('users._export-actions')
         </div>
     </section>
 

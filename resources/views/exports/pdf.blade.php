@@ -3,6 +3,7 @@
 @page { margin: 28pt 30pt 36pt; }
 body { font-family: 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #172d4d; margin: 0; }
 h1 { margin: 0 0 8pt; font-size: 16pt; color: #1f55c7; }
+.letterhead { margin: 0 0 5pt; font-size: 11pt; font-weight: bold; color: #172d4d; }
 .context { margin-bottom: 14pt; line-height: 1.5; }
 .context p { margin: 0 0 5pt; }
 .filters { margin: 0 0 10pt; line-height: 1.5; }
@@ -16,8 +17,9 @@ td:first-child { text-align: center; color: #526681; }
 .empty { padding: 24pt; text-align: center; }
 .continued td { border-top: .5pt dashed #b6c9e8; }
 </style></head><body>
+@if(!empty($data['letterhead']))<p class="letterhead">{{ $data['letterhead'] }}</p>@endif
 <h1>DPE — {{ $data['title'] }}</h1>
-<div class="context"><p>{{ $data['description'] }}</p><p><strong>{{ $data['total'] }} baris sumber</strong> · Dibuat oleh {{ $data['actor']->full_name }} · {{ $data['generated'] }}</p><p>Rekap ini digunakan untuk pemeriksaan operasional. Rapor resmi siswa tersedia melalui menu Rapor Tiga Bulan. Waktu sesi dan absensi memakai nilai waktu yang tersimpan.</p></div>
+<div class="context"><p>{{ $data['description'] }}</p><p><strong>{{ $data['total'] }} {{ $data['countLabel'] ?? 'baris sumber' }}</strong> · Dibuat oleh {{ $data['actor']->full_name }} · {{ $data['generated'] }}</p><p>{{ $data['usageNote'] ?? 'Rekap ini digunakan untuk pemeriksaan operasional. Rapor resmi siswa tersedia melalui menu Rapor Tiga Bulan. Waktu sesi dan absensi memakai nilai waktu yang tersimpan.' }}</p></div>
 <div class="filters">@foreach ($data['filterLabels'] as $label => $value)<span class="filter"><strong>{{ $label }}:</strong> {{ $value }}</span> @endforeach</div>
 <table><thead><tr>
     @foreach ($columns as $column)

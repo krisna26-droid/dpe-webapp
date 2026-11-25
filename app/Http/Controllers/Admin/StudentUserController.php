@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreStudentUserRequest;
 use App\Models\Program;
+use App\Services\StudentAccountDirectoryService;
 use App\Services\StudentAccountProvisioningService;
 use App\Services\UserDirectoryFilterService;
 use Illuminate\Contracts\View\View;
@@ -17,15 +18,15 @@ class StudentUserController extends Controller
     {
     }
 
-    public function index(Request $request, UserDirectoryFilterService $directory): View
+    public function index(Request $request, UserDirectoryFilterService $directory, StudentAccountDirectoryService $students): View
     {
         $actor = $request->user();
         $filters = $directory->filters($request);
-        $users = $directory->apply($this->accounts->users($actor), $filters)
-            ->with(['studentProfile.enrollments' => fn ($q) => $this->accounts->scopeEnrollments($q, $actor)->with(['branch', 'program'])])
+        $users = $directory->query($actor, $filters)
+            ->with(['studentProfile.enrollments' => fn ($q) => $students->scopeEnrollments($q, $actor, $filters)->with(['branch', 'program'])])
             ->orderBy('full_name')->orderBy('id')->paginate(15)->appends($filters);
 
-        return view('admin.users.index', compact('users', 'filters') + ['hasUserFilters' => implode('', $filters) !== '']);
+        return view('admin.users.index', compact('users', 'filters') + ['hasUserFilters' => implode('', $filters) !== ''] + $students->options($actor));
     }
 
     public function create(Request $request): View

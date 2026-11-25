@@ -8,11 +8,6 @@
             if (image.hasAttribute('src') && image.complete && image.naturalWidth === 0) image.hidden = true;
         });
         var body = document.body;
-        var sidebarBreakpoint = body.classList.contains('dpe-teacher-students-page') ? 1280 : 980;
-        var sidebar = document.querySelector('[data-sidebar]');
-        var sidebarToggle = document.querySelector('[data-sidebar-toggle]');
-        var sidebarClose = document.querySelector('[data-sidebar-close]');
-        var sidebarOverlay = document.querySelector('[data-sidebar-overlay]');
         var accountToggle = document.querySelector('[data-account-toggle]');
         var accountMenu = document.querySelector('[data-account-menu]');
         var notificationToggle = document.querySelector('[data-notification-toggle]');
@@ -35,20 +30,6 @@
             }
 
             element.hidden = hidden;
-        }
-
-        function setSidebar(open) {
-            if (!sidebar) {
-                return;
-            }
-
-            sidebar.classList.toggle('is-open', open);
-            body.classList.toggle('is-sidebar-open', open);
-            setHidden(sidebarOverlay, !open);
-
-            if (sidebarToggle) {
-                sidebarToggle.setAttribute('aria-expanded', String(open));
-            }
         }
 
         function closeAccount() {
@@ -117,24 +98,6 @@
             if (confirmCancel) {
                 confirmCancel.focus();
             }
-        }
-
-        if (sidebarToggle) {
-            sidebarToggle.addEventListener('click', function () {
-                setSidebar(!sidebar.classList.contains('is-open'));
-            });
-        }
-
-        if (sidebarClose) {
-            sidebarClose.addEventListener('click', function () {
-                setSidebar(false);
-            });
-        }
-
-        if (sidebarOverlay) {
-            sidebarOverlay.addEventListener('click', function () {
-                setSidebar(false);
-            });
         }
 
         if (accountToggle && accountMenu) {
@@ -206,7 +169,6 @@
                 return;
             }
 
-            setSidebar(false);
             closeAccount();
             closeNotifications();
             closeConfirm();
@@ -225,19 +187,6 @@
             });
         });
 
-        document.querySelectorAll('[data-sidebar] a:not([data-planned])').forEach(function (link) {
-            link.addEventListener('click', function () {
-                if (window.innerWidth <= sidebarBreakpoint) {
-                    setSidebar(false);
-                }
-            });
-        });
-
-        window.addEventListener('resize', function () {
-            if (window.innerWidth > sidebarBreakpoint) {
-                setSidebar(false);
-            }
-        });
     }
 
     if (document.readyState === 'loading') {

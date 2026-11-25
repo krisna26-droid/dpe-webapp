@@ -200,8 +200,12 @@
         $menus[$roleCode][0]['items'][] = ['label' => 'Data & Ekspor', 'icon' => 'book', 'route' => 'exports.index', 'active' => ['exports.*']];
     }
     $menuGroups = $menus[$roleCode] ?? $menus['student'];
-    $cssVersion = is_file(public_path('assets/dpe/dashboard.css')) ? filemtime(public_path('assets/dpe/dashboard.css')) : 1;
-    $jsVersion = is_file(public_path('assets/dpe/dashboard.js')) ? filemtime(public_path('assets/dpe/dashboard.js')) : 1;
+    $dashboardAssetVersion = static function (string $file): string {
+        $path = public_path('assets/dpe/'.$file);
+        return is_file($path) ? substr(hash_file('sha256', $path), 0, 16) : '1';
+    };
+    $cssVersion = $dashboardAssetVersion('dashboard.css');
+    $jsVersion = $dashboardAssetVersion('dashboard.js');
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -223,10 +227,11 @@
         <link rel="stylesheet" href="{{ asset('assets/dpe/own-account.css') }}?v={{ filemtime(public_path('assets/dpe/own-account.css')) }}">
     @endif
     @if (request()->routeIs('teacher.schedule.*', 'teacher.students.*', 'teacher.availability.*'))
-        <link rel="stylesheet" href="{{ asset('assets/dpe/teacher-workspace.css') }}?v={{ filemtime(public_path('assets/dpe/teacher-workspace.css')) }}">
+        <link rel="stylesheet" href="{{ asset('assets/dpe/teacher-workspace.css') }}?v={{ $dashboardAssetVersion('teacher-workspace.css') }}">
     @endif
     <link rel="stylesheet" href="{{ asset('assets/dpe/status-badges.css') }}?v={{ filemtime(public_path('assets/dpe/status-badges.css')) }}">
     <x-dpe.branding-assets />
+    <link rel="stylesheet" href="{{ asset('assets/dpe/dashboard-responsive.css') }}?v={{ $dashboardAssetVersion('dashboard-responsive.css') }}">
 </head>
 <body class="dpe-dashboard-page @yield('body_class')">
     <a class="dpe-dashboard-skip" href="#dashboard-main">Lewati ke konten</a>
@@ -234,7 +239,7 @@
     <div class="dpe-dashboard-shell">
         <div class="dpe-dashboard-overlay" data-sidebar-overlay hidden></div>
 
-        <aside class="dpe-dashboard-sidebar" id="dpe-dashboard-sidebar" data-sidebar data-sidebar-scroll-key="{{ hash('sha256', $roleCode.':'.($user?->id ?? '')) }}" aria-label="Navigasi dashboard">
+        <aside class="dpe-dashboard-sidebar" id="dpe-dashboard-sidebar" data-sidebar data-sidebar-scroll-key="{{ hash('sha256', $roleCode.':'.($user?->id ?? '')) }}" data-sidebar-layout-key="{{ hash('sha256', $roleCode.':'.($user?->id ?? '').':'.session('dpe_sidebar_layout_key', 'existing')) }}" aria-label="Navigasi dashboard">
             <div class="dpe-dashboard-sidebar__head">
                 <a class="dpe-dashboard-brand" href="{{ $dashboardUrl }}" aria-label="Dharma Private English — Kembali ke dashboard">
                     <x-dpe.logo />
@@ -312,7 +317,8 @@
                 </form>
             </div>
         </aside>
-        <script src="{{ asset('assets/dpe/sidebar-scroll.js') }}?v={{ filemtime(public_path('assets/dpe/sidebar-scroll.js')) }}"></script>
+        <script src="{{ asset('assets/dpe/dashboard-sidebar.js') }}?v={{ $dashboardAssetVersion('dashboard-sidebar.js') }}"></script>
+        <script src="{{ asset('assets/dpe/sidebar-scroll.js') }}?v={{ $dashboardAssetVersion('sidebar-scroll.js') }}"></script>
 
         <div class="dpe-dashboard-main-shell">
             <header class="dpe-dashboard-topbar">

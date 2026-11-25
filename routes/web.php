@@ -115,6 +115,8 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
     });
 
     Route::prefix('admin')->name('admin.')->middleware(['role:admin,superadmin', PrivatePortalResponse::class])->group(function () {
+        Route::get('/users/export/{format}', \App\Http\Controllers\StudentAccountExportController::class)
+            ->whereIn('format', ['pdf', 'xlsx'])->middleware(['role:admin', 'throttle:10,1'])->name('users.export');
         Route::resource('users', \App\Http\Controllers\Admin\StudentUserController::class)
             ->only(['index', 'create', 'store', 'show'])->middleware('role:admin');
         Route::get('/branch-settings', [\App\Http\Controllers\Admin\BranchSettingsController::class, 'index'])->name('branch-settings.index');
@@ -225,6 +227,8 @@ Route::middleware(['auth', 'auth.session'])->group(function () {
             Route::post('/student-attendance/sessions/{lessonSession}/students/{student}', [StudentAttendanceController::class, 'save'])->name('student-attendance.save');
             Route::put('/student-attendance/sessions/{lessonSession}/participants', [StudentAttendanceController::class, 'roster'])->name('student-attendance.roster');
 
+            Route::get('/users/export/{format}', \App\Http\Controllers\StudentAccountExportController::class)
+                ->whereIn('format', ['pdf', 'xlsx'])->middleware([PrivatePortalResponse::class, 'throttle:10,1'])->name('users.export');
             Route::resource('users', UserController::class);
 
             Route::resource('branches', BranchController::class);
