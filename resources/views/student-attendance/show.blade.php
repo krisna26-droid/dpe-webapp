@@ -78,7 +78,13 @@
                         $editUrl = route($routeBase.'.edit', [$lessonSession, $student]);
                     @endphp
                     <tr data-attendance-cell-view>
-                        <td><strong>{{ $student->full_name }}</strong>@if ($makeupStudentIds->contains($student->id))<small>Siswa susulan</small>@endif</td>
+                        <td>
+                            <strong>{{ $student->full_name }}</strong>
+                            @if ($makeupStudentIds->contains($student->id))
+                                <br>
+                                <small>Siswa susulan</small>
+                            @endif
+                        </td>
                         <td class="dpe-student-attendance-check-cell">@include('student-attendance._quick', ['attendanceSession' => $lessonSession])</td>
                         <td>{{ $student->began_on->format('d M Y') }}</td>
                         <td><span class="dpe-student-attendance-status dpe-student-attendance-status--{{ array_key_exists($cell['status'] ?? '', $statuses) ? $cell['status'] : 'empty' }}" data-attendance-status>{{ $cell['label'] }}</span></td>

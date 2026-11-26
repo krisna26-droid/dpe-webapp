@@ -19,6 +19,7 @@ use App\Models\TeacherAvailability;
 use App\Models\TeacherBranchAssignment;
 use App\Models\User;
 use App\Services\BranchOperationsService;
+use App\Services\StudentAttendanceService;
 use App\Services\TeacherWorkspaceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -350,6 +351,49 @@ class TeacherWorkspaceWorkflowTest extends TestCase
     {
         $this->group->memberships()->update(['ends_on'=>'2026-10-13']);$this->login();
         $this->get(route('teacher.students.show',$this->student))->assertOk()->assertViewHas('sessions',fn($x)=>$x->total()===0);
+    }
+
+    public function test_student_detail_labels_only_current_makeup_sessions_for_that_student(): void
+    {
+        $group = $this->group($this->teacher, ['name' => 'Kelas Tambahan']);
+        $makeupSession = $this->makeSession($this->teacher, [
+            'class_group_id' => $group->id,
+            'planned_start_at' => '2026-10-14 14:00:00',
+            'planned_end_at' => '2026-10-14 15:00:00',
+        ]);
+        $regularStudent = $this->student('Siswa Rutin', $this->branch, $this->teacher);
+        $group->memberships()->create([
+            'id' => (string) Str::uuid(),
+            'student_id' => $regularStudent->id,
+            'starts_on' => '2026-10-01',
+        ]);
+
+        $this->login();
+        $this->postJson(route('teacher.student-attendance.save', [$this->session, $this->student]), [
+            'attendance_status' => 'absent', 'expected_version' => 0,
+        ])->assertOk();
+        $this->post(route('teacher.student-attendance.makeup.add', $makeupSession), ['student_id' => $this->student->id])
+            ->assertRedirect(route('teacher.student-attendance.show', $makeupSession));
+
+        $badge = '>Susulan</span>';
+        $studentDetail = route('teacher.students.show', $this->student);
+        $page = $this->get($studentDetail)->assertOk()
+            ->assertViewHas('sessions', fn ($sessions) => $sessions->total() === 2)
+            ->assertSeeInOrder(['14:00–15:00', $badge, '09:00–10:00'], false);
+        $this->assertSame(1, substr_count($page->getContent(), $badge));
+        $this->get(route('teacher.students.show', $regularStudent))->assertOk()
+            ->assertSee('14:00–15:00')->assertDontSee($badge, false);
+
+        app(StudentAttendanceService::class)->removeBlankParticipant($this->user('superadmin'), $makeupSession, $this->student);
+        $group->memberships()->create([
+            'id' => (string) Str::uuid(),
+            'student_id' => $this->student->id,
+            'starts_on' => '2026-10-14',
+        ]);
+        $this->postJson(route('teacher.student-attendance.save', [$makeupSession, $this->student]), [
+            'attendance_status' => 'present', 'expected_version' => 0,
+        ])->assertOk();
+        $this->get($studentDetail)->assertOk()->assertSee('14:00–15:00')->assertDontSee($badge, false);
     }
 
     public function test_own_slot_can_be_created_and_updated_without_posting_teacher_identity(): void
