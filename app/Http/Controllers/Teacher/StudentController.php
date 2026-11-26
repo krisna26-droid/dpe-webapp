@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
 use App\Models\Student;
+use App\Models\StudentAttendanceAudit;
 use App\Services\TeacherWorkspaceService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -49,6 +50,20 @@ class StudentController extends Controller
             'path' => $request->url(), 'query' => $request->query(),
         ]);
 
-        return view('teacher.students.show', compact('row', 'month', 'groups', 'sessions'));
+        $participantSessionIds = $sessions->getCollection()
+            ->filter(fn ($sessionRow) => $sessionRow['session']->sessionStudents->contains('student_id', $student->id))
+            ->pluck('session.id');
+        $makeupSessionIds = StudentAttendanceAudit::query()
+            ->where('student_id', $student->id)
+            ->whereIn('session_id', $participantSessionIds)
+            ->whereIn('event_type', ['participant_added', 'makeup_participant_added', 'participant_removed'])
+            ->orderByDesc('id')
+            ->get(['session_id', 'event_type'])
+            ->unique('session_id')
+            ->where('event_type', 'makeup_participant_added')
+            ->pluck('session_id')
+            ->flip();
+
+        return view('teacher.students.show', compact('row', 'month', 'groups', 'sessions', 'makeupSessionIds'));
     }
 }
