@@ -11,6 +11,24 @@
         <div class="dpe-dashboard-card__body"><form method="GET" class="dpe-portal-filter">
             <div class="dpe-dashboard-field"><label for="payment-status">Status</label><select id="payment-status" name="status">@foreach (['pending' => 'Menunggu Validasi', 'approved' => 'Tervalidasi', 'rejected' => 'Ditolak', 'all' => 'Semua Status'] as $code => $label)<option value="{{ $code }}" @selected($status === $code)>{{ $label }}</option>@endforeach</select></div>
             <div class="dpe-dashboard-field"><label for="payment-student">Nama siswa</label><input id="payment-student" name="q" type="search" maxlength="100" value="{{ $search }}" placeholder="Cari siswa"></div>
+            <div class="dpe-dashboard-field">
+                <label for="payment-branch">Cabang</label>
+                <select id="payment-branch" name="branch_id">
+                    <option value="">Semua cabang</option>
+                    @foreach ($branches as $branch)
+                        <option value="{{ $branch->id }}" @selected($branchId === $branch->id)>{{ $branch->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="dpe-dashboard-field">
+                <label for="payment-teacher">Guru</label>
+                <select id="payment-teacher" name="teacher_filter_id">
+                    <option value="">Semua guru</option>
+                    @foreach ($teachers as $teacher)
+                        <option value="{{ $teacher->id }}" @selected($teacherId === $teacher->id)>{{ $teacher->user->full_name }} · {{ $teacher->user->username }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div class="dpe-portal-actions"><button class="dpe-dashboard-button dpe-dashboard-button--primary" type="submit">Tampilkan</button><a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route('superadmin.payment-review.index') }}">Reset</a></div>
         </form></div>
     </article>

@@ -4,7 +4,15 @@
 @section('heading', 'Monitoring Kehadiran Guru')
 @section('description', 'Periksa bukti absensi, status sesi, dan hasil validasi guru pada cabang yang menjadi tanggung jawab Anda.')
 
+@push('scripts')
+    <script src="{{ asset('assets/dpe/teacher-attendance-monitoring.js') }}?v={{ filemtime(public_path('assets/dpe/teacher-attendance-monitoring.js')) }}" defer></script>
+@endpush
+
 @php
+    $monitoring = array_filter($filters) + array_filter([
+        'page' => $attendances->currentPage(),
+        'exception_page' => $pendingSessions->currentPage(),
+    ], fn ($page) => $page > 1);
     $statusMeta = [
         'in_progress' => ['label' => 'Sedang mengajar'],
         'pending_review' => ['label' => 'Menunggu pemeriksaan'],
@@ -286,6 +294,7 @@
                     <tbody>
                         @foreach ($attendances as $attendance)
                             @php
+                                $detailUrl = route('admin.teacher-attendance.show', ['teacherAttendance' => $attendance, 'monitoring' => $monitoring]);
                                 $hasCheckIn = $attendance->check_in_at !== null;
                                 $hasCheckOut = $attendance->check_out_at !== null;
                                 $attendanceType = $attendance->attendance_type ?: 'present';
@@ -301,7 +310,7 @@
                             @endphp
                             <tr>
                                 <td>
-                                    <a href="{{ route('admin.teacher-attendance.show', $attendance) }}">
+                                    <a href="{{ $detailUrl }}" data-attendance-detail>
                                         <strong>{{ $attendance->recordDate()?->format('d M Y') ?: '—' }}</strong>
                                     </a><br>
                                     <span>{{ $attendance->modeLabel() }}</span><br>
@@ -331,7 +340,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ route('admin.teacher-attendance.show', $attendance) }}">Detail</a>
+                                    <a class="dpe-dashboard-button dpe-dashboard-button--soft" href="{{ $detailUrl }}" data-attendance-detail>Detail</a>
                                 </td>
                             </tr>
                         @endforeach

@@ -204,6 +204,45 @@ class TeacherAttendanceMonitoringTest extends TestCase
         $response->assertSee('Guru Cabang B');
     }
 
+    public function test_detail_returns_to_the_filtered_monitoring_page_and_scroll_position(): void
+    {
+        $superadmin = $this->makeUser('superadmin', 'Super Admin');
+        $branch = $this->makeBranch('Cabang Utama');
+        $program = $this->makeProgram();
+        [, $teacher] = $this->makeTeacher('Guru Monitoring', $branch);
+        for ($row = 0; $row < 16; $row++) {
+            $this->makeAttendance($branch, $teacher, $program);
+        }
+
+        $filters = [
+            'date_from' => '2026-10-04',
+            'date_to' => '2026-10-10',
+            'branch_id' => $branch->id,
+            'teacher_id' => $teacher->id,
+            'status' => 'pending_review',
+            'attendance_type' => 'present',
+            'attendance_mode' => 'legacy_session',
+            'page' => 2,
+            'exception_page' => 2,
+        ];
+        $monitoringUrl = route('admin.teacher-attendance.index', $filters);
+        $index = $this->actingAs($superadmin)->get($monitoringUrl)->assertOk();
+        $attendance = $index->viewData('attendances')->sole();
+        $detail = ['teacherAttendance' => $attendance, 'monitoring' => $filters];
+        $index->assertSee('href="'.e(route('admin.teacher-attendance.show', $detail)).'" data-attendance-detail', false);
+
+        $detail['monitoring']['scroll_y'] = 1820;
+        $detailUrl = route('admin.teacher-attendance.show', $detail);
+        $returnUrl = $monitoringUrl.'#attendance-scroll-1820';
+        $reviewUrl = route('admin.teacher-attendance.review', $detail);
+        $this->get($detailUrl)->assertOk()
+            ->assertSee('href="'.e($returnUrl).'"', false)
+            ->assertSee('action="'.e($reviewUrl).'"', false);
+
+        $this->patch($reviewUrl, ['status' => 'approved'])->assertRedirect($detailUrl);
+        $this->get($detailUrl)->assertOk()->assertSee('href="'.e($returnUrl).'"', false);
+    }
+
     public function test_admin_can_approve_pending_attendance(): void
     {
         $admin = $this->makeUser('admin', 'Admin Cabang');

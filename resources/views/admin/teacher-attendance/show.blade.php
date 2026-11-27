@@ -49,7 +49,7 @@
         </div>
         <div class="dpe-dashboard-page-header__actions">
             <x-dashboard.status :status="$manualException ? $attendanceType : $attendance->status" :label="$validationMeta['label']" />
-            <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ route('admin.teacher-attendance.index') }}">
+            <a class="dpe-dashboard-button dpe-dashboard-button--outline" href="{{ $monitoringUrl }}">
                 <x-dashboard.icon name="back" />
                 <span>Kembali ke monitoring</span>
             </a>
@@ -202,7 +202,7 @@
         </header>
         <div class="dpe-dashboard-card__body">
             @if ($attendance->status === 'pending_review')
-                <form method="POST" action="{{ route('admin.teacher-attendance.review', $attendance) }}" class="dpe-dashboard-review-form">
+                <form method="POST" action="{{ route('admin.teacher-attendance.review', ['teacherAttendance' => $attendance, 'monitoring' => $monitoring]) }}" class="dpe-dashboard-review-form">
                     @csrf
                     @method('PATCH')
                     <div class="dpe-dashboard-field">

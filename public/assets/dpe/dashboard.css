@@ -639,6 +639,15 @@
 
 /* Teacher attendance monitoring */
 .dpe-dashboard-attendance-filter-card { margin-bottom: 20px; }
+.dpe-dashboard-attendance-filter-card input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    max-width: 100%;
+}
+.dpe-dashboard-attendance-filter-card input[type="date"]::-webkit-date-and-time-value {
+    min-width: 0;
+    text-align: start;
+}
 .dpe-dashboard-attendance-filter-actions { justify-content: flex-end; margin-top: 24px; padding-top: 18px; border-top: 1px solid #edf1f8; }
 .dpe-dashboard-attendance-table td { min-width: 132px; }
 .dpe-dashboard-attendance-table td:first-child { min-width: 170px; }

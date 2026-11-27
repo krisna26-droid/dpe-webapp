@@ -4,27 +4,74 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\MonthlyCharge;
 use App\Models\PaymentProof;
+use App\Models\Student;
 use App\Models\StudentPortalEvent;
+use App\Models\Teacher;
+use App\Services\MonthlyChargeStudentFilterService;
 use App\Services\PortalPaymentService;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class PaymentReviewController extends Controller
 {
-    public function __construct(private PortalPaymentService $payments) {}
+    public function __construct(
+        private PortalPaymentService $payments,
+        private MonthlyChargeStudentFilterService $studentFilter,
+    ) {}
 
     public function index(Request $request)
     {
         $this->payments->actor($request->user(), 'superadmin');
-        $filters = $request->validate(['status' => ['nullable', 'in:all,pending,approved,rejected'], 'q' => ['nullable', 'string', 'max:100']]);
+        $filters = $request->validate([
+            'status' => ['nullable', 'in:all,pending,approved,rejected'],
+            'q' => ['nullable', 'string', 'max:100'],
+            'branch_id' => ['nullable', 'uuid'],
+            'teacher_filter_id' => ['nullable', 'uuid'],
+        ]);
         $status = $filters['status'] ?? 'pending';
         $search = trim($filters['q'] ?? '');
+        $branchId = $filters['branch_id'] ?? '';
+        $teacherId = $filters['teacher_filter_id'] ?? '';
+        $branches = Branch::withTrashed()->orderBy('name')->get();
+        $teachers = $this->studentFilter->teacherOptions(Student::query(), CarbonImmutable::today()->startOfMonth(), null);
+
         $proofs = PaymentProof::with(['charge.student', 'charge.branch', 'uploadedBy'])
             ->when($status !== 'all', fn ($query) => $query->where('status', $status))
             ->when($search !== '', fn ($query) => $query->whereHas('charge.student', fn ($q) => $q->where('full_name', 'like', '%'.$search.'%')))
-            ->orderByDesc('submitted_at')->orderByDesc('id')->paginate(15)->withQueryString();
+            ->when($branchId !== '', fn ($query) => $query->whereHas('charge', fn ($charge) => $charge->where('branch_id', $branchId)));
 
-        return view('superadmin.payment-review.index', compact('proofs', 'status', 'search'));
+        if ($teacherId !== '') {
+            $teacher = $teachers->firstWhere('id', $teacherId);
+            $proofs->whereIn('charge_id', $teacher ? $this->chargeIdsForTeacher($proofs, $teacher) : []);
+        }
+
+        $proofs = $proofs->orderByDesc('submitted_at')->orderByDesc('id')->paginate(15)->withQueryString();
+
+        return view('superadmin.payment-review.index', compact('proofs', 'status', 'search', 'branches', 'teachers', 'branchId', 'teacherId'));
+    }
+
+    private function chargeIdsForTeacher(Builder $proofs, Teacher $teacher): Collection
+    {
+        $charges = MonthlyCharge::query()
+            ->whereIn('id', (clone $proofs)->select('charge_id'))
+            ->get(['id', 'student_id', 'branch_id', 'charge_month']);
+
+        return $charges->groupBy(fn (MonthlyCharge $charge) => $charge->branch_id.':'.$charge->charge_month->format('Y-m'))
+            ->flatMap(function (Collection $charges) use ($teacher) {
+                $firstCharge = $charges->first();
+                $students = $this->studentFilter->studentsForTeacher(
+                    Student::query()->whereKey($charges->pluck('student_id')->unique()->all()),
+                    $teacher,
+                    CarbonImmutable::instance($firstCharge->charge_month)->startOfMonth(),
+                    collect([$firstCharge->branch_id]),
+                )->keyBy('id');
+
+                return $charges->filter(fn (MonthlyCharge $charge) => $students->has($charge->student_id))->pluck('id');
+            });
     }
 
     public function show(Request $request, PaymentProof $paymentProof)
