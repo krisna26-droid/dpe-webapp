@@ -17,6 +17,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -81,9 +82,8 @@ class TeacherAttendanceController extends Controller
                 'teacher.user',
                 'reviewedBy',
             ])
-            ->orderByDesc(
-                'created_at'
-            )
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->paginate(15)
             ->withQueryString();
 
@@ -245,8 +245,16 @@ class TeacherAttendanceController extends Controller
             'recordedBy',
         ]);
 
+        $monitoring = $this->monitoringContext($request);
+        $monitoringUrl = route('admin.teacher-attendance.index', Arr::except($monitoring, ['scroll_y']));
+        if (isset($monitoring['scroll_y'])) {
+            $monitoringUrl .= '#attendance-scroll-'.$monitoring['scroll_y'];
+        }
+
         return view('admin.teacher-attendance.show', [
             'attendance' => $teacherAttendance,
+            'monitoringUrl' => $monitoringUrl,
+            'monitoring' => $monitoring,
             'checkInLocation' => $this->locationService->point($teacherAttendance, 'check-in'),
             'checkOutLocation' => $this->locationService->point($teacherAttendance, 'check-out'),
             'auditLogs' => DB::table('teacher_attendance_audit_logs as logs')
@@ -272,8 +280,30 @@ class TeacherAttendanceController extends Controller
             : 'Absensi guru ditandai perlu koreksi.';
 
         return redirect()
-            ->route('admin.teacher-attendance.show', $teacherAttendance)
+            ->route('admin.teacher-attendance.show', [
+                'teacherAttendance' => $teacherAttendance,
+                'monitoring' => $this->monitoringContext($request),
+            ])
             ->with('success', $message);
+    }
+
+    private function monitoringContext(Request $request): array
+    {
+        $monitoring = $request->query()['monitoring'] ?? [];
+        if (! is_array($monitoring)) {
+            return [];
+        }
+
+        $monitoring = array_filter(Arr::only($monitoring, [
+            'attendance_mode', 'date_from', 'date_to', 'branch_id', 'teacher_id',
+            'status', 'attendance_type', 'page', 'exception_page', 'scroll_y',
+        ]), 'is_string');
+
+        if (filter_var($monitoring['scroll_y'] ?? '', FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]) === false) {
+            unset($monitoring['scroll_y']);
+        }
+
+        return $monitoring;
     }
 
     public function location(

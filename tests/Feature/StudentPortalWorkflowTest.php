@@ -284,6 +284,74 @@ class StudentPortalWorkflowTest extends TestCase
         $this->assertSame('approved', $proof->fresh()->status);
     }
 
+    public function test_review_queue_combines_branch_student_status_and_teacher_at_the_charge_month(): void
+    {
+        $nextTeacher = Teacher::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $this->user('teacher', 'Guru Baru')->id,
+            'whatsapp_number' => '081234567891',
+            'is_active' => true,
+        ]);
+        $this->student->studentTeacherAssignments()->update(['ends_on' => '2026-07-31']);
+        StudentTeacherAssignment::create([
+            'id' => (string) Str::uuid(),
+            'student_id' => $this->student->id,
+            'teacher_id' => $nextTeacher->id,
+            'starts_on' => '2026-08-01',
+            'is_report_owner' => true,
+        ]);
+        $july = $this->decide($this->upload($this->charge()));
+        $august = $this->upload($this->charge('2026-08-01'));
+
+        $otherBranch = Branch::create([
+            'id' => (string) Str::uuid(), 'code' => Str::random(12), 'name' => 'Cabang Kelas',
+            'timezone_name' => 'Asia/Makassar', 'payment_recap_day' => 20, 'is_active' => true,
+        ]);
+        StudentEnrollment::create([
+            'id' => (string) Str::uuid(), 'student_id' => $this->otherStudent->id,
+            'branch_id' => $otherBranch->id, 'program_id' => $this->program->id, 'starts_on' => '2026-07-09',
+        ]);
+        $group = ClassGroup::create([
+            'id' => (string) Str::uuid(), 'branch_id' => $otherBranch->id, 'program_id' => $this->program->id,
+            'default_teacher_id' => $this->teacher->id, 'code' => Str::random(12), 'name' => 'Kelas Guru Portal', 'is_active' => true,
+        ]);
+        ClassGroupMembership::create([
+            'id' => (string) Str::uuid(), 'class_group_id' => $group->id,
+            'student_id' => $this->otherStudent->id, 'starts_on' => '2026-07-09',
+        ]);
+        $otherCharge = MonthlyCharge::create([
+            'id' => (string) Str::uuid(), 'student_id' => $this->otherStudent->id,
+            'branch_id' => $otherBranch->id, 'charge_month' => '2026-07-01',
+        ]);
+        $payments = app(PortalPaymentService::class);
+        $otherProof = $payments->upload($this->other, $otherCharge, [
+            'image' => UploadedFile::fake()->image('bukti.png'),
+            'expected_snapshot' => $payments->chargeSignature($otherCharge),
+        ]);
+
+        $queue = 'superadmin.payment-review.index';
+        $teacherFilter = ['teacher_filter_id' => $this->teacher->id];
+        $this->actingAs($this->superadmin)
+            ->get(route($queue, $teacherFilter + ['status' => 'all']))
+            ->assertOk()
+            ->assertSee('name="branch_id"', false)
+            ->assertSee('name="teacher_filter_id"', false)
+            ->assertViewHas('proofs', fn ($proofs) => $proofs->total() === 2
+                && $proofs->pluck('id')->contains($july->id) && $proofs->pluck('id')->contains($otherProof->id));
+
+        $this->get(route($queue, $teacherFilter + ['branch_id' => $this->branch->id, 'status' => 'all', 'q' => 'Portal']))
+            ->assertOk()
+            ->assertViewHas('proofs', fn ($proofs) => $proofs->pluck('id')->all() === [$july->id]);
+        $this->get(route($queue, $teacherFilter + ['branch_id' => $this->branch->id, 'status' => 'all', 'q' => 'Rahasia']))
+            ->assertOk()->assertViewHas('proofs', fn ($proofs) => $proofs->total() === 0);
+        $this->get(route($queue, $teacherFilter + ['branch_id' => $this->branch->id]))
+            ->assertOk()->assertViewHas('proofs', fn ($proofs) => $proofs->total() === 0);
+        $this->get(route($queue, ['branch_id' => $this->branch->id]))
+            ->assertOk()->assertViewHas('proofs', fn ($proofs) => $proofs->pluck('id')->all() === [$august->id]);
+        $this->get(route($queue, ['teacher_filter_id' => $nextTeacher->id, 'status' => 'all']))
+            ->assertOk()->assertViewHas('proofs', fn ($proofs) => $proofs->pluck('id')->all() === [$august->id]);
+    }
+
     public function test_image_corruption_missing_file_and_unsafe_path_cannot_be_served_or_approved(): void
     {
         $proof = $this->upload($this->charge());
